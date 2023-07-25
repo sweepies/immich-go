@@ -1,4 +1,4 @@
-package immich
+package assets
 
 /*
 type testFile struct {

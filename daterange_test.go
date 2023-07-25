@@ -1,4 +1,4 @@
-package immich
+package main
 
 import (
 	"testing"
