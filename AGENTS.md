@@ -1,4 +1,4 @@
-# GEMINI.md
+# AGENTS.md
 
 read instructions in .github/copilot-instructions.md for more details on development conventions and release note generation.
 
