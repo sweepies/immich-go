@@ -12,6 +12,7 @@ import (
 	"github.com/simulot/immich-go/app"
 	"github.com/simulot/immich-go/internal/assets"
 	"github.com/simulot/immich-go/internal/fileevent"
+	"github.com/simulot/immich-go/internal/jsonoutput"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -33,6 +34,9 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 		lock.Unlock()
 	}
 
+	// Check if JSON output mode is enabled
+	isJSONMode := app.Output == "json"
+
 	progressString := func() string {
 		counts := app.FileProcessor().Logger().GetCounts()
 		defer func() {
@@ -52,24 +56,60 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 
 		return fmt.Sprintf("\rImmich read %d%%, Assets found: %d, Upload errors: %d, Uploaded %d %s", immichPct, app.FileProcessor().Logger().TotalAssets(), counts[fileevent.ErrorServerError], counts[fileevent.ProcessedUploadSuccess], string(spinner[spinIdx]))
 	}
+
+	// Function to output progress in JSON mode
+	outputJSONProgress := func() {
+		counts := app.FileProcessor().Logger().GetCounts()
+		lock.Lock()
+		immichPct := 0
+		if maxImmich > 0 {
+			immichPct = 100 * currImmich / maxImmich
+		} else {
+			immichPct = 100
+		}
+		lock.Unlock()
+
+		_ = jsonoutput.WriteProgress(
+			immichPct,
+			app.FileProcessor().Logger().TotalAssets(),
+			counts[fileevent.ErrorServerError],
+			counts[fileevent.ProcessedUploadSuccess],
+		)
+	}
 	uiGrp := errgroup.Group{}
 
 	uiGrp.Go(func() error {
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer func() {
 			ticker.Stop()
-			fmt.Println(progressString())
+			if !isJSONMode {
+				fmt.Println(progressString())
+			} else {
+				outputJSONProgress()
+			}
 		}()
 		for {
 			select {
 			case <-stopProgress:
-				fmt.Print(progressString())
+				if !isJSONMode {
+					fmt.Print(progressString())
+				} else {
+					outputJSONProgress()
+				}
 				return nil
 			case <-ctx.Done():
-				fmt.Print(progressString())
+				if !isJSONMode {
+					fmt.Print(progressString())
+				} else {
+					outputJSONProgress()
+				}
 				return ctx.Err()
 			case <-ticker.C:
-				fmt.Print(progressString())
+				if !isJSONMode {
+					fmt.Print(progressString())
+				} else {
+					outputJSONProgress()
+				}
 			}
 		}
 	})

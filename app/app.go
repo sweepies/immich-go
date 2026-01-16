@@ -29,6 +29,7 @@ type Application struct {
 	SaveConfig     bool
 	ConcurrentTask int
 	CfgFile        string
+	Output         string // Output format: text or json
 
 	// Internal state
 	log       *Log
@@ -47,6 +48,7 @@ func (app *Application) RegisterFlags(flags *pflag.FlagSet) {
 	flags.BoolVar(&app.SaveConfig, "save-config", false, "Save the configuration to immich-go.yaml")
 	flags.Var(&app.OnErrors, "on-errors", "What to do when an error occurs (stop, continue, accept N errors at max)")
 	flags.IntVar(&app.ConcurrentTask, "concurrent-tasks", runtime.NumCPU(), "Number of concurrent tasks (1-20)")
+	flags.StringVarP(&app.Output, "output", "o", "text", "Output format (text|json) - json outputs JSONL to stdout, logs to stderr")
 }
 
 func New(ctx context.Context, cmd *cobra.Command) *Application {

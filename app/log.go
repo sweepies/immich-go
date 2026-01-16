@@ -83,6 +83,19 @@ func (log *Log) OpenLogFile() error {
 	return nil
 }
 
+// OpenLogFileForJSONMode configures logging for JSON output mode
+// Logs go to stderr instead of a file, allowing stdout for JSON output
+func (log *Log) OpenLogFileForJSONMode() error {
+	err := log.sLevel.UnmarshalText([]byte(strings.ToUpper(log.Level)))
+	if err != nil {
+		return err
+	}
+	log.File = "" // Clear the log file path
+	log.setHandlers(os.Stderr, nil)
+	loghelper.SetGlobalLogger(log.Logger)
+	return nil
+}
+
 func (log *Log) Open(ctx context.Context, cmd *cobra.Command, app *Application) error {
 	for c := cmd; c != nil; c = c.Parent() {
 		// no log, nor banner for those commands
@@ -95,8 +108,21 @@ func (log *Log) Open(ctx context.Context, cmd *cobra.Command, app *Application) 
 		}
 	}
 
-	fmt.Println(Banner())
-	err := log.OpenLogFile()
+	// Check if JSON output mode is enabled
+	isJSONMode := app.Output == "json"
+
+	// Only print banner in non-JSON mode
+	if !isJSONMode {
+		fmt.Println(Banner())
+	}
+
+	// Use stderr for logs in JSON mode, otherwise use file
+	var err error
+	if isJSONMode {
+		err = log.OpenLogFileForJSONMode()
+	} else {
+		err = log.OpenLogFile()
+	}
 	if err != nil {
 		return err
 	}
@@ -203,12 +229,17 @@ func (log *Log) Close(ctx context.Context, cmd *cobra.Command, app *Application)
 		return nil
 	}
 	debugfiles.ReportTrackedFiles()
-	if log.File != "" {
+
+	// Only show log file message in non-JSON mode
+	isJSONMode := app.Output == "json"
+	if log.File != "" && !isJSONMode {
 		log.Message("Check the log file: %s", log.File)
 	}
 	if log.apiTraceWriter != nil {
 		log.apiTracer.Close()
-		log.Message("Check the API-TRACE file: %s", log.apiTraceName)
+		if !isJSONMode {
+			log.Message("Check the API-TRACE file: %s", log.apiTraceName)
+		}
 		log.apiTraceWriter.Close()
 	}
 

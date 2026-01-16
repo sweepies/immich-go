@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/simulot/immich-go/app"
 	"github.com/simulot/immich-go/app/archive"
 	"github.com/simulot/immich-go/app/stack"
 	"github.com/simulot/immich-go/app/upload"
 	"github.com/simulot/immich-go/app/version"
+	"github.com/simulot/immich-go/internal/jsonoutput"
 	"github.com/spf13/cobra"
 )
 
@@ -31,6 +33,9 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 	// Create the application context
 	a := app.New(ctx, cmd)
 
+	// Track start time for duration calculation
+	var startTime time.Time
+
 	flags := cmd.PersistentFlags()
 	_ = a.OnErrors.Set("stop")
 	a.RegisterFlags(flags)
@@ -46,6 +51,9 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 
 	// PersistentPreRunE is executed before any command runs, used for initialization
 	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error { //nolint:contextcheck
+		// Track start time for duration calculation
+		startTime = time.Now()
+
 		// Initialize configuration from the specified config file
 		err := a.Config.Init(a.CfgFile)
 		if err != nil {
@@ -73,6 +81,35 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 		err = a.Log().Open(cmd.Context(), cmd, a)
 
 		return err
+	}
+
+	// PersistentPostRunE is executed after any command completes, used for cleanup and final reporting
+	cmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error { //nolint:contextcheck
+		// Close logs
+		err := a.Log().Close(cmd.Context(), cmd, a)
+		if err != nil {
+			return err
+		}
+
+		// Output JSON summary for archive and stack commands (upload handles its own)
+		// Only output if we have a FileProcessor and we're in JSON mode
+		if a.Output == "json" && a.FileProcessor() != nil && cmd.Name() != "upload" {
+			duration := time.Since(startTime).Seconds()
+			counters := a.FileProcessor().GetAssetCounters()
+			eventCounts := a.FileProcessor().GetEventCounts()
+			eventSizes := a.FileProcessor().GetEventSizes()
+
+			status := "success"
+			exitCode := 0
+			if counters.Errors > 0 {
+				status = "error"
+				exitCode = 1
+			}
+
+			_ = jsonoutput.WriteSummary(status, exitCode, counters, eventCounts, eventSizes, duration)
+		}
+
+		return nil
 	}
 
 	return cmd, a
