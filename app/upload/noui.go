@@ -166,7 +166,7 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 		counts := app.FileProcessor().Logger().GetCounts()
 		messages := strings.Builder{}
 		if counts[fileevent.ErrorUploadFailed]+counts[fileevent.ErrorServerError]+counts[fileevent.ErrorFileAccess]+counts[fileevent.ErrorIncomplete] > 0 {
-			messages.WriteString("Some errors have occurred. Look at the log file for details\n")
+			messages.WriteString("Some errors have occurred. Check stderr for details\n")
 		}
 
 		if messages.Len() > 0 {
