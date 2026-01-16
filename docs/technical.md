@@ -2,6 +2,85 @@
 
 This document covers the technical aspects of how Immich-Go processes files, handles metadata, and implements various features.
 
+## Output Formats
+
+### Text Output (Default)
+Immich-Go follows Unix philosophy for text output:
+- **Logs**: Written to stderr
+- **Progress**: Real-time updates with carriage returns in interactive mode
+- **Non-interactive**: Line-by-line progress every 5 seconds to stderr
+
+#### Interactive Mode
+When stdout is a TTY (terminal), Immich-Go displays an interactive progress spinner:
+```
+\rImmich read 45%, Assets found: 234, Upload errors: 0, Uploaded 180 .
+```
+The carriage return (`\r`) overwrites the previous line, creating a spinning effect.
+
+#### Non-Interactive Mode
+When stdout is not a TTY or `--non-interactive` is set:
+```
+Immich read 25%, Assets found: 100, Upload errors: 0, Uploaded 75
+Immich read 50%, Assets found: 200, Upload errors: 0, Uploaded 150
+Immich read 75%, Assets found: 300, Upload errors: 2, Uploaded 225
+Immich read 100%, Assets found: 300, Upload errors: 2, Uploaded 225
+```
+Each update appears on a new line every 5 seconds.
+
+### JSON Output (`--output=json`)
+JSON mode outputs structured data as JSON Lines (JSONL) to stdout:
+- **Progress Updates**: Real-time progress information
+- **Final Summary**: Complete upload statistics
+- **Error Information**: Structured error reporting
+
+#### JSON Schema
+
+**ProgressUpdate Object**
+```json
+{
+  "type": "progress",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "immich_read_pct": 45,
+  "assets_found": 234,
+  "upload_errors": 0,
+  "uploaded": 180
+}
+```
+
+**FinalSummary Object**
+```json
+{
+  "type": "summary",
+  "status": "success",
+  "exit_code": 0,
+  "counters": {
+    "total": 300,
+    "duplicates": 50,
+    "uploaded": 225,
+    "errors": 2
+  },
+  "events": {
+    "ErrorUploadFailed": {"count": 2, "size": 1048576},
+    "ErrorFileAccess": {"count": 1, "size": 0}
+  },
+  "duration_seconds": 120.5,
+  "timestamp": "2024-01-15T10:32:00Z"
+}
+```
+
+#### Output Serialization
+- **Format**: JSON Lines (one JSON object per line)
+- **Encoding**: UTF-8
+- **Thread Safety**: Mutex-protected writes prevent interleaved output
+- **Error Handling**: Write errors are logged to stderr
+
+#### Event Types
+The `events` object in the summary contains counts for various event types:
+- `ErrorUploadFailed`: Upload failed due to server/network issues
+- `ErrorFileAccess`: File could not be read/accessed
+- `ErrorIncomplete`: Partial file detected
+- `ErrorServerError`: Server-side processing error
+
 ## File Processing
 
 ### Supported File Types
