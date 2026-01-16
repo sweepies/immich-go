@@ -23,13 +23,11 @@ import (
 )
 
 type Log struct {
-	Type  string `mapstructure:"type" json:"type" toml:"type" yaml:"type"`     // Log format : text|json
-	File  string `mapstructure:"file" json:"file" toml:"file" yaml:"file"`     // Log file name
 	Level string `mapstructure:"level" json:"level" toml:"level" yaml:"level"` // Indicate the log level (string)
 
 	*slog.Logger             // Logger
 	sLevel        slog.Level // the log level value
-	mainWriter    io.Writer  // the log writer to file
+	mainWriter    io.Writer  // the log writer (always stderr)
 	consoleWriter io.Writer
 
 	apiTracer      *httptrace.Tracer
@@ -39,46 +37,16 @@ type Log struct {
 
 func (log *Log) RegisterFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&log.Level, "log-level", "INFO", "Log level (DEBUG|INFO|WARN|ERROR), default INFO")
-	flags.StringVarP(&log.File, "log-file", "l", "", "Write log messages into the file")
-	flags.StringVar(&log.Type, "log-type", "text", "Log formatted  as text of JSON file")
 }
 
-// DefaultLogFile returns the default log file path
-func DefaultLogFile() string {
-	cacheDir, err := os.UserCacheDir()
+// InitLogger initializes the logger with the appropriate format
+// Always logs to stderr (use shell redirection to save logs)
+func (log *Log) InitLogger(jsonMode bool) error {
+	err := log.sLevel.UnmarshalText([]byte(strings.ToUpper(log.Level)))
 	if err != nil {
-		return time.Now().Format("immich-go_2006-01-02_15-04-05.log")
+		return err
 	}
-	return filepath.Join(cacheDir, "immich-go", time.Now().Format("immich-go_2006-01-02_15-04-05.log"))
-}
-
-func (log *Log) OpenLogFile() error {
-	var w io.WriteCloser
-
-	if log.File == "" {
-		log.File = DefaultLogFile()
-	}
-	if log.File != "" {
-		if log.mainWriter == nil {
-			dir := filepath.Dir(log.File)
-			err := os.MkdirAll(dir, 0o700)
-			if err != nil {
-				return err
-			}
-			w, err = os.OpenFile(log.File, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o664)
-			if err != nil {
-				return err
-			}
-			err = log.sLevel.UnmarshalText([]byte(strings.ToUpper(log.Level)))
-			if err != nil {
-				return err
-			}
-			log.Message("Log file: %s", log.File)
-		}
-	} else {
-		w = os.Stdout
-	}
-	log.setHandlers(w, nil)
+	log.setHandlers(os.Stderr, jsonMode)
 	loghelper.SetGlobalLogger(log.Logger)
 	return nil
 }
@@ -95,8 +63,16 @@ func (log *Log) Open(ctx context.Context, cmd *cobra.Command, app *Application) 
 		}
 	}
 
-	fmt.Println(Banner())
-	err := log.OpenLogFile()
+	// Check if JSON output mode is enabled
+	isJSONMode := app.Output == "json"
+
+	// Only print banner in non-JSON mode (banner goes to stdout)
+	if !isJSONMode {
+		fmt.Println(Banner())
+	}
+
+	// Initialize logger (always outputs to stderr)
+	err := log.InitLogger(isJSONMode)
 	if err != nil {
 		return err
 	}
@@ -152,47 +128,34 @@ func replaceAttr(groups []string, a slog.Attr) slog.Attr {
 }
 */
 
-func (log *Log) setHandlers(file, con io.Writer) {
-	handlers := []slog.Handler{}
+func (log *Log) setHandlers(writer io.Writer, jsonMode bool) {
+	log.mainWriter = writer
 
-	log.mainWriter = file
-	if log.Type == "JSON" {
-		handlers = append(handlers, slog.NewJSONHandler(log.mainWriter, &slog.HandlerOptions{
+	var handler slog.Handler
+	if jsonMode {
+		// JSON format for machine-readable logs
+		handler = slog.NewJSONHandler(log.mainWriter, &slog.HandlerOptions{
 			Level: log.sLevel,
-		}))
+		})
 	} else {
-		handlers = append(handlers, console.NewHandler(log.mainWriter, &console.HandlerOptions{
-			// ReplaceAttr: replaceAttr,
+		// Text format for human-readable logs
+		handler = console.NewHandler(log.mainWriter, &console.HandlerOptions{
 			Level:      log.sLevel,
 			TimeFormat: time.DateTime,
-			NoColor:    true,
+			NoColor:    false, // Enable colors for stderr output
 			Theme:      console.NewDefaultTheme(),
-		}))
+		})
 	}
 
-	log.consoleWriter = con
-	if log.consoleWriter != nil {
-		handlers = append(handlers, console.NewHandler(log.consoleWriter, &console.HandlerOptions{
-			// ReplaceAttr: replaceAttr,
-			Level:      log.sLevel,
-			TimeFormat: time.DateTime,
-			NoColor:    false,
-			Theme:      console.NewDefaultTheme(),
-		}))
-	}
-
-	log.Logger = slog.New(NewFilteredHandler(slogmulti.Fanout(handlers...)))
+	log.Logger = slog.New(NewFilteredHandler(handler))
 }
 
-func (log *Log) SetLogWriter(w io.Writer) *slog.Logger {
-	log.setHandlers(log.mainWriter, w)
-	return log.Logger
-}
-
+// Message logs an important message that should always be visible to the user
+// In text mode, it appears as a colored log line on stderr
+// In JSON mode, it appears as a JSON log line on stderr
 func (log *Log) Message(msg string, values ...any) {
-	s := fmt.Sprintf(msg, values...)
-	fmt.Println(s)
 	if log.Logger != nil {
+		s := fmt.Sprintf(msg, values...)
 		log.Info(s)
 	}
 }
@@ -203,18 +166,14 @@ func (log *Log) Close(ctx context.Context, cmd *cobra.Command, app *Application)
 		return nil
 	}
 	debugfiles.ReportTrackedFiles()
-	if log.File != "" {
-		log.Message("Check the log file: %s", log.File)
-	}
+
+	// Close API trace if open
 	if log.apiTraceWriter != nil {
 		log.apiTracer.Close()
-		log.Message("Check the API-TRACE file: %s", log.apiTraceName)
 		log.apiTraceWriter.Close()
 	}
 
-	if closer, ok := log.mainWriter.(io.Closer); ok {
-		return closer.Close()
-	}
+	// No need to close stderr
 	return nil
 }
 
@@ -225,12 +184,13 @@ func (log *Log) GetSLog() *slog.Logger {
 func (log *Log) OpenAPITrace() error {
 	if log.apiTraceWriter == nil {
 		var err error
-		log.apiTraceName = strings.TrimSuffix(log.File, path.Ext(log.File)) + ".trace.log"
+		// Create trace file in current directory
+		log.apiTraceName = time.Now().Format("immich-go_2006-01-02_15-04-05") + ".trace.log"
 		log.apiTraceWriter, err = os.OpenFile(log.apiTraceName, os.O_CREATE|os.O_WRONLY, 0o664)
 		if err != nil {
 			return err
 		}
-		log.Message("Check the API-TRACE file: %s", log.apiTraceName)
+		log.Info("API trace file created", "file", log.apiTraceName)
 		log.apiTracer = httptrace.NewTracer(log.apiTraceWriter)
 	}
 	return nil
