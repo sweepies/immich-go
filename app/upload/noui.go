@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -12,6 +13,7 @@ import (
 	"github.com/simulot/immich-go/app"
 	"github.com/simulot/immich-go/internal/assets"
 	"github.com/simulot/immich-go/internal/fileevent"
+	"github.com/simulot/immich-go/internal/jsonoutput"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -33,6 +35,21 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 		lock.Unlock()
 	}
 
+	// Helper to calculate Immich read percentage
+	getImmichPct := func() int {
+		lock.Lock()
+		defer lock.Unlock()
+		if maxImmich > 0 {
+			return 100 * currImmich / maxImmich
+		}
+		return 100
+	}
+
+	// Check if JSON output mode is enabled
+	isJSONMode := app.Output == "json"
+	isNonInteractive := app.NonInteractive
+
+	// Progress string for interactive mode (uses \r to overwrite)
 	progressString := func() string {
 		counts := app.FileProcessor().Logger().GetCounts()
 		defer func() {
@@ -41,35 +58,72 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 				spinIdx = 0
 			}
 		}()
-		lock.Lock()
-		immichPct := 0
-		if maxImmich > 0 {
-			immichPct = 100 * currImmich / maxImmich
-		} else {
-			immichPct = 100
-		}
-		lock.Unlock()
+		immichPct := getImmichPct()
 
 		return fmt.Sprintf("\rImmich read %d%%, Assets found: %d, Upload errors: %d, Uploaded %d %s", immichPct, app.FileProcessor().Logger().TotalAssets(), counts[fileevent.ErrorServerError], counts[fileevent.ProcessedUploadSuccess], string(spinner[spinIdx]))
+	}
+
+	// Progress string for non-interactive mode (outputs new line each time)
+	progressStringNonInteractive := func() string {
+		counts := app.FileProcessor().Logger().GetCounts()
+		immichPct := getImmichPct()
+
+		return fmt.Sprintf("Immich read %d%%, Assets found: %d, Upload errors: %d, Uploaded %d", immichPct, app.FileProcessor().Logger().TotalAssets(), counts[fileevent.ErrorServerError], counts[fileevent.ProcessedUploadSuccess])
+	}
+
+	// Function to output progress in JSON mode
+	outputJSONProgress := func() {
+		counts := app.FileProcessor().Logger().GetCounts()
+		immichPct := getImmichPct()
+
+		if err := jsonoutput.WriteProgress(
+			immichPct,
+			app.FileProcessor().Logger().TotalAssets(),
+			counts[fileevent.ErrorServerError],
+			counts[fileevent.ProcessedUploadSuccess],
+		); err != nil {
+			// Log error to stderr - if stdout is broken, at least notify via stderr
+			app.Log().Error("failed to write JSON progress", "err", err)
+		}
 	}
 	uiGrp := errgroup.Group{}
 
 	uiGrp.Go(func() error {
-		ticker := time.NewTicker(500 * time.Millisecond)
+		// Use different tick rates for different modes
+		tickInterval := 500 * time.Millisecond
+		if isNonInteractive {
+			// In non-interactive mode, output less frequently (every 5 seconds)
+			tickInterval = 5 * time.Second
+		}
+		ticker := time.NewTicker(tickInterval)
 		defer func() {
 			ticker.Stop()
-			fmt.Println(progressString())
+			// Output final status
+			if isJSONMode {
+				outputJSONProgress()
+			} else if isNonInteractive {
+				fmt.Fprintln(os.Stderr, progressStringNonInteractive())
+			} else {
+				fmt.Println(progressString())
+			}
 		}()
 		for {
 			select {
 			case <-stopProgress:
-				fmt.Print(progressString())
+				// Defer block will output final status
 				return nil
 			case <-ctx.Done():
-				fmt.Print(progressString())
+				// Defer block will output final status
 				return ctx.Err()
 			case <-ticker.C:
-				fmt.Print(progressString())
+				// Periodic progress updates
+				if isJSONMode {
+					outputJSONProgress()
+				} else if isNonInteractive {
+					fmt.Fprintln(os.Stderr, progressStringNonInteractive())
+				} else {
+					fmt.Print(progressString())
+				}
 			}
 		}
 	})
@@ -112,7 +166,7 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 		counts := app.FileProcessor().Logger().GetCounts()
 		messages := strings.Builder{}
 		if counts[fileevent.ErrorUploadFailed]+counts[fileevent.ErrorServerError]+counts[fileevent.ErrorFileAccess]+counts[fileevent.ErrorIncomplete] > 0 {
-			messages.WriteString("Some errors have occurred. Look at the log file for details\n")
+			messages.WriteString("Some errors have occurred. Check stderr for details\n")
 		}
 
 		if messages.Len() > 0 {
