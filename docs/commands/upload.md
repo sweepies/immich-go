@@ -51,7 +51,6 @@ All upload sub-commands require these connection parameters:
 
 | Option              | Default | Description                                     |
 | ------------------- | ------- | ----------------------------------------------- |
-| `--no-ui`           | `false` | Disable interactive UI                           |
 | `--non-interactive` | `false` | Force non-interactive mode (line-by-line output) |
 | `--output`          | `text`  | Output format: `text` or `json`                  |
 | `--api-trace`       | `false` | Enable API call tracing                          |

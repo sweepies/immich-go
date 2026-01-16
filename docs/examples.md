@@ -314,7 +314,7 @@ immich-go upload from-folder \
 nohup immich-go upload from-folder \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
-  --no-ui \
+  --non-interactive \
   /photos > /dev/null 2>&1 &
 
 # Background processing with JSON output

@@ -424,7 +424,7 @@ immich-go upload from-folder \
 ```bash
 --log-level=WARN \
 --log-file=/var/log/immich-go/automated.log \
---no-ui
+--non-interactive
 ```
 
 ### Health Monitoring

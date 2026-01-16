@@ -147,7 +147,6 @@ manage-burst = 'NoStack'
 manage-epson-fastfoto = false
 manage-heic-jpeg = 'NoStack'
 manage-raw-jpeg = 'NoStack'
-no-ui = false
 non-interactive = false
 output = 'text'
 overwrite = false
@@ -474,7 +473,6 @@ upload:
   manage-epson-fastfoto: false
   manage-heic-jpeg: NoStack
   manage-raw-jpeg: NoStack
-  no-ui: false
   non-interactive: false
   output: text
   overwrite: false
@@ -715,7 +713,6 @@ upload:
     "manage-epson-fastfoto": false,
     "manage-heic-jpeg": "NoStack",
     "manage-raw-jpeg": "NoStack",
-    "no-ui": false,
     "non-interactive": false,
     "output": "text",
     "overwrite": false,

@@ -28,7 +28,7 @@ func Test_FromGooglePhotos(t *testing.T) {
 		"--server=" + ImmichURL,
 		"--api-key=" + u1.APIKey,
 		"--admin-api-key=" + adm.APIKey,
-		"--no-ui",
+		"--non-interactive",
 		// "--api-trace",
 		"--log-level=debug",
 		"DATA/fromGooglePhotos/gophers",

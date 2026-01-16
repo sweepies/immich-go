@@ -176,11 +176,10 @@ func (uc *UpCmd) upload(ctx context.Context, adapter adapters.Reader) (err error
 	uc.assetIndex = newAssetIndex()
 
 	// Use non-interactive mode if:
-	// 1. --no-ui flag is set (existing behavior)
-	// 2. --non-interactive flag is set (new behavior)
-	// 3. Not running in a terminal (auto-detected)
-	// 4. JSON output mode is enabled
-	if uc.NoUI || uc.app.NonInteractive || uc.app.Output == "json" {
+	// 1. --non-interactive flag is set
+	// 2. Not running in a terminal (auto-detected)
+	// 3. JSON output mode is enabled
+	if uc.app.NonInteractive || uc.app.Output == "json" {
 		runner = uc.runNoUI
 	} else {
 		_, runnerErr := tcell.NewScreen()
