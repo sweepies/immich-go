@@ -7,14 +7,11 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"path"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
 	"github.com/phsym/console-slog"
-	slogmulti "github.com/samber/slog-multi"
 	"github.com/simulot/immich-go/immich/httptrace"
 	"github.com/simulot/immich-go/internal/fshelper/debugfiles"
 	"github.com/simulot/immich-go/internal/loghelper"
@@ -148,6 +145,23 @@ func (log *Log) setHandlers(writer io.Writer, jsonMode bool) {
 	}
 
 	log.Logger = slog.New(NewFilteredHandler(handler))
+}
+
+// SetLogWriter returns a logger using the provided writer.
+// When writer is nil, it returns the main application logger.
+func (log *Log) SetLogWriter(writer io.Writer) *slog.Logger {
+	if writer == nil {
+		return log.Logger
+	}
+
+	handler := console.NewHandler(writer, &console.HandlerOptions{
+		Level:      log.sLevel,
+		TimeFormat: time.DateTime,
+		NoColor:    false,
+		Theme:      console.NewDefaultTheme(),
+	})
+
+	return slog.New(NewFilteredHandler(handler))
 }
 
 // Message logs an important message that should always be visible to the user
