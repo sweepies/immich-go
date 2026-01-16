@@ -153,7 +153,9 @@ func (uc *UpCmd) upload(ctx context.Context, adapter adapters.Reader) error {
 					exitCode = 1
 				}
 
-				_ = jsonoutput.WriteSummary(status, exitCode, counters, eventCounts, eventSizes, duration)
+				if err := jsonoutput.WriteSummary(status, exitCode, counters, eventCounts, eventSizes, duration); err != nil {
+					uc.app.Log().Error("failed to write JSON summary", "err", err)
+				}
 			} else {
 				// Output text report
 				fmt.Println(uc.app.FileProcessor().GenerateReport())

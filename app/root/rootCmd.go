@@ -122,7 +122,9 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 				exitCode = 1
 			}
 
-			_ = jsonoutput.WriteSummary(status, exitCode, counters, eventCounts, eventSizes, duration)
+			if err := jsonoutput.WriteSummary(status, exitCode, counters, eventCounts, eventSizes, duration); err != nil {
+				a.Log().Error("failed to write JSON summary", "err", err)
+			}
 		}
 
 		return nil
