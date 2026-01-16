@@ -4,11 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/simulot/immich-go/internal/assettracker"
 	"github.com/simulot/immich-go/internal/fileevent"
 )
+
+// outputMutex serializes writes to stdout to prevent interleaved JSONL output
+var outputMutex sync.Mutex
 
 // ProgressUpdate represents a single progress update during processing
 type ProgressUpdate struct {
@@ -82,6 +86,7 @@ func WriteSummary(
 }
 
 // writeJSON marshals data and writes it to stdout as a JSON line
+// Uses a mutex to ensure atomic writes and prevent interleaved JSONL output
 func writeJSON(data interface{}) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
@@ -89,6 +94,10 @@ func writeJSON(data interface{}) error {
 	}
 	// Append newline and write directly to avoid string conversion
 	jsonData = append(jsonData, '\n')
+
+	// Serialize writes to stdout to prevent corruption of JSONL output
+	outputMutex.Lock()
+	defer outputMutex.Unlock()
 	_, err = os.Stdout.Write(jsonData)
 	return err
 }
