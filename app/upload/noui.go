@@ -36,7 +36,9 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 
 	// Check if JSON output mode is enabled
 	isJSONMode := app.Output == "json"
+	isNonInteractive := app.NonInteractive
 
+	// Progress string for interactive mode (uses \r to overwrite)
 	progressString := func() string {
 		counts := app.FileProcessor().Logger().GetCounts()
 		defer func() {
@@ -55,6 +57,21 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 		lock.Unlock()
 
 		return fmt.Sprintf("\rImmich read %d%%, Assets found: %d, Upload errors: %d, Uploaded %d %s", immichPct, app.FileProcessor().Logger().TotalAssets(), counts[fileevent.ErrorServerError], counts[fileevent.ProcessedUploadSuccess], string(spinner[spinIdx]))
+	}
+
+	// Progress string for non-interactive mode (outputs new line each time)
+	progressStringNonInteractive := func() string {
+		counts := app.FileProcessor().Logger().GetCounts()
+		lock.Lock()
+		immichPct := 0
+		if maxImmich > 0 {
+			immichPct = 100 * currImmich / maxImmich
+		} else {
+			immichPct = 100
+		}
+		lock.Unlock()
+
+		return fmt.Sprintf("Immich read %d%%, Assets found: %d, Upload errors: %d, Uploaded %d", immichPct, app.FileProcessor().Logger().TotalAssets(), counts[fileevent.ErrorServerError], counts[fileevent.ProcessedUploadSuccess])
 	}
 
 	// Function to output progress in JSON mode
@@ -79,36 +96,54 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 	uiGrp := errgroup.Group{}
 
 	uiGrp.Go(func() error {
-		ticker := time.NewTicker(500 * time.Millisecond)
+		// Use different tick rates for different modes
+		tickInterval := 500 * time.Millisecond
+		if isNonInteractive {
+			// In non-interactive mode, output less frequently (every 5 seconds)
+			tickInterval = 5 * time.Second
+		}
+		ticker := time.NewTicker(tickInterval)
 		defer func() {
 			ticker.Stop()
-			if !isJSONMode {
-				fmt.Println(progressString())
-			} else {
+			// Output final status
+			if isJSONMode {
 				outputJSONProgress()
+			} else if isNonInteractive {
+				fmt.Fprintln(os.Stderr, progressStringNonInteractive())
+			} else {
+				fmt.Println(progressString())
 			}
 		}()
 		for {
 			select {
 			case <-stopProgress:
-				if !isJSONMode {
-					fmt.Print(progressString())
-				} else {
+				// Output current status before stopping
+				if isJSONMode {
 					outputJSONProgress()
+				} else if isNonInteractive {
+					fmt.Fprintln(os.Stderr, progressStringNonInteractive())
+				} else {
+					fmt.Print(progressString())
 				}
 				return nil
 			case <-ctx.Done():
-				if !isJSONMode {
-					fmt.Print(progressString())
-				} else {
+				// Output current status before exiting
+				if isJSONMode {
 					outputJSONProgress()
+				} else if isNonInteractive {
+					fmt.Fprintln(os.Stderr, progressStringNonInteractive())
+				} else {
+					fmt.Print(progressString())
 				}
 				return ctx.Err()
 			case <-ticker.C:
-				if !isJSONMode {
-					fmt.Print(progressString())
-				} else {
+				// Periodic progress updates
+				if isJSONMode {
 					outputJSONProgress()
+				} else if isNonInteractive {
+					fmt.Fprintln(os.Stderr, progressStringNonInteractive())
+				} else {
+					fmt.Print(progressString())
 				}
 			}
 		}

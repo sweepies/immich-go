@@ -172,13 +172,17 @@ func (uc *UpCmd) upload(ctx context.Context, adapter adapters.Reader) error {
 	runner := uc.runUI
 	uc.assetIndex = newAssetIndex()
 
-	if uc.NoUI {
+	// Use non-interactive mode if:
+	// 1. --no-ui flag is set (existing behavior)
+	// 2. --non-interactive flag is set (new behavior)
+	// 3. Not running in a terminal (auto-detected)
+	// 4. JSON output mode is enabled
+	if uc.NoUI || uc.app.NonInteractive || uc.app.Output == "json" {
 		runner = uc.runNoUI
 	} else {
 		_, err := tcell.NewScreen()
 		if err != nil {
-			uc.app.Log().Warn("can't initialize the screen for the UI mode. Falling back to no-gui mode", "err", err)
-			fmt.Println("can't initialize the screen for the UI mode. Falling back to no-gui mode")
+			uc.app.Log().Warn("can't initialize the screen for the UI mode. Falling back to non-interactive mode", "err", err)
 			runner = uc.runNoUI
 		}
 	}

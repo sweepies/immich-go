@@ -30,6 +30,7 @@ type Application struct {
 	ConcurrentTask int
 	CfgFile        string
 	Output         string // Output format: text or json
+	NonInteractive bool   // Disable interactive UI, use text progress output
 
 	// Internal state
 	log       *Log
@@ -49,6 +50,7 @@ func (app *Application) RegisterFlags(flags *pflag.FlagSet) {
 	flags.Var(&app.OnErrors, "on-errors", "What to do when an error occurs (stop, continue, accept N errors at max)")
 	flags.IntVar(&app.ConcurrentTask, "concurrent-tasks", runtime.NumCPU(), "Number of concurrent tasks (1-20)")
 	flags.StringVarP(&app.Output, "output", "o", "text", "Output format (text|json) - json outputs JSONL to stdout, logs to stderr")
+	flags.BoolVar(&app.NonInteractive, "non-interactive", false, "Disable interactive progress UI (auto-detected if not running in a terminal)")
 }
 
 func New(ctx context.Context, cmd *cobra.Command) *Application {

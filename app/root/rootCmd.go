@@ -54,6 +54,17 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 		// Track start time for duration calculation
 		startTime = time.Now()
 
+		// Auto-detect non-interactive mode if not explicitly set
+		if !a.NonInteractive && !cmd.Flags().Changed("non-interactive") {
+			// Check if stdout is a terminal
+			if fileInfo, err := os.Stdout.Stat(); err == nil {
+				// If stdout is not a character device (not a TTY), enable non-interactive mode
+				if (fileInfo.Mode() & os.ModeCharDevice) == 0 {
+					a.NonInteractive = true
+				}
+			}
+		}
+
 		// Initialize configuration from the specified config file
 		err := a.Config.Init(a.CfgFile)
 		if err != nil {
