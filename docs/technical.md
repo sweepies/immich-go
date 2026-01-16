@@ -57,7 +57,7 @@ JSON mode outputs structured data as JSON Lines (JSONL) to stdout:
     "total": 300,
     "duplicates": 50,
     "uploaded": 225,
-    "errors": 2
+    "errors": 3
   },
   "events": {
     "ErrorUploadFailed": {"count": 2, "size": 1048576},
