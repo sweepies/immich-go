@@ -49,10 +49,12 @@ All upload sub-commands require these connection parameters:
 
 ## User Interface
 
-| Option        | Default | Description             |
-| ------------- | ------- | ----------------------- |
-| `--no-ui`     | `false` | Disable interactive UI  |
-| `--api-trace` | `false` | Enable API call tracing |
+| Option              | Default | Description                                     |
+| ------------------- | ------- | ----------------------------------------------- |
+| `--no-ui`           | `false` | Disable interactive UI                           |
+| `--non-interactive` | `false` | Force non-interactive mode (line-by-line output) |
+| `--output`          | `text`  | Output format: `text` or `json`                  |
+| `--api-trace`       | `false` | Enable API call tracing                          |
 
 ---
 
@@ -115,6 +117,15 @@ immich-go upload from-folder --manage-raw-jpeg=StackCoverRaw --server=http://loc
 
 # Filter by date and file type
 immich-go upload from-folder --date-range=2023 --include-type=IMAGE --server=http://localhost:2283 --api-key=your-key /photos
+
+# JSON output for automation
+immich-go upload from-folder --output=json --server=http://localhost:2283 --api-key=your-key /photos
+
+# Non-interactive mode for scripts
+immich-go upload from-folder --non-interactive --server=http://localhost:2283 --api-key=your-key /photos
+
+# Auto-detected non-interactive (when piped)
+immich-go upload from-folder --server=http://localhost:2283 --api-key=your-key /photos | grep "error"
 ```
 
 ---
@@ -265,6 +276,69 @@ immich-go upload from-immich \
 - **Large Files**: Increase `--client-timeout` for large video files
 - **Network Issues**: Use lower `--concurrent-tasks` for unstable connections
 - **Server Load**: Enable `--pause-immich-jobs` during large uploads
+
+## Output Modes
+
+### Text Mode (Default)
+- Interactive mode shows a progress spinner with real-time updates
+- Non-interactive mode shows line-by-line progress every 5 seconds
+- Logs are written to stderr following Unix conventions
+
+### JSON Mode (`--output=json`)
+- Outputs structured JSON Lines (JSONL) to stdout
+- Progress updates and final summary are separate JSON objects
+- Always uses non-interactive mode
+- Ideal for automation and integration with other tools
+
+#### JSON Output Format
+
+**Progress Update:**
+```json
+{
+  "type": "progress",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "immich_read_pct": 45,
+  "assets_found": 234,
+  "upload_errors": 0,
+  "uploaded": 180
+}
+```
+
+**Final Summary:**
+```json
+{
+  "type": "summary",
+  "status": "success",
+  "exit_code": 0,
+  "counters": {
+    "total": 300,
+    "duplicates": 50,
+    "uploaded": 225,
+    "errors": 2
+  },
+  "events": {
+    "ErrorUploadFailed": {"count": 2, "size": 1048576}
+  },
+  "duration_seconds": 120.5,
+  "timestamp": "2024-01-15T10:32:00Z"
+}
+```
+
+### Shell Integration Examples
+
+```bash
+# Save JSON output to file
+immich-go upload from-folder --output=json /photos > upload.jsonl
+
+# Process JSON output with jq
+immich-go upload from-folder --output=json /photos | jq '.type'
+
+# Extract only errors from JSON output
+immich-go upload from-folder --output=json /photos | jq 'select(.type == "summary" and .exit_code != 0)'
+
+# Save logs separately from JSON data
+immich-go upload from-folder --output=json /photos > data.jsonl 2> errors.log
+```
 
 ## See Also
 

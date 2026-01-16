@@ -28,6 +28,12 @@ immich-go upload from-google-photos --server=http://your-ip:2283 --api-key=your-
 
 # Archive photos from Immich server
 immich-go archive from-immich --server=http://your-ip:2283 --api-key=your-api-key --write-to-folder=/path/to/archive
+
+# JSON output for automation
+immich-go upload from-folder --server=http://your-ip:2283 --api-key=your-api-key --output=json /path/to/photos
+
+# Non-interactive mode for scripts
+immich-go upload from-folder --server=http://your-ip:2283 --api-key=your-api-key --non-interactive /path/to/photos
 ```
 
 ### 3. Requirements

@@ -314,12 +314,45 @@ immich-go upload from-folder \
 nohup immich-go upload from-folder \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
-  --log-file=/tmp/upload.log \
   --no-ui \
   /photos > /dev/null 2>&1 &
+
+# Background processing with JSON output
+nohup immich-go upload from-folder \
+  --server=http://localhost:2283 \
+  --api-key=your-api-key \
+  --output=json \
+  /photos > upload.jsonl 2> upload.log &
 ```
 
-## Automation Scripts
+## Automation and Scripting
+
+### JSON Output for Automation
+```bash
+# Basic JSON output
+immich-go upload from-folder --output=json --server=http://localhost:2283 --api-key=your-key /photos
+
+# Save JSON output to file
+immich-go upload from-folder --output=json /photos > upload-$(date +%Y%m%d).jsonl
+
+# Process JSON output with jq
+immich-go upload from-folder --output=json /photos | jq '.type'
+
+# Extract only error information
+immich-go upload from-folder --output=json /photos | jq 'select(.type == "summary" and .exit_code != 0)'
+```
+
+### Non-Interactive Mode for Scripts
+```bash
+# Force non-interactive mode
+immich-go upload from-folder --non-interactive --server=http://localhost:2283 --api-key=your-key /photos
+
+# Auto-detected non-interactive (when piped)
+immich-go upload from-folder --server=http://localhost:2283 --api-key=your-key /photos | grep "error"
+
+# Combine with other Unix tools
+immich-go upload from-folder --non-interactive /photos 2>&1 | tee upload.log | grep -E "error|failed"
+```
 
 ### Bash Script for Regular Backups
 ```bash
