@@ -150,10 +150,12 @@ func (log *Log) setHandlers(writer io.Writer, jsonMode bool) {
 	log.Logger = slog.New(NewFilteredHandler(handler))
 }
 
+// Message logs an important message that should always be visible to the user
+// In text mode, it appears as a colored log line on stderr
+// In JSON mode, it appears as a JSON log line on stderr
 func (log *Log) Message(msg string, values ...any) {
-	s := fmt.Sprintf(msg, values...)
-	fmt.Fprintln(os.Stderr, s)
 	if log.Logger != nil {
+		s := fmt.Sprintf(msg, values...)
 		log.Info(s)
 	}
 }
