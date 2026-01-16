@@ -76,12 +76,15 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 		counts := app.FileProcessor().Logger().GetCounts()
 		immichPct := getImmichPct()
 
-		_ = jsonoutput.WriteProgress(
+		if err := jsonoutput.WriteProgress(
 			immichPct,
 			app.FileProcessor().Logger().TotalAssets(),
 			counts[fileevent.ErrorServerError],
 			counts[fileevent.ProcessedUploadSuccess],
-		)
+		); err != nil {
+			// Log error to stderr - if stdout is broken, at least notify via stderr
+			app.Log().Error("failed to write JSON progress", "err", err)
+		}
 	}
 	uiGrp := errgroup.Group{}
 
