@@ -177,8 +177,8 @@ func (uc *UpCmd) upload(ctx context.Context, adapter adapters.Reader) (err error
 
 	// Use non-interactive mode if:
 	// 1. --non-interactive flag is set
-	// 2. Not running in a terminal (auto-detected)
-	// 3. JSON output mode is enabled
+	// 2. JSON output mode is enabled
+	// (UI mode falls back to non-interactive if screen init fails.)
 	if uc.app.NonInteractive || uc.app.Output == "json" {
 		runner = uc.runNoUI
 	} else {
