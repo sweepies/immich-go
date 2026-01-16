@@ -54,6 +54,11 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 		// Track start time for duration calculation
 		startTime = time.Now()
 
+		// Validate --output flag
+		if a.Output != "text" && a.Output != "json" {
+			return fmt.Errorf("invalid output format: %q (must be 'text' or 'json')", a.Output)
+		}
+
 		// Auto-detect non-interactive mode if not explicitly set
 		if !a.NonInteractive && !cmd.Flags().Changed("non-interactive") {
 			// Check if stdout is a terminal
