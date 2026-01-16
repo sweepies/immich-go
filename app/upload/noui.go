@@ -35,6 +35,16 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 		lock.Unlock()
 	}
 
+	// Helper to calculate Immich read percentage
+	getImmichPct := func() int {
+		lock.Lock()
+		defer lock.Unlock()
+		if maxImmich > 0 {
+			return 100 * currImmich / maxImmich
+		}
+		return 100
+	}
+
 	// Check if JSON output mode is enabled
 	isJSONMode := app.Output == "json"
 	isNonInteractive := app.NonInteractive
@@ -48,14 +58,7 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 				spinIdx = 0
 			}
 		}()
-		lock.Lock()
-		immichPct := 0
-		if maxImmich > 0 {
-			immichPct = 100 * currImmich / maxImmich
-		} else {
-			immichPct = 100
-		}
-		lock.Unlock()
+		immichPct := getImmichPct()
 
 		return fmt.Sprintf("\rImmich read %d%%, Assets found: %d, Upload errors: %d, Uploaded %d %s", immichPct, app.FileProcessor().Logger().TotalAssets(), counts[fileevent.ErrorServerError], counts[fileevent.ProcessedUploadSuccess], string(spinner[spinIdx]))
 	}
@@ -63,14 +66,7 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 	// Progress string for non-interactive mode (outputs new line each time)
 	progressStringNonInteractive := func() string {
 		counts := app.FileProcessor().Logger().GetCounts()
-		lock.Lock()
-		immichPct := 0
-		if maxImmich > 0 {
-			immichPct = 100 * currImmich / maxImmich
-		} else {
-			immichPct = 100
-		}
-		lock.Unlock()
+		immichPct := getImmichPct()
 
 		return fmt.Sprintf("Immich read %d%%, Assets found: %d, Upload errors: %d, Uploaded %d", immichPct, app.FileProcessor().Logger().TotalAssets(), counts[fileevent.ErrorServerError], counts[fileevent.ProcessedUploadSuccess])
 	}
@@ -78,14 +74,7 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 	// Function to output progress in JSON mode
 	outputJSONProgress := func() {
 		counts := app.FileProcessor().Logger().GetCounts()
-		lock.Lock()
-		immichPct := 0
-		if maxImmich > 0 {
-			immichPct = 100 * currImmich / maxImmich
-		} else {
-			immichPct = 100
-		}
-		lock.Unlock()
+		immichPct := getImmichPct()
 
 		_ = jsonoutput.WriteProgress(
 			immichPct,
