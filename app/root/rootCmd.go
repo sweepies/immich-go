@@ -54,7 +54,19 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 		// Track start time for duration calculation
 		startTime = time.Now()
 
-		// Validate --output flag
+		// Initialize configuration from the specified config file
+		err := a.Config.Init(a.CfgFile)
+		if err != nil {
+			return err
+		}
+
+		// Process command-specific configuration
+		err = a.Config.ProcessCommand(cmd)
+		if err != nil {
+			return err
+		}
+
+		// Validate --output flag (after config processing)
 		if a.Output != "text" && a.Output != "json" {
 			return fmt.Errorf("invalid output format: %q (must be 'text' or 'json')", a.Output)
 		}
@@ -68,18 +80,6 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 					a.NonInteractive = true
 				}
 			}
-		}
-
-		// Initialize configuration from the specified config file
-		err := a.Config.Init(a.CfgFile)
-		if err != nil {
-			return err
-		}
-
-		// Process command-specific configuration
-		err = a.Config.ProcessCommand(cmd)
-		if err != nil {
-			return err
 		}
 
 		// clip the number of concurrent tasks
