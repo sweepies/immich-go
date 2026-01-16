@@ -124,7 +124,7 @@ func (uc *UpCmd) finishing(ctx context.Context) error {
 	return nil
 }
 
-func (uc *UpCmd) upload(ctx context.Context, adapter adapters.Reader) error {
+func (uc *UpCmd) upload(ctx context.Context, adapter adapters.Reader) (err error) {
 	startTime := time.Now()
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
@@ -148,13 +148,14 @@ func (uc *UpCmd) upload(ctx context.Context, adapter adapters.Reader) error {
 
 				status := "success"
 				exitCode := 0
-				if counters.Errors > 0 {
+				// Check both counter errors and function return error
+				if counters.Errors > 0 || err != nil {
 					status = "error"
 					exitCode = 1
 				}
 
-				if err := jsonoutput.WriteSummary(status, exitCode, counters, eventCounts, eventSizes, duration); err != nil {
-					uc.app.Log().Error("failed to write JSON summary", "err", err)
+				if summaryErr := jsonoutput.WriteSummary(status, exitCode, counters, eventCounts, eventSizes, duration); summaryErr != nil {
+					uc.app.Log().Error("failed to write JSON summary", "err", summaryErr)
 				}
 			} else {
 				// Output text report
@@ -182,13 +183,13 @@ func (uc *UpCmd) upload(ctx context.Context, adapter adapters.Reader) error {
 	if uc.NoUI || uc.app.NonInteractive || uc.app.Output == "json" {
 		runner = uc.runNoUI
 	} else {
-		_, err := tcell.NewScreen()
-		if err != nil {
-			uc.app.Log().Warn("can't initialize the screen for the UI mode. Falling back to non-interactive mode", "err", err)
+		_, runnerErr := tcell.NewScreen()
+		if runnerErr != nil {
+			uc.app.Log().Warn("can't initialize the screen for the UI mode. Falling back to non-interactive mode", "err", runnerErr)
 			runner = uc.runNoUI
 		}
 	}
-	err := runner(ctx, uc.app)
+	err = runner(ctx, uc.app)
 	return err
 }
 
