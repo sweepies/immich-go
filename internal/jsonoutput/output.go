@@ -38,12 +38,12 @@ type FinalSummary struct {
 }
 
 // WriteProgress writes a progress update to stdout as a JSON line
-func WriteProgress(immichPct, totalAssets int, uploadErrors, uploaded int64) error {
+func WriteProgress(immichPct int, totalAssets, uploadErrors, uploaded int64) error {
 	progress := ProgressUpdate{
 		Type:          "progress",
 		Timestamp:     time.Now(),
 		ImmichReadPct: immichPct,
-		AssetsFound:   int64(totalAssets),
+		AssetsFound:   totalAssets,
 		UploadErrors:  uploadErrors,
 		Uploaded:      uploaded,
 	}
