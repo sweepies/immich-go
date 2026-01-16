@@ -81,12 +81,14 @@ func WriteSummary(
 	return writeJSON(summary)
 }
 
-// writeJSON marshals data and writes it to stdout
+// writeJSON marshals data and writes it to stdout as a JSON line
 func writeJSON(data interface{}) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
-	_, err = fmt.Fprintln(os.Stdout, string(jsonData))
+	// Append newline and write directly to avoid string conversion
+	jsonData = append(jsonData, '\n')
+	_, err = os.Stdout.Write(jsonData)
 	return err
 }
