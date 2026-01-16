@@ -11,6 +11,7 @@ The following environment variables can be used to configure `immich-go`.
 | `IMMICH_GO_LOG_FILE` | `--log-file` |  | Write log messages into the file |
 | `IMMICH_GO_LOG_LEVEL` | `--log-level` | `INFO` | Log level (DEBUG|INFO|WARN|ERROR), default INFO |
 | `IMMICH_GO_LOG_TYPE` | `--log-type` | `text` | Log formatted  as text of JSON file |
+| `IMMICH_GO_NON_INTERACTIVE` | `--non-interactive` | `false` | Disable interactive progress UI |
 | `IMMICH_GO_ON_ERRORS` | `--on-errors` | `stop` | What to do when an error occurs (stop, continue, accept N errors at max) |
 | `IMMICH_GO_SAVE_CONFIG` | `--save-config` | `false` | Save the configuration to immich-go.yaml |
 
@@ -160,7 +161,6 @@ The following environment variables can be used to configure `immich-go`.
 | `IMMICH_GO_UPLOAD_MANAGE_EPSON_FASTFOTO` | `--manage-epson-fastfoto` | `false` | Manage Epson FastFoto file (default: false) |
 | `IMMICH_GO_UPLOAD_MANAGE_HEIC_JPEG` | `--manage-heic-jpeg` | `NoStack` | Manage coupled HEIC and JPEG files. Possible values: NoStack, KeepHeic, KeepJPG, StackCoverHeic, StackCoverJPG |
 | `IMMICH_GO_UPLOAD_MANAGE_RAW_JPEG` | `--manage-raw-jpeg` | `NoStack` | Manage coupled RAW and JPEG files. Possible values: NoStack, KeepRaw, KeepJPG, StackCoverRaw, StackCoverJPG |
-| `IMMICH_GO_UPLOAD_NO_UI` | `--no-ui` | `false` | Disable the user interface |
 | `IMMICH_GO_UPLOAD_OVERWRITE` | `--overwrite` | `false` | Always overwrite files on the server with local versions |
 | `IMMICH_GO_UPLOAD_PAUSE_IMMICH_JOBS` | `--pause-immich-jobs` | `true` | Pause Immich background jobs during upload operations |
 | `IMMICH_GO_UPLOAD_SERVER` | `--server` |  | Immich server address (example http://your-ip:2283 or https://your-domain) |
