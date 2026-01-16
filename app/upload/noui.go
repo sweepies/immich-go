@@ -110,24 +110,10 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 		for {
 			select {
 			case <-stopProgress:
-				// Output current status before stopping
-				if isJSONMode {
-					outputJSONProgress()
-				} else if isNonInteractive {
-					fmt.Fprintln(os.Stderr, progressStringNonInteractive())
-				} else {
-					fmt.Print(progressString())
-				}
+				// Defer block will output final status
 				return nil
 			case <-ctx.Done():
-				// Output current status before exiting
-				if isJSONMode {
-					outputJSONProgress()
-				} else if isNonInteractive {
-					fmt.Fprintln(os.Stderr, progressStringNonInteractive())
-				} else {
-					fmt.Print(progressString())
-				}
+				// Defer block will output final status
 				return ctx.Err()
 			case <-ticker.C:
 				// Periodic progress updates
