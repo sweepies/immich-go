@@ -185,6 +185,7 @@ func (uc *UpCmd) upload(ctx context.Context, adapter adapters.Reader) (err error
 		_, runnerErr := tcell.NewScreen()
 		if runnerErr != nil {
 			uc.app.Log().Warn("can't initialize the screen for the UI mode. Falling back to non-interactive mode", "err", runnerErr)
+			uc.app.NonInteractive = true
 			runner = uc.runNoUI
 		}
 	}

@@ -3,11 +3,8 @@ package upload
 import (
 	"context"
 	"errors"
-	"fmt"
-	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/simulot/immich-go/app"
@@ -22,12 +19,8 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 	lock := sync.RWMutex{}
 	defer cancel(nil)
 
-	var preparationDone atomic.Bool
-
 	stopProgress := make(chan any)
 	var maxImmich, currImmich int
-	spinner := []rune{' ', ' ', '.', ' ', ' '}
-	spinIdx := 0
 
 	immichUpdate := func(value, total int) {
 		lock.Lock()
@@ -49,26 +42,15 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 	isJSONMode := app.Output == "json"
 	isNonInteractive := app.NonInteractive
 
-	// Progress string for interactive mode (uses \r to overwrite)
-	progressString := func() string {
-		counts := app.FileProcessor().Logger().GetCounts()
-		defer func() {
-			spinIdx++
-			if spinIdx == len(spinner) {
-				spinIdx = 0
-			}
-		}()
-		immichPct := getImmichPct()
-
-		return fmt.Sprintf("\rImmich read %d%%, Assets found: %d, Upload errors: %d, Uploaded %d %s", immichPct, app.FileProcessor().Logger().TotalAssets(), counts[fileevent.ErrorServerError], counts[fileevent.ProcessedUploadSuccess], string(spinner[spinIdx]))
-	}
-
-	// Progress string for non-interactive mode (outputs new line each time)
-	progressStringNonInteractive := func() string {
+	logProgress := func() {
 		counts := app.FileProcessor().Logger().GetCounts()
 		immichPct := getImmichPct()
-
-		return fmt.Sprintf("Immich read %d%%, Assets found: %d, Upload errors: %d, Uploaded %d", immichPct, app.FileProcessor().Logger().TotalAssets(), counts[fileevent.ErrorServerError], counts[fileevent.ProcessedUploadSuccess])
+		app.Log().Info("progress",
+			"immich_read_pct", immichPct,
+			"assets_found", app.FileProcessor().Logger().TotalAssets(),
+			"upload_errors", counts[fileevent.ErrorServerError],
+			"uploaded", counts[fileevent.ProcessedUploadSuccess],
+		)
 	}
 
 	// Function to output progress in JSON mode
@@ -102,9 +84,7 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 			if isJSONMode {
 				outputJSONProgress()
 			} else if isNonInteractive {
-				fmt.Fprintln(os.Stderr, progressStringNonInteractive())
-			} else {
-				fmt.Println(progressString())
+				logProgress()
 			}
 		}()
 		for {
@@ -120,9 +100,7 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 				if isJSONMode {
 					outputJSONProgress()
 				} else if isNonInteractive {
-					fmt.Fprintln(os.Stderr, progressStringNonInteractive())
-				} else {
-					fmt.Print(progressString())
+					logProgress()
 				}
 			}
 		}
@@ -157,7 +135,6 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 				return err
 			}
 		}
-		preparationDone.Store(true)
 		err = uc.uploadLoop(ctx, groupChan)
 		if err != nil {
 			cancel(err)
