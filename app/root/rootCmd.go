@@ -3,7 +3,6 @@ package root
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/simulot/immich-go/app"
@@ -69,17 +68,6 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 		// Validate --output flag (after config processing)
 		if a.Output != "text" && a.Output != "json" {
 			return fmt.Errorf("invalid output format: %q (must be 'text' or 'json')", a.Output)
-		}
-
-		// Auto-detect non-interactive mode if not explicitly set
-		if !a.NonInteractive && !cmd.Flags().Changed("non-interactive") {
-			// Check if stdout is a terminal
-			if fileInfo, err := os.Stdout.Stat(); err == nil {
-				// If stdout is not a character device (not a TTY), enable non-interactive mode
-				if (fileInfo.Mode() & os.ModeCharDevice) == 0 {
-					a.NonInteractive = true
-				}
-			}
 		}
 
 		// clip the number of concurrent tasks

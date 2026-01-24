@@ -40,7 +40,6 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 
 	// Check if JSON output mode is enabled
 	isJSONMode := app.Output == "json"
-	isNonInteractive := app.NonInteractive
 
 	logProgress := func() {
 		counts := app.FileProcessor().Logger().GetCounts()
@@ -72,10 +71,9 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 
 	uiGrp.Go(func() error {
 		// Use different tick rates for different modes
-		tickInterval := 500 * time.Millisecond
-		if isNonInteractive {
-			// In non-interactive mode, output less frequently (every 5 seconds)
-			tickInterval = 5 * time.Second
+		tickInterval := 5 * time.Second
+		if isJSONMode {
+			tickInterval = 500 * time.Millisecond
 		}
 		ticker := time.NewTicker(tickInterval)
 		defer func() {
@@ -83,7 +81,7 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 			// Output final status
 			if isJSONMode {
 				outputJSONProgress()
-			} else if isNonInteractive {
+			} else {
 				logProgress()
 			}
 		}()
@@ -99,7 +97,7 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 				// Periodic progress updates
 				if isJSONMode {
 					outputJSONProgress()
-				} else if isNonInteractive {
+				} else {
 					logProgress()
 				}
 			}

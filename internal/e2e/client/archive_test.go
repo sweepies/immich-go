@@ -114,7 +114,6 @@ func Test_ArchiveFromGP(t *testing.T) {
 			"--server=" + ImmichURL,
 			"--api-key=" + u1.APIKey,
 			"--admin-api-key=" + adm.APIKey,
-			"--non-interactive",
 			"--log-level=debug",
 			"DATA/fromGooglePhotos/gophers",
 		})

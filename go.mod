@@ -4,14 +4,11 @@ go 1.25
 
 require (
 	github.com/disintegration/imaging v1.6.2
-	github.com/gdamore/tcell/v2 v2.11.0
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/melbahja/goph v1.4.0
-	github.com/navidys/tvxwidgets v0.12.1
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/phsym/console-slog v0.3.1
-	github.com/rivo/tview v0.42.0
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	github.com/spf13/cobra v1.10.1
 	github.com/stretchr/testify v1.11.1

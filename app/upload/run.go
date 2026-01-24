@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/simulot/immich-go/adapters"
 	"github.com/simulot/immich-go/immich"
 	"github.com/simulot/immich-go/internal/assets"
@@ -158,25 +157,8 @@ func (uc *UpCmd) upload(ctx context.Context, adapter adapters.Reader) (err error
 	})
 
 	uc.adapter = adapter
-
-	runner := uc.runUI
 	uc.assetIndex = newAssetIndex()
-
-	// Use non-interactive mode if:
-	// 1. --non-interactive flag is set
-	// 2. JSON output mode is enabled
-	// (UI mode falls back to non-interactive if screen init fails.)
-	if uc.app.NonInteractive || uc.app.Output == "json" {
-		runner = uc.runNoUI
-	} else {
-		_, runnerErr := tcell.NewScreen()
-		if runnerErr != nil {
-			uc.app.Log().Warn("can't initialize the screen for the UI mode. Falling back to non-interactive mode", "err", runnerErr)
-			uc.app.NonInteractive = true
-			runner = uc.runNoUI
-		}
-	}
-	err = runner(ctx, uc.app)
+	err = uc.runNoUI(ctx, uc.app)
 	return err
 }
 
