@@ -70,6 +70,15 @@ immich-go upload from-google-photos \
   /downloads/takeout-*.zip
 ```
 
+### Folder of Takeout Parts
+```bash
+# Auto-expand all takeout-*.zip files in a directory
+immich-go upload from-google-photos \
+  --server=http://localhost:2283 \
+  --api-key=your-api-key \
+  /downloads/takeout
+```
+
 ### Selective Import
 ```bash
 # Import only visible phtos and exclude partner photos
