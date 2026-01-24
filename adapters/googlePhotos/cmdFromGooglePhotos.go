@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -86,6 +87,46 @@ func (toc *TakeoutCmd) RegisterFlags(flags *pflag.FlagSet, cmd *cobra.Command) {
 
 var _re3digits = regexp.MustCompile(`-\d{3}$`)
 
+func expandTakeoutArgs(args []string) ([]string, error) {
+	expanded := make([]string, 0, len(args))
+	seen := map[string]struct{}{}
+
+	for _, arg := range args {
+		clean := filepath.Clean(arg)
+		if _, ok := seen[clean]; ok {
+			continue
+		}
+		seen[clean] = struct{}{}
+		expanded = append(expanded, clean)
+
+		info, err := os.Stat(clean)
+		if err != nil || !info.IsDir() {
+			continue
+		}
+		entries, err := os.ReadDir(clean)
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			if !strings.HasSuffix(strings.ToLower(name), ".zip") {
+				continue
+			}
+			zipPath := filepath.Clean(filepath.Join(clean, name))
+			if _, ok := seen[zipPath]; ok {
+				continue
+			}
+			seen[zipPath] = struct{}{}
+			expanded = append(expanded, zipPath)
+		}
+	}
+
+	return expanded, nil
+}
+
 func NewFromGooglePhotosCommand(ctx context.Context, parent *cobra.Command, app *app.Application, runner adapters.Runner) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "from-google-photos [flags] <takeout-*.zip> | <takeout-folder>",
@@ -107,6 +148,11 @@ func NewFromGooglePhotosCommand(ctx context.Context, parent *cobra.Command, app 
 		log := app.Log()
 		toc.processor = app.FileProcessor()
 		toc.tz = app.GetTZ()
+
+		args, err = expandTakeoutArgs(args)
+		if err != nil {
+			return err
+		}
 
 		// make an fs.FS per zip file or folder given on the CLI
 		toc.fsyss, err = fshelper.ParsePath(args)
