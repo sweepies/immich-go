@@ -2,6 +2,8 @@
 
 **Immich-Go** is an open-source tool designed to streamline uploading large photo collections to your self-hosted Immich server.
 
+> ℹ️ **This is a fork** of [simulot/immich-go](https://github.com/simulot/immich-go). See [Fork Differences](#fork-differences) for details about this fork.
+
 > ⚠️ This is an early version, not yet extensively tested<br>
 > ⚠️ Keep a backup copy of your files for safety<br>
 
@@ -13,10 +15,28 @@
 - **Smart Management**: Duplicate detection, burst photo stacking, RAW+JPEG handling
 - **Cross-Platform**: Available for Windows, macOS, Linux, and FreeBSD
 
+## 🔀 Fork Differences
+
+This fork of [simulot/immich-go](https://github.com/simulot/immich-go) includes the following modifications:
+
+### Release Versioning
+- Fork releases use a `-sweepy` version suffix (e.g., `v0.32.0-sweepy`)
+- Version numbers follow the pattern: bump upstream minor version and append `-sweepy`
+
+### Configuration Changes
+- Consolidated agent instructions in `AGENTS.md` for better organization
+- Updated release configuration with enhanced snapshot versioning
+- Added `mise.toml` for improved development tooling support
+
+### Upstream Compatibility
+This fork maintains compatibility with the upstream project's core functionality. All standard commands and features work as documented. The changes primarily affect the development workflow and release process.
+
+For the latest upstream changes, see [simulot/immich-go releases](https://github.com/simulot/immich-go/releases).
+
 ## 🚀 Quick Start
 
 ### 1. Install Immich-Go
-Download the pre-built binary for your system from the [GitHub releases page](https://github.com/simulot/immich-go/releases).
+Download the pre-built binary for your system from the [GitHub releases page](https://github.com/sweepies/immich-go/releases).
 
 ### 2. Basic Usage
 ```bash
@@ -39,8 +59,6 @@ immich-go upload from-folder --server=http://your-ip:2283 --api-key=your-api-key
 ### 3. Requirements
 - A running Immich server with API access
 - API key with appropriate permissions ([see full list](docs/installation.md#api-permissions))
-
-> ⚠️ **Breaking Change**: API keys must now include the `asset.copy` and `asset.delete` permissions in addition to previously required permissions. Please update your API keys accordingly.
 
 ## 🙈 Skip System Files
 
@@ -90,12 +108,6 @@ For a detailed explanation of how each upload command works, please see the [Upl
 - **iCloud Import**: [Step-by-step instructions](docs/examples.md#icloud-import)
 - **Server Migration**: [Transfer between Immich instances](docs/examples.md#server-migration)
 - **Bulk Organization**: [Stacking and tagging strategies](docs/best-practices.md#organization-strategies)
-
-## 💡 Support the Project
-
-- [GitHub Sponsor](https://github.com/sponsors/simulot)
-- [PayPal Donation](https://www.paypal.com/donate/?hosted_button_id=VGU2SQE88T2T4)
-
 
 ## 🤝 Contributing
 
