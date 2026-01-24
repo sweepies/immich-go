@@ -13,7 +13,9 @@ dry-run = false
 log-file = ''
 log-level = 'INFO'
 log-type = 'text'
+non-interactive = false
 on-errors = 'stop'
+output = 'text'
 save-config = false
 
 [archive]
@@ -145,7 +147,8 @@ manage-burst = 'NoStack'
 manage-epson-fastfoto = false
 manage-heic-jpeg = 'NoStack'
 manage-raw-jpeg = 'NoStack'
-no-ui = false
+non-interactive = false
+output = 'text'
 overwrite = false
 pause-immich-jobs = true
 server = 'https://immich.app'
@@ -353,7 +356,9 @@ dry-run: false
 log-file: ""
 log-level: INFO
 log-type: text
+non-interactive: false
 on-errors: stop
+output: text
 save-config: false
 stack:
   admin-api-key: ""
@@ -468,7 +473,8 @@ upload:
   manage-epson-fastfoto: false
   manage-heic-jpeg: NoStack
   manage-raw-jpeg: NoStack
-  no-ui: false
+  non-interactive: false
+  output: text
   overwrite: false
   pause-immich-jobs: true
   server: https://immich.app
@@ -584,7 +590,9 @@ upload:
   "log-file": "",
   "log-level": "INFO",
   "log-type": "text",
+  "non-interactive": false,
   "on-errors": "stop",
+  "output": "text",
   "save-config": false,
   "stack": {
     "admin-api-key": "",
@@ -705,7 +713,8 @@ upload:
     "manage-epson-fastfoto": false,
     "manage-heic-jpeg": "NoStack",
     "manage-raw-jpeg": "NoStack",
-    "no-ui": false,
+    "non-interactive": false,
+    "output": "text",
     "overwrite": false,
     "pause-immich-jobs": true,
     "server": "https://immich.app",

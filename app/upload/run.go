@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/simulot/immich-go/adapters"
@@ -15,6 +15,7 @@ import (
 	"github.com/simulot/immich-go/internal/fileevent"
 	"github.com/simulot/immich-go/internal/filters"
 	"github.com/simulot/immich-go/internal/fshelper"
+	"github.com/simulot/immich-go/internal/jsonoutput"
 	"github.com/simulot/immich-go/internal/worker"
 )
 
@@ -107,21 +108,11 @@ func (uc *UpCmd) finishing(ctx context.Context) error {
 		return err
 	}
 
-	// Generate FileProcessor report
-	if uc.app.FileProcessor() != nil {
-		report := uc.app.FileProcessor().GenerateReport()
-		if len(report) > 0 {
-			lines := strings.Split(report, "\n")
-			for _, s := range lines {
-				uc.app.Log().Info(s)
-			}
-		}
-	}
-
 	return nil
 }
 
-func (uc *UpCmd) upload(ctx context.Context, adapter adapters.Reader) error {
+func (uc *UpCmd) upload(ctx context.Context, adapter adapters.Reader) (err error) {
+	startTime := time.Now()
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 	// Stop immich background jobs if requested
@@ -135,7 +126,28 @@ func (uc *UpCmd) upload(ctx context.Context, adapter adapters.Reader) error {
 	defer func() { _ = uc.finishing(ctx) }()
 	defer func() {
 		if uc.app.FileProcessor() != nil {
-			fmt.Println(uc.app.FileProcessor().GenerateReport())
+			if uc.app.Output == "json" {
+				// Output JSON summary
+				duration := time.Since(startTime).Seconds()
+				counters := uc.app.FileProcessor().GetAssetCounters()
+				eventCounts := uc.app.FileProcessor().GetEventCounts()
+				eventSizes := uc.app.FileProcessor().GetEventSizes()
+
+				status := "success"
+				exitCode := 0
+				// Check both counter errors and function return error
+				if counters.Errors > 0 || err != nil {
+					status = "error"
+					exitCode = 1
+				}
+
+				if summaryErr := jsonoutput.WriteSummary(status, exitCode, counters, eventCounts, eventSizes, duration); summaryErr != nil {
+					uc.app.Log().Error("failed to write JSON summary", "err", summaryErr)
+				}
+			} else {
+				// Output text report
+				fmt.Println(uc.app.FileProcessor().GenerateReport())
+			}
 		}
 	}()
 	uc.albumsCache = cache.NewCollectionCache(50, func(album assets.Album, ids []string) (assets.Album, error) {
@@ -150,17 +162,21 @@ func (uc *UpCmd) upload(ctx context.Context, adapter adapters.Reader) error {
 	runner := uc.runUI
 	uc.assetIndex = newAssetIndex()
 
-	if uc.NoUI {
+	// Use non-interactive mode if:
+	// 1. --non-interactive flag is set
+	// 2. JSON output mode is enabled
+	// (UI mode falls back to non-interactive if screen init fails.)
+	if uc.app.NonInteractive || uc.app.Output == "json" {
 		runner = uc.runNoUI
 	} else {
-		_, err := tcell.NewScreen()
-		if err != nil {
-			uc.app.Log().Warn("can't initialize the screen for the UI mode. Falling back to no-gui mode", "err", err)
-			fmt.Println("can't initialize the screen for the UI mode. Falling back to no-gui mode")
+		_, runnerErr := tcell.NewScreen()
+		if runnerErr != nil {
+			uc.app.Log().Warn("can't initialize the screen for the UI mode. Falling back to non-interactive mode", "err", runnerErr)
+			uc.app.NonInteractive = true
 			runner = uc.runNoUI
 		}
 	}
-	err := runner(ctx, uc.app)
+	err = runner(ctx, uc.app)
 	return err
 }
 

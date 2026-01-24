@@ -9,7 +9,6 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -80,26 +79,8 @@ func (client *Client) Open(ctx context.Context, app *Application) error {
 		}
 	}
 
-	// Plug the journal on the Log
+	// Access the logger for API tracing setup
 	log := app.Log()
-	if log.File != "" {
-		if log.mainWriter == nil {
-			dir := filepath.Dir(log.File)
-			err := os.MkdirAll(dir, 0o700)
-			if err != nil {
-				return err
-			}
-			f, err := os.OpenFile(log.File, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o664)
-			if err != nil {
-				return err
-			}
-			err = log.sLevel.UnmarshalText([]byte(strings.ToUpper(log.Level))) // TODO implement a flag.Value
-			if err != nil {
-				return err
-			}
-			log.setHandlers(f, nil)
-		}
-	}
 
 	client.ClientLog = app.log.Logger
 
