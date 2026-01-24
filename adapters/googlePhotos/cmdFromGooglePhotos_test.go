@@ -60,7 +60,7 @@ func TestExpandTakeoutArgs(t *testing.T) {
 				t.Fatalf("expandTakeoutArgs() error = %v", err)
 			}
 			
-			// Sort both slices for comparison (order doesn't matter in some cases)
+			// Check length first
 			if len(result) != len(tt.expected) {
 				t.Errorf("expandTakeoutArgs() got %d items, want %d items", len(result), len(tt.expected))
 				t.Errorf("got: %v", result)
@@ -68,7 +68,7 @@ func TestExpandTakeoutArgs(t *testing.T) {
 				return
 			}
 			
-			// Check that all expected items are present
+			// Use map-based comparison since order doesn't matter
 			resultMap := make(map[string]bool)
 			for _, r := range result {
 				resultMap[r] = true
