@@ -38,7 +38,13 @@ When asked to generate release notes:
    - Start with a brief, friendly introduction. Be concise and professional.
    - Explain CLI changes, list concerned flags, add examples if needed
    - Skip mean less commits (e.g., "update README", "fix typo")
-   - Skip purely internal changes unless they significantly impact users
+    - Skip purely internal changes unless they significantly impact users
+
+## Fork Release Versioning
+
+- For this fork, bump the upstream minor version and append the suffix `-sweepy` to the release tag/version.
+- Example: upstream v0.31.0 -> fork release v0.32.0-sweepy.
+- Apply the `-sweepy` suffix to all future fork releases and use that version when generating release notes and running Goreleaser.
    
 
 ## commit messages generation
