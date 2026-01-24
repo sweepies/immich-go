@@ -37,3 +37,7 @@ internal/e2e/immich-test
 internal/e2e/fixtures/wikimedia
 scratchpad/
 internal/e2e/testdata
+
+test-folder
+test-google
+fnox.toml
