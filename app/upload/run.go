@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -107,18 +106,6 @@ func (uc *UpCmd) finishing(ctx context.Context) error {
 	err := uc.resumeJobs(ctx)
 	if err != nil {
 		return err
-	}
-
-	// Generate FileProcessor report (only in text mode, not JSON mode)
-	// In JSON mode, the report is output in the defer function in upload()
-	if uc.app.FileProcessor() != nil && uc.app.Output != "json" {
-		report := uc.app.FileProcessor().GenerateReport()
-		if len(report) > 0 {
-			lines := strings.Split(report, "\n")
-			for _, s := range lines {
-				uc.app.Log().Info(s)
-			}
-		}
 	}
 
 	return nil
