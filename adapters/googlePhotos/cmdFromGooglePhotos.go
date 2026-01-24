@@ -97,16 +97,21 @@ func expandTakeoutArgs(args []string) ([]string, error) {
 			continue
 		}
 		seen[clean] = struct{}{}
-		expanded = append(expanded, clean)
 
 		info, err := os.Stat(clean)
 		if err != nil || !info.IsDir() {
+			// Not a directory, add it as-is
+			expanded = append(expanded, clean)
 			continue
 		}
+
+		// Directory found - check if it contains .zip files
 		entries, err := os.ReadDir(clean)
 		if err != nil {
 			return nil, err
 		}
+
+		foundZips := false
 		for _, entry := range entries {
 			if entry.IsDir() {
 				continue
@@ -121,6 +126,13 @@ func expandTakeoutArgs(args []string) ([]string, error) {
 			}
 			seen[zipPath] = struct{}{}
 			expanded = append(expanded, zipPath)
+			foundZips = true
+		}
+
+		// Only add the directory if no .zip files were found
+		// This indicates it might be a decompressed takeout folder
+		if !foundZips {
+			expanded = append(expanded, clean)
 		}
 	}
 
