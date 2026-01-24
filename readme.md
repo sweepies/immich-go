@@ -20,15 +20,18 @@
 This fork of [simulot/immich-go](https://github.com/simulot/immich-go) includes the following modifications:
 
 ### Release Versioning
+
 - Fork releases use a `-sweepy` version suffix (e.g., `v0.32.0-sweepy`)
 - Version numbers follow the pattern: bump upstream minor version and append `-sweepy`
 
 ### Configuration Changes
+
 - Consolidated agent instructions in `AGENTS.md` for better organization
 - Updated release configuration with enhanced snapshot versioning
 - Added `mise.toml` for improved development tooling support
 
 ### Upstream Compatibility
+
 This fork maintains compatibility with the upstream project's core functionality. All standard commands and features work as documented. The changes primarily affect the development workflow and release process.
 
 For the latest upstream changes, see [simulot/immich-go releases](https://github.com/simulot/immich-go/releases).
@@ -36,9 +39,11 @@ For the latest upstream changes, see [simulot/immich-go releases](https://github
 ## 🚀 Quick Start
 
 ### 1. Install Immich-Go
+
 Download the pre-built binary for your system from the [GitHub releases page](https://github.com/sweepies/immich-go/releases).
 
 ### 2. Basic Usage
+
 ```bash
 # Upload photos from a local folder
 immich-go upload from-folder --server=http://your-ip:2283 --api-key=your-api-key /path/to/your/photos
@@ -57,6 +62,7 @@ immich-go upload from-folder --server=http://your-ip:2283 --api-key=your-api-key
 ```
 
 ### 3. Requirements
+
 - A running Immich server with API access
 - API key with appropriate permissions ([see full list](docs/installation.md#api-permissions))
 
@@ -85,20 +91,20 @@ immich-go upload from-folder --server=http://your-ip:2283 --api-key=your-api-key
 
 Here's a brief overview of the main upload commands:
 
-*   **`from-folder`**: The basic command for uploading from any local folder. It can create albums from your directory structure and read XMP sidecar files.
-*   **`from-google-photos`**: A powerful command to migrate from a Google Photos Takeout. It intelligently matches photos with their JSON metadata to preserve albums, descriptions, and locations.
-*   **`from-immich`**: A server-to-server migration tool that allows you to copy assets between two Immich instances with fine-grained filtering.
-*   **`from-picasa`**: A specialized version of `from-folder` that automatically reads `.picasa.ini` files to restore your Picasa album organization.
-*   **`from-icloud`**: Another specialized command that handles the complexity of an iCloud Photos takeout, correctly identifying creation dates and album structures from the included CSV files.
+- **`from-folder`**: The basic command for uploading from any local folder. It can create albums from your directory structure and read XMP sidecar files.
+- **`from-google-photos`**: A powerful command to migrate from a Google Photos Takeout. It intelligently matches photos with their JSON metadata to preserve albums, descriptions, and locations.
+- **`from-immich`**: A server-to-server migration tool that allows you to copy assets between two Immich instances with fine-grained filtering.
+- **`from-picasa`**: A specialized version of `from-folder` that automatically reads `.picasa.ini` files to restore your Picasa album organization.
+- **`from-icloud`**: Another specialized command that handles the complexity of an iCloud Photos takeout, correctly identifying creation dates and album structures from the included CSV files.
 
 ### Leveraging Immich's Features
 
 `immich-go` is more than just an uploader; it intelligently interacts with the Immich server to preserve your library's structure:
 
-*   **Albums and Tags**: Automatically creates albums and tags on the server to match your source organization.
-*   **Stacking**: Groups related images, like RAW+JPEG pairs or photo bursts, into stacks.
-*   **Duplicate Detection**: Avoids re-uploading files that already exist on the server.
-*   **Efficient Uploads**: Can pause Immich's background jobs (like thumbnailing) during an upload for better performance.
+- **Albums and Tags**: Automatically creates albums and tags on the server to match your source organization.
+- **Stacking**: Groups related images, like RAW+JPEG pairs or photo bursts, into stacks.
+- **Duplicate Detection**: Avoids re-uploading files that already exist on the server.
+- **Efficient Uploads**: Can pause Immich's background jobs (like thumbnailing) during an upload for better performance.
 
 For a detailed explanation of how each upload command works, please see the [Upload Commands Overview](docs/upload-commands-overview.md).
 
