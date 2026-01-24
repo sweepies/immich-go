@@ -121,12 +121,12 @@ func expandTakeoutArgs(args []string) ([]string, error) {
 				continue
 			}
 			zipPath := filepath.Clean(filepath.Join(clean, name))
+			foundZips = true
 			if _, ok := seen[zipPath]; ok {
 				continue
 			}
 			seen[zipPath] = struct{}{}
 			expanded = append(expanded, zipPath)
-			foundZips = true
 		}
 
 		// Only add the directory if no .zip files were found
