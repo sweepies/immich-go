@@ -1,16 +1,18 @@
-# Immich-Go: Upload Your Photos to Your Immich Server
+# immich-go: The Missing Piece
 
-**Immich-Go** is an open-source tool designed to streamline uploading large photo collections to your self-hosted Immich server.
+![logo](https://raw.githubusercontent.com/sweepies/immich-go/refs/heads/main/logo.jpg)
 
-> ℹ️ **This is a fork** of [simulot/immich-go](https://github.com/simulot/immich-go). See [Fork Differences](#fork-differences) for details about this fork.
+**Immich-Go** is an open-source tool designed to streamline uploading large photo collections to your Immich server.
+
+> ℹ️ **This is a fork** of [simulot/immich-go](https://github.com/simulot/immich-go). See [Fork Differences](#-fork-differences) for details about this fork.
 
 > ⚠️ This is an early version, not yet extensively tested<br>
 > ⚠️ Keep a backup copy of your files for safety<br>
 
 ## 🌟 Key Features
 
-- **Simple Installation**: No NodeJS or Docker required
-- **Multiple Sources**: Upload from Google Photos Takeouts, iCloud, local folders, ZIP archives, and other Immich servers
+- **Simple Installation**: Single binary executable
+- **Multiple Sources**: Upload from Google Photos, iCloud, local folders, zip archives, and other Immich servers
 - **Large Collections**: Successfully handles 100,000+ photos
 - **Smart Management**: Duplicate detection, burst photo stacking, RAW+JPEG handling
 - **Cross-Platform**: Available for Windows, macOS, Linux, and FreeBSD
