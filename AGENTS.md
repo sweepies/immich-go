@@ -1,8 +1,5 @@
 # AGENTS.md
 
-read instructions in .github/copilot-instructions.md for more details on development conventions and release note generation.
-
-
 ## Project Overview
 
 This project, `immich-go`, is a command-line tool written in Go. Its primary purpose is to provide an efficient way to upload large photo and video collections to a self-hosted [Immich](https://immich.app/) server.
@@ -15,6 +12,28 @@ Key features include:
 -   A rich set of commands for interacting with Immich, such as `upload`, `archive`, and `stack`.
 
 The project uses the Cobra library for its CLI structure and `goreleaser` to manage its release process.
+
+## Release Notes
+
+When asked to generate release notes, follow this format and guidance (avoid the script-based workflow):
+
+- Start with a brief, friendly introduction.
+- Use these sections in order:
+  - ✨ New Features (user-visible functionality)
+  - 🚀 Improvements (enhancements to existing features)
+  - 🐛 Bug Fixes (fixes to existing functionality)
+  - 💥 Breaking Changes (changes requiring user action)
+  - 🔧 Internal Changes (refactoring, CI/CD, tests - only if significant)
+- Remove technical prefixes like feat:, fix:, chore:, refactor:, doc:, e2e:, test:.
+- Write from the user's perspective and combine related commits.
+- Explain CLI changes, list affected flags, and add examples if needed.
+- Skip trivial changes (typos, README tweaks) and purely internal changes unless they impact users.
+
+## Fork Release Versioning
+
+- For this fork, bump the upstream minor version and append the suffix `-sweepy` to the release tag/version.
+- Example: upstream v0.31.0 -> fork release v0.32.0-sweepy.
+- Apply the `-sweepy` suffix to all future fork releases and use that version when generating release notes and running Goreleaser.
 
 ## Building and Running
 
@@ -86,3 +105,6 @@ golangci-lint run
 
 This is also integrated into the CI pipeline.
 
+# Version Control
+
+Use semantic/conventional commit messages
