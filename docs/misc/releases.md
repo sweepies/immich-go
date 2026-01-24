@@ -63,7 +63,6 @@ Flags:
   -h, --help                           help for from-immich
 
 Global Flags:
-  -l, --log-file string          Write log messages into the file
       --log-level string         Log level (DEBUG|INFO|WARN|ERROR), default INFO (default "INFO")
       --log-type string          Log formatted  as text of JSON file (default "text")
   -w, --write-to-folder string   Path where to write the archive
@@ -252,7 +251,6 @@ Global Flags:
       --client-timeout duration   Set server calls timeout (default 5m0s)
       --device-uuid string        Set a device UUID (default "gl65")
       --dry-run                   Simulate all actions
-  -l, --log-file string           Write log messages into the file
       --log-level string          Log level (DEBUG|INFO|WARN|ERROR), default INFO (default "INFO")
       --log-type string           Log formatted  as text of JSON file (default "text")
       --no-ui                     Disable the user interface
@@ -290,7 +288,6 @@ Global Flags:
       --client-timeout duration   Set server calls timeout (default 5m0s)
       --device-uuid string        Set a device UUID (default "gl65")
       --dry-run                   Simulate all actions
-  -l, --log-file string           Write log messages into the file
       --log-level string          Log level (DEBUG|INFO|WARN|ERROR), default INFO (default "INFO")
       --log-type string           Log formatted  as text of JSON file (default "text")
       --no-ui                     Disable the user interface
@@ -495,7 +492,7 @@ The option `-version` return the version of the executable.
 The UI mode now show the current activity of the immich server. After 10 seconds of zero activity, the program stops
 
 ### feat: generate a CSV files with the fate of each file
-Use the option `-debug-counters` to generate a CSV beside the log file
+Use the option `-debug-counters` to generate a CSV report file
 
 ### feat: [#308](https://github.com/simulot/immich-go/issues/308) Immich-go gets photos date from filename or path
 Immich-go tries to determine the date of capture with the file name, or the file path.
@@ -582,7 +579,7 @@ The counter `missing associated metadata` is broken since 0.15.0
 When the file name pattern returns no files, a message is printed, and the program ends.
 
 ### fix: [[#273](https://github.com/simulot/immich-go/issues/273)] Missing upload files
-Any error is counted as upload error, and reported in the log file.
+Any error is counted as upload error, and reported in the log output.
 
 ### fix: Error handling during multitasking
 Any error occurred during parallelized tasks cancels other as well.
@@ -608,16 +605,6 @@ The configuration file that contains the server and the key is now stored by def
 - Linux `$HOME/.config/immich-go/immich-go.json`
 - Windows `%AppData%\immich-go\immich-go.json`
 - Apple `$HOME/Library/Application Support/immich-go/immich-go.json` 
-
-### Store the log files into sensible dir for user's system
-The default log file is: 
-- Linux `$HOME/.cache/immich-go/immich-go_YYYY-MM-DD_HH-MI-SS.log`
-- Windows `%LocalAppData%\immich-go\immich-go_YYYY-MM-DD_HH-MI-SS.log`
-- Apple `$HOME/Library/Caches/immich-go/immich-go_YYYY-MM-DD_HH-MI-SS.log`
-
-### Feat: [[#249](https://github.com/simulot/immich-go/issues/249)] Fix Display the path of log file name
-The log file name is printed when the program exits.
-
 
 ## Release 0.14.1
 
@@ -647,7 +634,7 @@ The screen presents number of processed photos, how they have been processes, th
 ### A minimalist user interface
 
 This shiny interface can be be disabled for quieter user interface (`-no-ui`).
-The progression is visible. All details on operations are listed in the log file.
+The progression is visible. All details on operations are listed in the log output.
 
 
 ```
@@ -684,15 +671,6 @@ server has a better asset               :       0
 
 The code has been refactored to run several task simultaneously to animate the progression screen. The program runs now the reading of immich asset and the the takeout analysis in parallel.
 
-### Immich-go now always produces a log file 
-
-The default name for the log file is `immich-go YYYY-MM-DD HH-MI-SS.log`, located in the current directory.
-
-It's possible to give a path and a name to the log file with the option `-log-file=path/to/file.log`. 
-If the file file exists already, the new messages will be added to its end.
-
-The log level `OK` is removed.
-
 ### Immich-go is published under the AGPL-3.0 license
 
 I chose the same license as the immich project license to release immich-go. 
@@ -728,10 +706,6 @@ The option `-use-configuration=path/to/config/file` let you specify the configur
 an album per folder Holydays*.
 
 It can handle patterns like : /photo/\*/raw/\*.dmg
-
-### fix: Append Log #182
-Log are now appended to the log file
-
 
 ## Release 0.12.0
 
@@ -979,11 +953,6 @@ Added to an album        : Takeout/Google Photos/Photos from 2022/PXL_20220428_
 Server's asset is better : Takeout/Google Photos/Photos from 2022/PXL_20220526_181202808.jpg: An asset with the same name:"PXL_20220526_181202808" and date:"2022-05-26 20:12:02" but with bigger size:2.5 MB exists on the server. No need to upload.
 ... 
 ```
-
-### Write log into a file
-
-With the option `-log-file filename`, immich-go write all messages into the given file.
-
 
 ## Release 0.8.6
 

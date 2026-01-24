@@ -24,18 +24,11 @@ These options work with all commands:
 | Option | Default | Description |
 |--------|---------|-------------|
 | `-h, --help` | - | Show help information |
-| `-l, --log-file` | Auto-generated | Write log messages to specified file |
 | `--log-level` | `INFO` | Set logging level: DEBUG, INFO, WARN, ERROR |
 | `--log-type` | `TEXT` | Log format: TEXT or JSON |
 | `-v, --version` | - | Display current version |
 
-### Log File Locations
-
-| OS | Default Path |
-|----|-------------|
-| Linux | `$HOME/.cache/immich-go/immich-go_YYYY-MM-DD_HH-MI-SS.log` |
-| Windows | `%LocalAppData%\immich-go\immich-go_YYYY-MM-DD_HH-MI-SS.log` |
-| macOS | `$HOME/Library/Caches/immich-go/immich-go_YYYY-MM-DD_HH-MI-SS.log` |
+Logs are written to stdout/stderr. Redirect output to capture a file.
 
 ## Environment Variables
 

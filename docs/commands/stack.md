@@ -187,9 +187,9 @@ Use logging to track operations:
 ```bash
 immich-go stack \
   --log-level=DEBUG \
-  --log-file=/tmp/stacking.log \
   --manage-burst=Stack \
-  --server=... --api-key=...
+  --server=... --api-key=... \
+  > /tmp/stacking.log 2>&1
 ```
 
 ## Troubleshooting

@@ -78,7 +78,7 @@ immich-go upload from-google-photos \
 #### Resuming Interrupted Imports
 - **Safe to Restart**: Immich-Go detects existing files and skips duplicates
 - **Use Session Tags**: Enable `--session-tag` to track what was imported when
-- **Check Logs**: Review log files to identify where the import stopped
+- **Check Logs**: Review captured output (redirect to a file if needed) to identify where the import stopped
 
 ## Performance Optimization
 
@@ -407,24 +407,32 @@ immich-go upload from-folder \
 
 ### Logging Strategy
 
+immich-go logs to stdout/stderr, so capture output with shell redirection when you need a file.
+
 #### Development/Testing
 ```bash
---log-level=DEBUG \
---log-file=/tmp/immich-go-debug.log \
---api-trace
+immich-go upload from-folder \
+  --log-level=DEBUG \
+  --api-trace \
+  --server=... --api-key=... /photos/ \
+  > /tmp/immich-go-debug.log 2>&1
 ```
 
 #### Production Operations
 ```bash
---log-level=INFO \
---log-file=/var/log/immich-go/upload-$(date +%Y%m%d).log
+immich-go upload from-folder \
+  --log-level=INFO \
+  --server=... --api-key=... /photos/ \
+  > /var/log/immich-go/upload-$(date +%Y%m%d).log 2>&1
 ```
 
 #### Automated Operations
 ```bash
---log-level=WARN \
---log-file=/var/log/immich-go/automated.log \
---non-interactive
+immich-go upload from-folder \
+  --log-level=WARN \
+  --non-interactive \
+  --server=... --api-key=... /photos/ \
+  > /var/log/immich-go/automated.log 2>&1
 ```
 
 ### Health Monitoring
@@ -464,8 +472,8 @@ nethogs
 immich-go upload from-folder \
   --on-errors=continue \
   --log-level=INFO \
-  --log-file=/var/log/errors.log \
-  --server=... --api-key=... /photos/
+  --server=... --api-key=... /photos/ \
+  > /var/log/errors.log 2>&1
 
 # Review errors later
 grep "ERROR" /var/log/errors.log
@@ -535,8 +543,8 @@ immich-go upload from-google-photos \
   --session-tag \
   --tag="Migration/Full" \
   --concurrent-tasks=8 \
-  --log-file=/var/log/migration.log \
-  --server=... --api-key=... /takeout-*.zip
+  --server=... --api-key=... /takeout-*.zip \
+  > /var/log/migration.log 2>&1
 ```
 
 ### Post-Migration

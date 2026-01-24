@@ -8,7 +8,6 @@ The following environment variables can be used to configure `immich-go`.
 |----------|------|---------|-------------|
 | `IMMICH_GO_CONCURRENT_TASKS` | `--concurrent-tasks` | `12` | Number of concurrent tasks (1-20) |
 | `IMMICH_GO_DRY_RUN` | `--dry-run` | `false` | dry run |
-| `IMMICH_GO_LOG_FILE` | `--log-file` |  | Write log messages into the file |
 | `IMMICH_GO_LOG_LEVEL` | `--log-level` | `INFO` | Log level (DEBUG|INFO|WARN|ERROR), default INFO |
 | `IMMICH_GO_LOG_TYPE` | `--log-type` | `text` | Log formatted  as text of JSON file |
 | `IMMICH_GO_NON_INTERACTIVE` | `--non-interactive` | `false` | Disable interactive progress UI |
@@ -274,4 +273,3 @@ The following environment variables can be used to configure `immich-go`.
 | `IMMICH_GO_UPLOAD_FROM_PICASA_INCLUDE_TYPE` | `--include-type` |  | Single file type to include. (VIDEO or IMAGE) (default: all) |
 | `IMMICH_GO_UPLOAD_FROM_PICASA_INTO_ALBUM` | `--into-album` |  | Specify an album to import all files into |
 | `IMMICH_GO_UPLOAD_FROM_PICASA_RECURSIVE` | `--recursive` | `true` | Explore the folder and all its sub-folders |
-
