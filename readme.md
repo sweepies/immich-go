@@ -19,22 +19,33 @@
 
 This fork of [simulot/immich-go](https://github.com/simulot/immich-go) includes the following modifications:
 
+### New Features
+
+- **JSON output mode** – Use `--output=json` for JSONL progress streaming and structured JSON summary, with logs on stderr
+- **Non-interactive mode** – Use `--non-interactive` for line-by-line progress, with auto-detection when stdout isn't a TTY
+
+### Improvements
+
+- **Unix-style output** – Consistent stdout/stderr separation: reports to stdout, logs and progress to stderr
+- **Output validation** – Invalid `--output` values now show clear validation errors
+
+### Bug Fixes
+
+- **Duplicate summaries** – Prevented double JSON summaries for upload subcommands
+- **Duplicate reports** – Removed duplicate final report output in text mode
+- **Error reporting** – JSON summaries now reflect upload failures and write errors
+
+### Breaking Changes
+
+- **Logging flags removed** – The `--log-file` and `--log-type` flags have been removed; use shell redirection instead (e.g., `2>logs.txt`)
+- **UI flag removed** – The `--no-ui` flag has been removed; use `--non-interactive` instead
+
 ### Release Versioning
 
 - Fork releases use a `-sweepy` version suffix (e.g., `v0.32.0-sweepy`)
-- Version numbers follow the pattern: bump upstream minor version and append `-sweepy`
+- See the [releases page](https://github.com/sweepies/immich-go/releases) for version history
 
-### Configuration Changes
-
-- Consolidated agent instructions in `AGENTS.md` for better organization
-- Updated release configuration with enhanced snapshot versioning
-- Added `mise.toml` for improved development tooling support
-
-### Upstream Compatibility
-
-This fork maintains compatibility with the upstream project's core functionality. All standard commands and features work as documented. The changes primarily affect the development workflow and release process.
-
-For the latest upstream changes, see [simulot/immich-go releases](https://github.com/simulot/immich-go/releases).
+For the upstream project, see [simulot/immich-go](https://github.com/simulot/immich-go).
 
 ## 🚀 Quick Start
 
