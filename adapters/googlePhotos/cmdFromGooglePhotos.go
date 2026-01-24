@@ -93,10 +93,12 @@ func expandTakeoutArgs(args []string) ([]string, error) {
 
 	for _, arg := range args {
 		clean := filepath.Clean(arg)
-		if _, ok := seen[clean]; ok {
+		// Normalize to lowercase for deduplication to handle case-insensitive filesystems
+		cleanLower := strings.ToLower(clean)
+		if _, ok := seen[cleanLower]; ok {
 			continue
 		}
-		seen[clean] = struct{}{}
+		seen[cleanLower] = struct{}{}
 
 		info, err := os.Stat(clean)
 		if err != nil || !info.IsDir() {
@@ -122,10 +124,12 @@ func expandTakeoutArgs(args []string) ([]string, error) {
 			}
 			zipPath := filepath.Clean(filepath.Join(clean, name))
 			foundZips = true
-			if _, ok := seen[zipPath]; ok {
+			// Normalize to lowercase for deduplication to handle case-insensitive filesystems
+			zipPathLower := strings.ToLower(zipPath)
+			if _, ok := seen[zipPathLower]; ok {
 				continue
 			}
-			seen[zipPath] = struct{}{}
+			seen[zipPathLower] = struct{}{}
 			expanded = append(expanded, zipPath)
 		}
 
