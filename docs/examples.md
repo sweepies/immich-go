@@ -377,7 +377,7 @@ immich-go archive from-immich \
   --api-key="$API_KEY" \
   --from-date-range="$(date -d '7 days ago' '+%Y-%m-%d'),$(date '+%Y-%m-%d')" \
   --write-to-folder="$BACKUP_DIR/$DATE" \
-  --log-file="$BACKUP_DIR/$DATE/backup.log"
+  > "$BACKUP_DIR/$DATE/backup.log" 2>&1
 
 echo "Backup completed: $BACKUP_DIR/$DATE"
 ```
@@ -402,7 +402,7 @@ New-Item -ItemType Directory -Path "$BackupDir\$Date" -Force
   --api-key="$ApiKey" `
   --from-date-range="$(Get-Date (Get-Date).AddDays(-7) -Format 'yyyy-MM-dd'),$(Get-Date -Format 'yyyy-MM-dd')" `
   --write-to-folder="$BackupDir\$Date" `
-  --log-file="$BackupDir\$Date\backup.log"
+  *> "$BackupDir\$Date\backup.log"
 
 Write-Host "Backup completed: $BackupDir\$Date"
 ```

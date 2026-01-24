@@ -10,7 +10,6 @@ The configuration file can be a `TOML`, `YAML` or `JSON` file. By default, `immi
 ```toml
 concurrent-tasks = 12
 dry-run = false
-log-file = ''
 log-level = 'INFO'
 log-type = 'text'
 non-interactive = false
@@ -353,8 +352,7 @@ archive:
   write-to-folder: ""
 concurrent-tasks: 12
 dry-run: false
-log-file: ""
-log-level: INFO
+  log-level: INFO
 log-type: text
 non-interactive: false
 on-errors: stop
@@ -587,7 +585,6 @@ upload:
   },
   "concurrent-tasks": 12,
   "dry-run": false,
-  "log-file": "",
   "log-level": "INFO",
   "log-type": "text",
   "non-interactive": false,
