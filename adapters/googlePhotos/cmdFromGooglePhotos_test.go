@@ -103,3 +103,81 @@ func TestExpandTakeoutArgsEmptyDirectory(t *testing.T) {
 		t.Errorf("expandTakeoutArgs() = %v, want [%v]", result, tmpDir)
 	}
 }
+
+func TestExpandTakeoutArgsNonTakeoutZips(t *testing.T) {
+	// Create a directory with non-takeout zip files
+	tmpDir := t.TempDir()
+	
+	// Create a takeout zip file
+	takeoutZip := filepath.Join(tmpDir, "takeout-001.zip")
+	if err := os.WriteFile(takeoutZip, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+	
+	// Create a non-takeout zip file (should be excluded)
+	otherZip := filepath.Join(tmpDir, "backup.zip")
+	if err := os.WriteFile(otherZip, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+	
+	result, err := expandTakeoutArgs([]string{tmpDir})
+	if err != nil {
+		t.Fatalf("expandTakeoutArgs() error = %v", err)
+	}
+	
+	// Should only return the takeout zip file
+	if len(result) != 1 {
+		t.Errorf("expandTakeoutArgs() got %d items, want 1 item", len(result))
+		t.Errorf("got: %v", result)
+		return
+	}
+	
+	if result[0] != takeoutZip {
+		t.Errorf("expandTakeoutArgs() = %v, want [%v]", result, takeoutZip)
+	}
+}
+
+func TestExpandTakeoutArgsCaseInsensitive(t *testing.T) {
+	// Create a directory with various case combinations
+	tmpDir := t.TempDir()
+	
+	// Create takeout zip files with different cases
+	zip1 := filepath.Join(tmpDir, "takeout-001.zip")
+	zip2 := filepath.Join(tmpDir, "Takeout-002.ZIP")
+	zip3 := filepath.Join(tmpDir, "TAKEOUT-003.zip")
+	
+	if err := os.WriteFile(zip1, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+	if err := os.WriteFile(zip2, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+	if err := os.WriteFile(zip3, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+	
+	result, err := expandTakeoutArgs([]string{tmpDir})
+	if err != nil {
+		t.Fatalf("expandTakeoutArgs() error = %v", err)
+	}
+	
+	// Should return all three takeout zip files
+	if len(result) != 3 {
+		t.Errorf("expandTakeoutArgs() got %d items, want 3 items", len(result))
+		t.Errorf("got: %v", result)
+		return
+	}
+	
+	// Use map-based comparison since order doesn't matter
+	resultMap := make(map[string]bool)
+	for _, r := range result {
+		resultMap[r] = true
+	}
+	
+	expected := []string{zip1, zip2, zip3}
+	for _, exp := range expected {
+		if !resultMap[exp] {
+			t.Errorf("expandTakeoutArgs() missing expected item: %v", exp)
+		}
+	}
+}

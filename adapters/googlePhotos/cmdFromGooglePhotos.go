@@ -117,7 +117,9 @@ func expandTakeoutArgs(args []string) ([]string, error) {
 				continue
 			}
 			name := entry.Name()
-			if !strings.HasSuffix(strings.ToLower(name), ".zip") {
+			nameLower := strings.ToLower(name)
+			// Only include zip files that start with "takeout-"
+			if !strings.HasPrefix(nameLower, "takeout-") || !strings.HasSuffix(nameLower, ".zip") {
 				continue
 			}
 			zipPath := filepath.Clean(filepath.Join(clean, name))
