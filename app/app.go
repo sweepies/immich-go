@@ -20,15 +20,13 @@ import (
 // - the log and the log-level
 // - application counters
 // - the concurrency
-// - the configuration file
+// - configuration values
 
 type Application struct {
 	// CLI flags
 	DryRun         bool
 	OnErrors       cliflags.OnErrorsFlag
-	SaveConfig     bool
 	ConcurrentTask int
-	CfgFile        string
 	Output         string // Output format: text or json
 	NonInteractive bool   // Disable interactive UI, use text progress output
 
@@ -44,9 +42,7 @@ type Application struct {
 }
 
 func (app *Application) RegisterFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&app.CfgFile, "config", "", "config file (default is ./immich-go.yaml)")
 	flags.BoolVar(&app.DryRun, "dry-run", false, "dry run")
-	flags.BoolVar(&app.SaveConfig, "save-config", false, "Save the configuration to immich-go.yaml")
 	flags.Var(&app.OnErrors, "on-errors", "What to do when an error occurs (stop, continue, accept N errors at max)")
 	flags.IntVar(&app.ConcurrentTask, "concurrent-tasks", runtime.NumCPU(), "Number of concurrent tasks (1-20)")
 	flags.StringVarP(&app.Output, "output", "o", "text", "Output format (text|json) - json outputs JSONL to stdout, logs to stderr")

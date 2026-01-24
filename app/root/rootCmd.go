@@ -54,8 +54,8 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 		// Track start time for duration calculation
 		startTime = time.Now()
 
-		// Initialize configuration from the specified config file
-		err := a.Config.Init(a.CfgFile)
+		// Initialize configuration from environment variables
+		err := a.Config.Init()
 		if err != nil {
 			return err
 		}
@@ -84,14 +84,6 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 
 		// clip the number of concurrent tasks
 		a.ConcurrentTask = min(max(a.ConcurrentTask, 1), 20)
-
-		// Save configuration if the --save-config flag is set
-		if save, _ := cmd.Flags().GetBool("save-config"); save {
-			if err := a.Config.Save("immich-go.yaml"); err != nil {
-				fmt.Fprintln(os.Stderr, "Can't save the configuration: ", err.Error())
-				return err
-			}
-		}
 
 		// Start the log
 		err = a.Log().Open(cmd.Context(), cmd, a)
