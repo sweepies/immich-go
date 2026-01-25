@@ -2,6 +2,7 @@ package upload
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -53,7 +54,6 @@ func (m UpLoadMode) String() string {
 
 type UpCmd struct {
 	// Cli flags
-
 	shared.StackOptions
 	client     app.Client
 	Overwrite  bool // Always overwrite files on the server with local versions
@@ -61,8 +61,18 @@ type UpCmd struct {
 	SessionTag bool
 	session    string // Session tag value
 
+	// Source mode flags (mutually exclusive)
+	GoogleTakeout bool // --google flag
+	ICloudTakeout bool // --icloud flag
+	PicasaMode    bool // --picasa flag
+	FromImmich    bool // --from-immich flag
+
+	// Adapter configurations (embedded for flag registration)
+	folderCmd     folder.ImportFolderCmd
+	googleCmd     gp.TakeoutCmd
+	fromImmichCmd fromimmich.FromImmichCmd
+
 	// Upload command state
-	// Filters           []filters.Filter
 	tz                *time.Location
 	Mode              UpLoadMode
 	app               *app.Application
@@ -84,54 +94,146 @@ func (uc *UpCmd) RegisterFlags(flags *pflag.FlagSet) {
 	flags.StringSliceVar(&uc.Tags, "tag", nil, "Add tags to the imported assets. Can be specified multiple times. Hierarchy is supported using a / separator (e.g. 'tag1/subtag1')")
 	flags.BoolVar(&uc.SessionTag, "session-tag", false, "Tag uploaded photos with a tag \"{immich-go}/YYYY-MM-DD HH-MM-SS\"")
 
-	uc.StackOptions.RegisterFlags(flags)
+	// Source mode flags (mutually exclusive)
+	flags.BoolVar(&uc.GoogleTakeout, "google", false, "Import from Google Photos takeout")
+	flags.BoolVar(&uc.ICloudTakeout, "icloud", false, "Import from iCloud takeout")
+	flags.BoolVar(&uc.PicasaMode, "picasa", false, "Enable Picasa album parsing")
+	flags.BoolVar(&uc.FromImmich, "from-immich", false, "Transfer from another Immich server")
+
+	// Register adapter-specific flags
+	uc.folderCmd.RegisterFlagsFlat(flags, true)
+	uc.googleCmd.RegisterFlagsFlat(flags, true)
+	uc.fromImmichCmd.RegisterFlagsFlat(flags)
 }
 
-// NewUploadCommand creates the root "upload" command and adds subcommands for each supported source.
+// NewUploadCommand creates the "upload" command with flag-based source selection.
 // It registers flags and initializes the UpCmd struct, which holds the state for uploads.
 func NewUploadCommand(ctx context.Context, app *app.Application) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "upload [flags]",
-		Short: "Upload photos to an Immich server from various sources",
-		Args:  cobra.NoArgs, // This command does not accept any arguments, only subcommands
-	}
 	uc := &UpCmd{
 		app:               app,
 		localAssets:       syncset.New[string](),
 		immichAssetsReady: make(chan struct{}),
 	}
 
-	// Register CLI flags for the upload command
-	uc.RegisterFlags(cmd.PersistentFlags())
+	cmd := &cobra.Command{
+		Use:   "upload [flags] <paths>...",
+		Short: "Upload photos to an Immich server from various sources",
+		Long: `Upload photos to an Immich server from various sources.
 
-	// Add subcommands for each supported upload source
-	cmd.AddCommand(folder.NewFromFolderCommand(ctx, cmd, app, uc))
-	cmd.AddCommand(folder.NewFromICloudCommand(ctx, cmd, app, uc))
-	cmd.AddCommand(folder.NewFromPicasaCommand(ctx, cmd, app, uc))
-	cmd.AddCommand(gp.NewFromGooglePhotosCommand(ctx, cmd, app, uc))
-	cmd.AddCommand(fromimmich.NewFromImmichCommand(ctx, cmd, app, uc))
-
-	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		// Initialize the FileProcessor (tracker + logger)
-		if app.FileProcessor() == nil {
-			recorder := fileevent.NewRecorder(app.Log().Logger)
-			tracker := assettracker.NewWithLogger(app.Log().Logger, app.DryRun) // Enable debug mode in dry-run
-			processor := fileprocessor.New(tracker, recorder)
-			app.SetFileProcessor(processor)
-		}
-
-		app.SetTZ(time.Local)
-		if tz, err := cmd.Flags().GetString("time-zone"); err == nil && tz != "" {
-			if loc, err := time.LoadLocation(tz); err == nil {
-				app.SetTZ(loc)
+By default, uploads from local folders. Use source flags to change the source:
+  --google      Import from Google Photos takeout
+  --icloud      Import from iCloud takeout  
+  --picasa      Enable Picasa album parsing
+  --from-immich Transfer from another Immich server (no paths required)`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			// --from-immich doesn't require paths, others do
+			if uc.FromImmich {
+				if len(args) > 0 {
+					return errors.New("--from-immich does not accept path arguments")
+				}
+				return nil
 			}
-		} else {
-			return err
-		}
-		return nil
+			if len(args) < 1 {
+				return errors.New("requires at least one path argument")
+			}
+			return nil
+		},
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			// Validate mutual exclusivity of source flags
+			count := 0
+			if uc.GoogleTakeout {
+				count++
+			}
+			if uc.ICloudTakeout {
+				count++
+			}
+			if uc.FromImmich {
+				count++
+			}
+			// Note: --picasa can be combined with folder mode, so not counted
+			if count > 1 {
+				return errors.New("--google, --icloud, and --from-immich are mutually exclusive")
+			}
+
+			// Initialize the FileProcessor (tracker + logger)
+			if app.FileProcessor() == nil {
+				recorder := fileevent.NewRecorder(app.Log().Logger)
+				tracker := assettracker.NewWithLogger(app.Log().Logger, app.DryRun)
+				processor := fileprocessor.New(tracker, recorder)
+				app.SetFileProcessor(processor)
+			}
+
+			app.SetTZ(time.Local)
+			if tz, err := cmd.Flags().GetString("time-zone"); err == nil && tz != "" {
+				if loc, err := time.LoadLocation(tz); err == nil {
+					app.SetTZ(loc)
+				}
+			} else if err != nil {
+				return err
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return uc.run(cmd, args)
+		},
 	}
 
+	// Register CLI flags for the upload command
+	uc.RegisterFlags(cmd.Flags())
+
 	return cmd
+}
+
+// run creates the appropriate adapter based on source flags and executes the upload.
+func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
+	var adapter adapters.Reader
+	var err error
+
+	// Select and create the appropriate adapter based on source flags
+	switch {
+	case uc.FromImmich:
+		uc.Mode = UpModeFolder // Will be overridden, but set a default
+		adapter, err = uc.fromImmichCmd.NewAdapter(ctx, uc.app)
+		if err != nil {
+			return fmt.Errorf("failed to create immich adapter: %w", err)
+		}
+
+	case uc.GoogleTakeout:
+		uc.Mode = UpModeGoogleTakeout
+		adapter, err = uc.googleCmd.NewAdapter(uc.app, args)
+		if err != nil {
+			return fmt.Errorf("failed to create google photos adapter: %w", err)
+		}
+		defer uc.googleCmd.Close()
+
+	case uc.ICloudTakeout:
+		uc.Mode = UpModeICloud
+		adapter, err = uc.folderCmd.NewAdapter(uc.app, args, folder.SourceModeICloud)
+		if err != nil {
+			return fmt.Errorf("failed to create icloud adapter: %w", err)
+		}
+		defer uc.folderCmd.Close()
+
+	case uc.PicasaMode:
+		uc.Mode = UpModePicasa
+		adapter, err = uc.folderCmd.NewAdapter(uc.app, args, folder.SourceModePicasa)
+		if err != nil {
+			return fmt.Errorf("failed to create picasa adapter: %w", err)
+		}
+		defer uc.folderCmd.Close()
+
+	default:
+		// Default: folder mode
+		uc.Mode = UpModeFolder
+		adapter, err = uc.folderCmd.NewAdapter(uc.app, args, folder.SourceModeFolder)
+		if err != nil {
+			return fmt.Errorf("failed to create folder adapter: %w", err)
+		}
+		defer uc.folderCmd.Close()
+	}
+
+	return uc.Run(cmd, adapter)
 }
 
 // Run is called back by the actual asset reader

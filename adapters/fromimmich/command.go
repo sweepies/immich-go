@@ -71,6 +71,130 @@ func (fic *FromImmichCmd) RegisterFlags(flags *pflag.FlagSet) {
 	fic.client.RegisterFlags(flags, "from-")
 }
 
+// RegisterFlagsFlat registers flags for the flattened CLI (without subcommands).
+// This is used by the new upload/archive commands that use source mode flags.
+func (fic *FromImmichCmd) RegisterFlagsFlat(flags *pflag.FlagSet) {
+	// Use safe registration to avoid duplicate flag errors
+	safeStringVar(flags, &fic.Make, "from-make", "", "Get only assets with this make")
+	safeStringVar(flags, &fic.Model, "from-model", "", "Get only assets with this model")
+	safeStringVar(flags, &fic.Country, "from-country", "", "Get only assets from this country")
+	safeStringVar(flags, &fic.State, "from-state", "", "Get only assets from this state")
+	safeStringVar(flags, &fic.City, "from-city", "", "Get only assets from this city")
+	safeStringSliceVar(flags, &fic.Albums, "from-albums", nil, "Get assets only from those albums, can be used multiple times")
+	safeStringSliceVar(flags, &fic.Tags, "from-tags", nil, "Get assets only with those tags, can be used multiple times")
+	safeStringSliceVar(flags, &fic.People, "from-people", nil, "Get assets only with those people, can be used multiple times")
+	safeBoolVar(flags, &fic.IncludePartners, "from-partners", false, "Get partner's assets as well")
+	safeBoolVar(flags, &fic.OnlyArchived, "from-archived", false, "Get only archived assets")
+	safeBoolVar(flags, &fic.OnlyTrashed, "from-trash", false, "Get only trashed assets")
+	safeBoolVar(flags, &fic.OnlyFavorite, "from-favorite", false, "Get only favorite assets")
+	safeBoolVar(flags, &fic.OnlyNoAlbum, "from-no-album", false, "Get only assets that are not in any album")
+	safeIntVar(flags, &fic.MinimalRating, "from-minimal-rating", 0, "Get only assets with a rating greater or equal to this value")
+	fic.InclusionFlags.RegisterFlagsSafe(flags, "from-")
+	fic.client.RegisterFlagsSafe(flags, "from-")
+}
+
+// Safe flag registration helpers
+func safeBoolVar(flags *pflag.FlagSet, p *bool, name string, value bool, usage string) {
+	if flags.Lookup(name) == nil {
+		flags.BoolVar(p, name, value, usage)
+	}
+}
+
+func safeStringVar(flags *pflag.FlagSet, p *string, name string, value string, usage string) {
+	if flags.Lookup(name) == nil {
+		flags.StringVar(p, name, value, usage)
+	}
+}
+
+func safeStringSliceVar(flags *pflag.FlagSet, p *[]string, name string, value []string, usage string) {
+	if flags.Lookup(name) == nil {
+		flags.StringSliceVar(p, name, value, usage)
+	}
+}
+
+func safeIntVar(flags *pflag.FlagSet, p *int, name string, value int, usage string) {
+	if flags.Lookup(name) == nil {
+		flags.IntVar(p, name, value, usage)
+	}
+}
+
+// NewAdapter creates a FromImmich adapter with the given configuration.
+// This is the factory function for the flattened CLI approach.
+func (fic *FromImmichCmd) NewAdapter(ctx context.Context, app *app.Application) (adapters.Reader, error) {
+	err := fic.client.Open(ctx, app)
+	if err != nil {
+		return nil, err
+	}
+
+	fic.app = app
+	fic.processor = app.FileProcessor()
+	fic.ifs = immichfs.NewImmichFS(ctx, fic.client.Server, fic.client.Immich)
+	fic.ic = filenames.NewInfoCollector(time.Local, fic.client.Immich.SupportedMedia())
+
+	// Check filters values against immich suggestions
+	if fic.Make != "" {
+		err = fic.checkSuggestion(ctx, immich.SearchSuggestionRequest{
+			Type: immich.SearchSuggestionTypeCameraMake,
+		}, fic.Make)
+		if err != nil {
+			return nil, fmt.Errorf("invalid make: %w", err)
+		}
+	}
+	if fic.Model != "" {
+		err = fic.checkSuggestion(ctx, immich.SearchSuggestionRequest{
+			Type: immich.SearchSuggestionTypeCameraModel,
+			Make: fic.Make,
+		}, fic.Model)
+		if err != nil {
+			return nil, fmt.Errorf("invalid model: %w", err)
+		}
+	}
+	if fic.Country != "" {
+		err = fic.checkSuggestion(ctx, immich.SearchSuggestionRequest{
+			Type: immich.SearchSuggestionTypeCountry,
+		}, fic.Country)
+		if err != nil {
+			return nil, fmt.Errorf("invalid country: %w", err)
+		}
+	}
+	if fic.State != "" {
+		err = fic.checkSuggestion(ctx, immich.SearchSuggestionRequest{
+			Type:    immich.SearchSuggestionTypeState,
+			Country: fic.Country,
+		}, fic.State)
+		if err != nil {
+			return nil, fmt.Errorf("invalid state: %w", err)
+		}
+	}
+	if fic.City != "" {
+		err = fic.checkSuggestion(ctx, immich.SearchSuggestionRequest{
+			Type:    immich.SearchSuggestionTypeCity,
+			Country: fic.Country,
+			State:   fic.State,
+		}, fic.City)
+		if err != nil {
+			return nil, fmt.Errorf("invalid city: %w", err)
+		}
+	}
+
+	err = fic.resolveAlbums(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = fic.resolveTags(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = fic.resolvePeople(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return fic, nil
+}
+
 // NewFromImmichCommand creates a new Cobra command for fetching photos from an Immich server.
 // It registers all relevant flags, sets up the command context, and binds the execution logic.
 func NewFromImmichCommand(ctx context.Context, parent *cobra.Command, app *app.Application, runner adapters.Runner) *cobra.Command {

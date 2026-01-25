@@ -18,6 +18,9 @@ import (
 	"github.com/simulot/immich-go/internal/worker"
 )
 
+// progressUpdate is a callback function type for reporting progress
+type progressUpdate func(current, total int)
+
 func (uc *UpCmd) saveAlbum(ctx context.Context, album assets.Album, ids []string) (assets.Album, error) {
 	if len(ids) == 0 {
 		return album, nil
