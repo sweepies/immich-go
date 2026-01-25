@@ -185,7 +185,7 @@ Implementation notes:
 - Updated `app/root/rootCmd.go` to use new `*FromCLI` command functions
 - All existing tests pass with the new structure
 
-## Phase 6: Testing, docs, and cleanup
+## Phase 6: Testing, docs, and cleanup ✅
 Objective: raise confidence and remove unused legacy code.
 
 1. Add unit tests for each pipeline stage.
@@ -196,6 +196,28 @@ Objective: raise confidence and remove unused legacy code.
 Exit criteria:
 - Pipeline stages each have dedicated test coverage.
 - Upload flow is validated by at least one end-to-end test.
+
+Implementation notes:
+- Created `internal/upload/pipeline/stages_test.go` with comprehensive tests for:
+  - `DiscoveryStage`: Tests for successful discovery, owner filtering, external library filtering, progress callbacks, error handling, context cancellation
+  - `AlbumDiscoveryStage`: Tests for successful album discovery and error handling
+  - `JobControlStage`: Tests for pause/resume jobs, error handling differences between pause and resume
+  - `FinalizeStage`: Tests for cache closing behavior
+  - `ParallelStage`: Tests for parallel execution and error propagation
+  - `Pipeline.Run`: Tests for stage ordering and error stopping
+- Created `internal/upload/pipeline/runner_test.go` with integration tests for:
+  - End-to-end upload flow with mock server client
+  - Job pausing/resuming during upload
+  - Duplicate detection (same checksum, same name+date)
+  - Album handling and saving
+  - Context cancellation during upload
+  - Error callback behavior
+  - `NewContext` constructor tests
+- Created `mockServerClient` implementing `ServerClient` interface for testing
+- Created `mockSource` implementing `Source` interface for testing
+- Added deprecation comment to `app/upload/advice.go` indicating migration to `internal/upload/pipeline`
+- Updated `README.md` with new Architecture section documenting the package layout
+- Legacy `app/upload/` code retained (still actively used) but marked for migration
 
 ## Migration strategy
 - Maintain a compatibility layer in `internal/upload` that can accept legacy `UpCmd` inputs during transition.

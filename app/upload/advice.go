@@ -1,3 +1,8 @@
+// Package upload provides the legacy upload command implementation.
+//
+// Deprecated: This package is being migrated to internal/upload/pipeline.
+// The immichIndex type is duplicated in internal/upload/pipeline.Index.
+// New development should use the pipeline package instead.
 package upload
 
 import (

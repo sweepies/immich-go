@@ -127,6 +127,41 @@ For a detailed explanation of how each upload command works, please see the [Upl
 - **Server Migration**: [Transfer between Immich instances](docs/examples.md#server-migration)
 - **Bulk Organization**: [Stacking and tagging strategies](docs/best-practices.md#organization-strategies)
 
+## 🏗️ Architecture
+
+The codebase follows a modular architecture with clear separation of concerns:
+
+```
+cmd/immich-go          Main entry point
+app/                   Command implementations (Cobra CLI)
+  ├── root/            Root command and flag handling
+  ├── upload/          Upload command (legacy, migrating to internal/upload)
+  ├── archive/         Archive command
+  └── stack/           Stack command
+internal/              Core business logic
+  ├── adapters/        Source interface definitions
+  ├── appcontext/      Application context and dependency injection
+  ├── assets/          Asset domain model and caching
+  ├── cli/             CLI flag handling and configuration
+  ├── fileevent/       Event logging and tracking
+  ├── fileprocessor/   File processing coordination
+  ├── immich/          Immich API client (domain-specific interfaces)
+  ├── upload/          Upload pipeline and orchestration
+  │   ├── pipeline/    Staged upload pipeline with testable stages
+  │   └── source/      Source factory and adapters
+  └── observability/   Reporting and logging utilities
+adapters/              Source adapters (folder, Google Photos, iCloud, etc.)
+immich/                Legacy Immich API client (being migrated)
+```
+
+Key design principles:
+- **Staged pipeline**: Upload orchestration split into discovery, upload, and finalize stages
+- **Narrow interfaces**: Domain-specific client interfaces instead of monolithic structs
+- **Testable stages**: Each pipeline stage can be tested independently with mock clients
+- **Explicit dependencies**: Configuration passed explicitly rather than via service locators
+
+For development details, see [AGENTS.md](AGENTS.md) and [OVERHAUL.md](OVERHAUL.md).
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please see our [contributing guidelines](CONTRIBUTING.md) for details.
