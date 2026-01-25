@@ -15,10 +15,7 @@ import (
 	"github.com/simulot/immich-go/immich"
 	"github.com/simulot/immich-go/internal/assets"
 	"github.com/simulot/immich-go/internal/assets/cache"
-	"github.com/simulot/immich-go/internal/assettracker"
-	"github.com/simulot/immich-go/internal/fileevent"
 	"github.com/simulot/immich-go/internal/filenames"
-	"github.com/simulot/immich-go/internal/fileprocessor"
 	"github.com/simulot/immich-go/internal/filters"
 	"github.com/simulot/immich-go/internal/gen/syncset"
 	"github.com/simulot/immich-go/internal/groups/burst"
@@ -158,13 +155,8 @@ By default, uploads from local folders. Use source flags to change the source:
 				return errors.New("--google, --icloud, and --from-immich are mutually exclusive")
 			}
 
-			// Initialize the FileProcessor (tracker + logger)
-			if app.FileProcessor() == nil {
-				recorder := fileevent.NewRecorder(app.Log().Logger)
-				tracker := assettracker.NewWithLogger(app.Log().Logger, app.DryRun)
-				processor := fileprocessor.New(tracker, recorder)
-				app.SetFileProcessor(processor)
-			}
+			// Initialize the FileProcessor using centralized factory
+			app.EnsureFileProcessor()
 
 			app.SetTZ(time.Local)
 			if tz, err := cmd.Flags().GetString("time-zone"); err == nil && tz != "" {
@@ -251,12 +243,7 @@ func (uc *UpCmd) Run(cmd *cobra.Command, adapter adapters.Reader) error {
 	uc.app.SetSupportedMedia(uc.client.Immich.SupportedMedia())
 
 	// Initialize the FileProcessor if not already done
-	if uc.app.FileProcessor() == nil {
-		recorder := fileevent.NewRecorder(uc.app.Log().Logger)
-		tracker := assettracker.NewWithLogger(uc.app.Log().Logger, uc.app.DryRun)
-		processor := fileprocessor.New(tracker, recorder)
-		uc.app.SetFileProcessor(processor)
-	}
+	uc.app.EnsureFileProcessor()
 
 	if uc.SessionTag {
 		uc.session = fmt.Sprintf("{immich-go}/%s", time.Now().Format("2006-01-02 15:04:05"))

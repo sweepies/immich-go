@@ -10,9 +10,6 @@ import (
 	"github.com/simulot/immich-go/adapters/fromimmich"
 	gp "github.com/simulot/immich-go/adapters/googlePhotos"
 	"github.com/simulot/immich-go/app"
-	"github.com/simulot/immich-go/internal/assettracker"
-	"github.com/simulot/immich-go/internal/fileevent"
-	"github.com/simulot/immich-go/internal/fileprocessor"
 	"github.com/spf13/cobra"
 )
 
@@ -82,13 +79,8 @@ By default, archives from local folders. Use source flags to change the source:
 				return errors.New("--google, --icloud, and --from-immich are mutually exclusive")
 			}
 
-			// Initialize the FileProcessor (tracker + logger)
-			if app.FileProcessor() == nil {
-				logger := fileevent.NewRecorder(app.Log().Logger)
-				tracker := assettracker.NewWithLogger(app.Log().Logger, app.DryRun)
-				processor := fileprocessor.New(tracker, logger)
-				app.SetFileProcessor(processor)
-			}
+			// Initialize the FileProcessor using centralized factory
+			app.EnsureFileProcessor()
 
 			return nil
 		},

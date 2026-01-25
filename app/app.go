@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/simulot/immich-go/internal/appcontext"
 	cliflags "github.com/simulot/immich-go/internal/cliFlags"
 	"github.com/simulot/immich-go/internal/config"
 	"github.com/simulot/immich-go/internal/fileprocessor"
@@ -119,4 +120,28 @@ func (app *Application) ProcessError(err error) error {
 		return err
 	}
 	return nil
+}
+
+// Context creates an immutable appcontext.Context from the current Application state.
+// This serves as a bridge during the transition from Application to appcontext.Context,
+// allowing commands to gradually adopt the new pattern.
+func (app *Application) Context() *appcontext.Context {
+	return appcontext.New(
+		appcontext.WithDryRun(app.DryRun),
+		appcontext.WithOnErrors(app.OnErrors),
+		appcontext.WithConcurrentTasks(app.ConcurrentTask),
+		appcontext.WithOutput(app.Output),
+		appcontext.WithTimeZone(app.tz),
+		appcontext.WithLogger(app.log.Logger),
+		appcontext.WithFileProcessor(app.processor),
+		appcontext.WithSupportedMedia(app.sm),
+	)
+}
+
+// EnsureFileProcessor ensures the FileProcessor is initialized.
+// If not already set, it creates one using the appcontext factory.
+func (app *Application) EnsureFileProcessor() {
+	if app.processor == nil {
+		app.processor = appcontext.NewFileProcessor(app.log.Logger, app.DryRun)
+	}
 }

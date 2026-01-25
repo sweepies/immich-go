@@ -6,9 +6,7 @@ import (
 
 	"github.com/simulot/immich-go/adapters"
 	"github.com/simulot/immich-go/adapters/folder"
-	"github.com/simulot/immich-go/internal/assettracker"
 	"github.com/simulot/immich-go/internal/fileevent"
-	"github.com/simulot/immich-go/internal/fileprocessor"
 	"github.com/simulot/immich-go/internal/fshelper/osfs"
 	"github.com/spf13/cobra"
 )
@@ -19,13 +17,8 @@ func (ac *ArchiveCmd) Run(cmd *cobra.Command, adapter adapters.Reader) error {
 	log := ac.app.Log()
 	log.Info("in ArchiveCmd.Run", "archivePath", ac.ArchivePath)
 
-	// Initialize the Journal and FileProcessor
-	if ac.app.FileProcessor() == nil {
-		recorder := fileevent.NewRecorder(ac.app.Log().Logger)
-		tracker := assettracker.NewWithLogger(ac.app.Log().Logger, ac.app.DryRun)
-		processor := fileprocessor.New(tracker, recorder)
-		ac.app.SetFileProcessor(processor)
-	}
+	// Initialize the FileProcessor using centralized factory
+	ac.app.EnsureFileProcessor()
 
 	p := ac.ArchivePath
 	err := os.MkdirAll(p, 0o755)
