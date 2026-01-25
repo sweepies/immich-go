@@ -1,7 +1,6 @@
 package folder
 
 import (
-	"context"
 	"errors"
 	"io/fs"
 	"strings"
@@ -68,38 +67,6 @@ type ImportFolderCmd struct {
 	picasaAlbums            *gen.SyncMap[string, PicasaAlbum] // ap[string]PicasaAlbum
 	icloudMetas             *gen.SyncMap[string, iCloudMeta]
 	icloudMetaPass          bool
-}
-
-func (ifc *ImportFolderCmd) RegisterFlags(flags *pflag.FlagSet, cmd *cobra.Command) {
-	ifc.Recursive = true
-	ifc.supportedMedia = filetypes.DefaultSupportedMedia
-	ifc.UsePathAsAlbumName = FolderModeNone
-	ifc.BannedFiles, _ = namematcher.New(shared.DefaultBannedFiles...)
-
-	flags.Var(&ifc.BannedFiles, "ban-file", "Exclude a file based on a pattern (case-insensitive). Can be specified multiple times.")
-	flags.StringVar(&ifc.ImportIntoAlbum, "into-album", "", "Specify an album to import all files into")
-	flags.Var(&ifc.UsePathAsAlbumName, "folder-as-album", "Import all files in albums defined by the folder structure. Can be set to 'FOLDER' to use the folder name as the album name, or 'PATH' to use the full path as the album name")
-	flags.StringVar(&ifc.AlbumNamePathSeparator, "album-path-joiner", " / ", "Specify a string to use when joining multiple folder names to create an album name (e.g. ' ',' - ')")
-	flags.BoolVar(&ifc.Recursive, "recursive", true, "Explore the folder and all its sub-folders")
-	flags.BoolVar(&ifc.IgnoreSideCarFiles, "ignore-sidecar-files", false, "Don't upload sidecar with the photo.")
-	flags.BoolVar(&ifc.FolderAsTags, "folder-as-tags", false, "Use the folder structure as tags, (ex: the file  holiday/summer 2024/file.jpg will have the tag holiday/summer 2024)")
-	flags.BoolVar(&ifc.TakeDateFromFilename, "date-from-name", true, "Use the date from the filename if the date isn't available in the metadata (Only for jpg, mp4, heic, dng, cr2, cr3, arw, raf, nef, mov)")
-
-	if cmd.Parent() != nil && cmd.Parent().Name() == "upload" {
-		ifc.StackOptions.RegisterFlags(flags)
-	}
-
-	ifc.InclusionFlags.RegisterFlags(flags, "") // selection per extension
-	ifc.ICloudTakeout = false
-	ifc.PicasaAlbum = false
-	switch cmd.Name() {
-	case "from-picasa":
-		flags.BoolVar(&ifc.PicasaAlbum, "album-picasa", true, "Use Picasa album name found in .picasa.ini file")
-	case "from-icloud":
-		ifc.ICloudTakeout = true
-		ifc.PicasaAlbum = false
-		cmd.Flags().BoolVar(&ifc.ICloudMemoriesAsAlbums, "memories", false, "Import icloud memories as albums")
-	}
 }
 
 // RegisterFlagsFlat registers flags for the flattened CLI (without subcommands).
@@ -214,53 +181,4 @@ func (ifc *ImportFolderCmd) Close() error {
 		ifc.pool.Stop()
 	}
 	return fshelper.CloseFSs(ifc.fsyss)
-}
-
-func NewFromFolderCommand(ctx context.Context, parent *cobra.Command, app *app.Application, runner adapters.Runner) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "from-folder [flags] <path>...",
-		Short: "Upload photos from a folder",
-		Args:  cobra.MinimumNArgs(1),
-	}
-	cmd.SetContext(ctx)
-	flags := cmd.Flags()
-	o := ImportFolderCmd{}
-	o.RegisterFlags(flags, cmd)
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return o.run(cmd, args, app, runner)
-	}
-
-	return cmd
-}
-
-func NewFromICloudCommand(ctx context.Context, parent *cobra.Command, app *app.Application, runner adapters.Runner) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "from-icloud [flags] <path>...",
-		Short: "Upload photos from an iCloud takeout folder or zip file",
-		Args:  cobra.MinimumNArgs(1),
-	}
-	cmd.SetContext(ctx)
-	flags := cmd.Flags()
-	o := ImportFolderCmd{}
-	o.RegisterFlags(flags, cmd)
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return o.run(cmd, args, app, runner)
-	}
-	return cmd
-}
-
-func NewFromPicasaCommand(ctx context.Context, parent *cobra.Command, app *app.Application, runner adapters.Runner) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "from-picasa [flags] <path>...",
-		Short: "Upload photos from a Picasa folder or zip file",
-		Args:  cobra.MinimumNArgs(1),
-	}
-	cmd.SetContext(ctx)
-	flags := cmd.Flags()
-	o := ImportFolderCmd{}
-	o.RegisterFlags(flags, cmd)
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return o.run(cmd, args, app, runner)
-	}
-	return cmd
 }

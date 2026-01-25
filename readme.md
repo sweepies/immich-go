@@ -24,7 +24,7 @@ This fork of [simulot/immich-go](https://github.com/simulot/immich-go) includes 
 ### New Features
 
 - **JSON output mode** – Use `--output=json` for JSONL progress streaming and structured JSON summary, with logs on stderr
-- **Simplified CLI** – Flag-based source selection replaces subcommands (e.g., `upload --google` instead of `upload from-google-photos`)
+- **Simplified CLI** – Flag-based source selection (e.g., `upload --google`)
 
 ### Improvements
 
@@ -40,7 +40,7 @@ This fork of [simulot/immich-go](https://github.com/simulot/immich-go) includes 
 
 ### Breaking Changes
 
-- **CLI restructured** – Subcommands like `from-folder`, `from-google-photos` replaced with flags (`--google`, `--icloud`, `--picasa`, `--from-immich`)
+- **CLI restructured** – Source selection now uses flags (`--google`, `--icloud`, `--picasa`, `--from-immich`)
 - **Config files removed** – The `--config` and `--save-config` flags have been removed; use environment variables or CLI flags
 - **TUI removed** – Interactive TUI has been removed; output is always text or JSON
 - **Logging flags removed** – The `--log-file` and `--log-type` flags have been removed; use shell redirection instead (e.g., `2>logs.txt`)

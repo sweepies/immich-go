@@ -52,25 +52,6 @@ type FromImmichCmd struct {
 	processor *fileprocessor.FileProcessor
 }
 
-func (fic *FromImmichCmd) RegisterFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&fic.Make, "from-make", "", "Get only assets with this make")
-	flags.StringVar(&fic.Model, "from-model", "", "Get only assets with this model")
-	flags.StringVar(&fic.Country, "from-country", "", "Get only assets from this country")
-	flags.StringVar(&fic.State, "from-state", "", "Get only assets from this state")
-	flags.StringVar(&fic.City, "from-city", "", "Get only assets from this city")
-	flags.StringSliceVar(&fic.Albums, "from-albums", nil, "Get assets only from those albums, can be used multiple times")
-	flags.StringSliceVar(&fic.Tags, "from-tags", nil, "Get assets only with those tags, can be used multiple times")
-	flags.StringSliceVar(&fic.People, "from-people", nil, "Get assets only with those people, can be used multiple times")
-	flags.BoolVar(&fic.IncludePartners, "from-partners", false, "Get partner's assets as well")
-	flags.BoolVar(&fic.OnlyArchived, "from-archived", false, "Get only archived assets")
-	flags.BoolVar(&fic.OnlyTrashed, "from-trash", false, "Get only trashed assets")
-	flags.BoolVar(&fic.OnlyFavorite, "from-favorite", false, "Get only favorite assets")
-	flags.BoolVar(&fic.OnlyNoAlbum, "from-no-album", false, "Get only assets that are not in any album")
-	flags.IntVar(&fic.MinimalRating, "from-minimal-rating", 0, "Get only assets with a rating greater or equal to this value")
-	fic.InclusionFlags.RegisterFlags(flags, "from-")
-	fic.client.RegisterFlags(flags, "from-")
-}
-
 // RegisterFlagsFlat registers flags for the flattened CLI (without subcommands).
 // This is used by the new upload/archive commands that use source mode flags.
 func (fic *FromImmichCmd) RegisterFlagsFlat(flags *pflag.FlagSet) {
@@ -193,26 +174,6 @@ func (fic *FromImmichCmd) NewAdapter(ctx context.Context, app *app.Application) 
 	}
 
 	return fic, nil
-}
-
-// NewFromImmichCommand creates a new Cobra command for fetching photos from an Immich server.
-// It registers all relevant flags, sets up the command context, and binds the execution logic.
-func NewFromImmichCommand(ctx context.Context, parent *cobra.Command, app *app.Application, runner adapters.Runner) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "from-immich [flags]",              // Command usage
-		Short: "Get photos from an Immich server", // Short description
-		Args:  cobra.MaximumNArgs(0),              // No positional arguments allowed
-	}
-	cmd.SetContext(ctx)    // Set command context
-	fic := &FromImmichCmd{ // Create command handler
-		app: app,
-	}
-	fic.RegisterFlags(cmd.Flags()) // Register CLI flags
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		// Execute the command logic
-		return fic.Run(ctx, cmd, app, runner)
-	}
-	return cmd
 }
 
 // Run executes the FromImmichCmd command, initializing the Immich client and validating filter values
