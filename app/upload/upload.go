@@ -150,6 +150,9 @@ By default, uploads from local folders. Use source flags to change the source:
 			if uc.FromImmich {
 				count++
 			}
+			if uc.PicasaMode && (uc.GoogleTakeout || uc.ICloudTakeout || uc.FromImmich) {
+				return errors.New("--picasa can only be used with folder uploads")
+			}
 			// Note: --picasa can be combined with folder mode, so not counted
 			if count > 1 {
 				return errors.New("--google, --icloud, and --from-immich are mutually exclusive")

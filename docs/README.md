@@ -36,7 +36,7 @@ This documentation is organized into several sections to help you get started qu
 ### Google Photos Migration
 - [Google Photos Takeout Guide](misc/google-takeout.md)
 - [Migration Best Practices](best-practices.md#google-photos-migration)
-- [Upload from Google Photos](commands/upload.md#from-google-photos)
+- [Upload from Google Photos](commands/upload.md)
 
 ### Advanced Users
 - [Technical Details](technical.md) for deep dive into functionality
@@ -47,13 +47,13 @@ This documentation is organized into several sections to help you get started qu
 
 ```bash
 # Upload from local folder
-immich-go upload from-folder --server=SERVER --api-key=KEY /path/to/photos
+immich-go upload --server=SERVER --api-key=KEY /path/to/photos
 
 # Upload Google Photos takeout
-immich-go upload from-google-photos --server=SERVER --api-key=KEY /path/to/takeout.zip
+immich-go upload --google --server=SERVER --api-key=KEY /path/to/takeout.zip
 
 # Archive from Immich server
-immich-go archive from-immich --server=SERVER --api-key=KEY --write-to-folder=/archive
+immich-go archive --from-immich --from-server=SERVER --from-api-key=KEY --write-to-folder=/archive
 
 # Stack similar photos
 immich-go stack --server=SERVER --api-key=KEY

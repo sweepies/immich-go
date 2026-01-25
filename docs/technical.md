@@ -7,18 +7,10 @@ This document covers the technical aspects of how Immich-Go processes files, han
 ### Text Output (Default)
 Immich-Go follows Unix philosophy for text output:
 - **Logs**: Written to stderr
-- **Progress**: Real-time updates with carriage returns in interactive mode
-- **Non-interactive**: Line-by-line progress every 5 seconds to stderr
+- **Progress**: Line-by-line updates every 5 seconds to stderr
 
-#### Interactive Mode
-When stdout is a TTY (terminal), Immich-Go displays an interactive progress spinner:
-```
-\rImmich read 45%, Assets found: 234, Upload errors: 0, Uploaded 180 .
-```
-The carriage return (`\r`) overwrites the previous line, creating a spinning effect.
-
-#### Non-Interactive Mode
-When stdout is not a TTY or `--non-interactive` is set:
+#### Progress Updates
+Text mode emits periodic progress lines:
 ```
 Immich read 25%, Assets found: 100, Upload errors: 0, Uploaded 75
 Immich read 50%, Assets found: 200, Upload errors: 0, Uploaded 150

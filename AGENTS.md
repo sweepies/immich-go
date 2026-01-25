@@ -66,14 +66,14 @@ Once built, the application can be run directly from the command line:
 The main commands are `upload`, `archive`, and `stack`. Here is a basic usage example:
 
 ```sh
-./immich-go upload from-folder --server http://your-immich-server:2283 --api-key YOUR_API_KEY /path/to/photos
+./immich-go upload --server http://your-immich-server:2283 --api-key YOUR_API_KEY /path/to/photos
 ```
 
 ## Development
 
 ### Testing
 
-The project has both unit and end-to-end (E2E) tests.
+The project has unit tests.
 
 **Unit Tests:**
 
@@ -83,17 +83,7 @@ Run all unit tests with race condition detection and coverage:
 go test -race -v -count=1 -coverprofile=coverage.out ./...
 ```
 
-**End-to-End (E2E) Tests:**
-
-E2E tests require a running Immich server and are run against a specific client test suite.
-
-```sh
-# Navigate to the E2E client directory
-cd internal/e2e/client
-
-# Run the E2E tests
-go test -v -tags=e2e -timeout=30m ./...
-```
+E2E infrastructure was removed during simplification, so only unit tests are available right now.
 
 ### Linting
 

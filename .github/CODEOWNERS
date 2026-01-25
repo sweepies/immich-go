@@ -28,6 +28,3 @@
 /docs/* @simulot
 /README.md @simulot
 /CONTRIBUTING.md @simulot
-
-# E2E test infrastructure (contains server setup)
-/internal/e2e/testdata/immich-server/* @simulot

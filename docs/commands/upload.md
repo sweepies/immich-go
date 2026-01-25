@@ -164,7 +164,7 @@ immich-go upload --google [options] <takeout-path>
 | `--people-tag`  | `true`  | Tag with people names from JSON |
 
 ### File Management
-Same options as `from-folder` for burst, RAW/JPEG, and HEIC/JPEG management.
+Same options as folder mode for burst, RAW/JPEG, and HEIC/JPEG management.
 
 ### Examples
 ```bash
@@ -287,7 +287,7 @@ immich-go upload --from-immich \
 ### JSON Mode (`--output=json`)
 - Outputs structured JSON Lines (JSONL) to stdout
 - Progress updates and final summary are separate JSON objects
-- Always uses non-interactive mode
+- Uses line-by-line progress output (no interactive TUI)
 - Ideal for automation and integration with other tools
 
 #### JSON Output Format

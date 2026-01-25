@@ -25,67 +25,67 @@ cd "$PROJECT_ROOT"
 # Check current branch
 current_branch=$(git branch --show-current)
 if [ "$current_branch" != "develop" ]; then
-    echo -e "${RED}❌ Must be on develop branch (currently on: $current_branch)${NC}"
-    exit 1
+	echo -e "${RED}❌ Must be on develop branch (currently on: $current_branch)${NC}"
+	exit 1
 fi
 
 # Check for required tokens
 if [ -z "$GITHUB_TOKEN" ]; then
-    echo -e "${YELLOW}🔑 GITHUB_TOKEN not set, trying to get from GitHub CLI...${NC}"
-    if command -v gh >/dev/null 2>&1; then
-        # Check if gh auth token command is available (requires newer gh version)
-        if gh auth --help 2>/dev/null | grep -q "token"; then
-            GITHUB_TOKEN=$(gh auth token 2>/dev/null || echo "")
-            if [ -z "$GITHUB_TOKEN" ]; then
-                echo -e "${RED}❌ Could not get token from GitHub CLI${NC}"
-                echo -e "${YELLOW}💡 Please ensure you're logged in with 'gh auth login'${NC}"
-                exit 1
-            fi
-            echo -e "${GREEN}✅ Got token from GitHub CLI${NC}"
-            export GITHUB_TOKEN
-        else
-            echo -e "${RED}❌ GitHub CLI version too old to get token automatically${NC}"
-            echo -e "${YELLOW}💡 Please either:${NC}"
-            echo "  1. Upgrade GitHub CLI: sudo apt update && sudo apt install gh"
-            echo "  2. Or set GITHUB_TOKEN manually: export GITHUB_TOKEN=your_token_here"
-            echo "     Get a token at: https://github.com/settings/tokens (scopes: repo, workflow)"
-            exit 1
-        fi
-    else
-        echo -e "${RED}❌ GITHUB_TOKEN environment variable is not set and GitHub CLI is not available${NC}"
-        echo -e "${YELLOW}💡 Please either:${NC}"
-        echo "  1. Install GitHub CLI and run 'gh auth login'"
-        echo "  2. Or set GITHUB_TOKEN manually: export GITHUB_TOKEN=your_token_here"
-        echo "     Get a token at: https://github.com/settings/tokens (scopes: repo, workflow)"
-        exit 1
-    fi
+	echo -e "${YELLOW}🔑 GITHUB_TOKEN not set, trying to get from GitHub CLI...${NC}"
+	if command -v gh >/dev/null 2>&1; then
+		# Check if gh auth token command is available (requires newer gh version)
+		if gh auth --help 2>/dev/null | grep -q "token"; then
+			GITHUB_TOKEN=$(gh auth token 2>/dev/null || echo "")
+			if [ -z "$GITHUB_TOKEN" ]; then
+				echo -e "${RED}❌ Could not get token from GitHub CLI${NC}"
+				echo -e "${YELLOW}💡 Please ensure you're logged in with 'gh auth login'${NC}"
+				exit 1
+			fi
+			echo -e "${GREEN}✅ Got token from GitHub CLI${NC}"
+			export GITHUB_TOKEN
+		else
+			echo -e "${RED}❌ GitHub CLI version too old to get token automatically${NC}"
+			echo -e "${YELLOW}💡 Please either:${NC}"
+			echo "  1. Upgrade GitHub CLI: sudo apt update && sudo apt install gh"
+			echo "  2. Or set GITHUB_TOKEN manually: export GITHUB_TOKEN=your_token_here"
+			echo "     Get a token at: https://github.com/settings/tokens (scopes: repo, workflow)"
+			exit 1
+		fi
+	else
+		echo -e "${RED}❌ GITHUB_TOKEN environment variable is not set and GitHub CLI is not available${NC}"
+		echo -e "${YELLOW}💡 Please either:${NC}"
+		echo "  1. Install GitHub CLI and run 'gh auth login'"
+		echo "  2. Or set GITHUB_TOKEN manually: export GITHUB_TOKEN=your_token_here"
+		echo "     Get a token at: https://github.com/settings/tokens (scopes: repo, workflow)"
+		exit 1
+	fi
 fi
 
 # Pull latest changes
 echo -e "${YELLOW}📥 Pulling latest changes from develop...${NC}"
 git pull origin develop
 
-# Run E2E tests
-echo -e "${YELLOW}🧪 Running E2E tests...${NC}"
-if ! go test -tags e2e ./internal/e2e/... -v; then
-    echo -e "${RED}❌ E2E tests failed${NC}"
-    exit 1
+# Run unit tests
+echo -e "${YELLOW}🧪 Running unit tests...${NC}"
+if ! go test ./...; then
+	echo -e "${RED}❌ Unit tests failed${NC}"
+	exit 1
 fi
-echo -e "${GREEN}✅ E2E tests passed${NC}"
+echo -e "${GREEN}✅ Unit tests passed${NC}"
 
 # Get latest stable release tag (without prerelease suffix)
 latest_stable=$(git tag --list 'v*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
 
 if [ -z "$latest_stable" ]; then
-    echo -e "${RED}❌ No stable release tags found${NC}"
-    exit 1
+	echo -e "${RED}❌ No stable release tags found${NC}"
+	exit 1
 fi
 
 echo -e "${GREEN}✅ Latest stable release: $latest_stable${NC}"
 
 # Parse version (remove 'v' prefix)
 version=${latest_stable#v}
-IFS='.' read -r major minor patch <<< "$version"
+IFS='.' read -r major minor patch <<<"$version"
 
 # Calculate next version (increment minor, reset patch)
 next_minor=$((minor + 1))
@@ -98,12 +98,12 @@ existing_prereleases=$(git tag --list "v$next_version.*" --sort=-version:refname
 
 next_patch=0
 if [ -n "$existing_prereleases" ]; then
-    # Extract patch numbers and find the highest
-    highest_patch=$(echo "$existing_prereleases" | sed -E "s/v$next_version\.([0-9]+)-dev-.*/\1/" | sort -n | tail -1)
-    next_patch=$((highest_patch + 1))
-    echo -e "${YELLOW}📈 Found existing prereleases, next patch: $next_patch${NC}"
+	# Extract patch numbers and find the highest
+	highest_patch=$(echo "$existing_prereleases" | sed -E "s/v$next_version\.([0-9]+)-dev-.*/\1/" | sort -n | tail -1)
+	next_patch=$((highest_patch + 1))
+	echo -e "${YELLOW}📈 Found existing prereleases, next patch: $next_patch${NC}"
 else
-    echo -e "${BLUE}📋 No existing prereleases found for v$next_version, starting with patch 0${NC}"
+	echo -e "${BLUE}📋 No existing prereleases found for v$next_version, starting with patch 0${NC}"
 fi
 
 # Get short commit hash
@@ -122,8 +122,8 @@ echo "  Branch: $current_branch"
 echo ""
 read -p "Continue? (y/N): " confirm
 if [[ ! $confirm =~ ^[Yy]$ ]]; then
-    echo -e "${YELLOW}👋 Aborted${NC}"
-    exit 0
+	echo -e "${YELLOW}👋 Aborted${NC}"
+	exit 0
 fi
 
 # Create and push tag

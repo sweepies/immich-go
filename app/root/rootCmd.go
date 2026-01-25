@@ -89,9 +89,10 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 
 		// Output JSON summary for archive and stack commands (upload handles its own)
 		// Only output if we have a FileProcessor and we're in JSON mode
-		// Exclude upload subcommands (from-folder, from-google-photos, etc.) which handle their own summary
+		// Exclude upload command and its subcommands which handle their own summary
 		isUploadSubcommand := cmd.Parent() != nil && cmd.Parent().Name() == "upload"
-		if a.Output == "json" && a.FileProcessor() != nil && !isUploadSubcommand {
+		isUploadCommand := cmd.Name() == "upload"
+		if a.Output == "json" && a.FileProcessor() != nil && !isUploadCommand && !isUploadSubcommand {
 			duration := time.Since(startTime).Seconds()
 			counters := a.FileProcessor().GetAssetCounters()
 			eventCounts := a.FileProcessor().GetEventCounts()

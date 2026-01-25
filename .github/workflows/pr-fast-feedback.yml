@@ -2,7 +2,7 @@ name: PR Fast Feedback
 
 # This workflow provides fast feedback on pull requests with code changes.
 # It runs linting, unit tests, security scanning, and build checks in parallel.
-# All checks must pass before E2E tests can run.
+# All checks provide fast feedback for contributors.
 
 on:
   pull_request:
@@ -96,8 +96,6 @@ jobs:
 
       - name: Run tests with race detection
         run: go test -race -v -count=1 ./...
-
-  # Windows tests moved to E2E Windows runner to avoid spinning up 2 Windows runners
 
   # Security scanning
   security-scan:
@@ -253,10 +251,7 @@ jobs:
 
             const comment = isDocOnly 
               ? `## ✅ Fast Feedback Passed (Documentation)\n\nThis PR only contains documentation changes - code quality checks were skipped.\n\n**Next Steps:**\n✅ Ready to merge once approved.`
-              : `## ✅ Fast Feedback Passed\n\nAll code quality checks have passed:\n- ✅ Linting\n- ✅ Unit Tests (Linux)\n- ✅ Security Scanning\n- ✅ Build Verification (Linux, Windows, macOS)\n\n**Next Steps:**\n${context.payload.pull_request.author_association === 'MEMBER' || context.payload.pull_request.author_association === 'OWNER' 
-                ? '🚀 E2E tests will run automatically if code paths changed.'
-                : '⏳ E2E tests require maintainer approval. A maintainer can trigger them by:\n- Approving this PR, or\n- Commenting `/run-e2e`'
-              }`;
+              : `## ✅ Fast Feedback Passed\n\nAll code quality checks have passed:\n- ✅ Linting\n- ✅ Unit Tests (Linux)\n- ✅ Security Scanning\n- ✅ Build Verification (Linux, Windows, macOS)\n\n**Next Steps:**\n✅ Ready for review.`;
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,

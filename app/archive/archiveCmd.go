@@ -74,6 +74,9 @@ By default, archives from local folders. Use source flags to change the source:
 			if ac.FromImmich {
 				count++
 			}
+			if ac.PicasaMode && (ac.GoogleTakeout || ac.ICloudTakeout || ac.FromImmich) {
+				return errors.New("--picasa can only be used with folder archives")
+			}
 			// Note: --picasa can be combined with folder mode, so not counted
 			if count > 1 {
 				return errors.New("--google, --icloud, and --from-immich are mutually exclusive")
