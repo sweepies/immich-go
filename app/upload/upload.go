@@ -241,8 +241,6 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 
 // Run is called back by the actual asset reader
 func (uc *UpCmd) Run(cmd *cobra.Command, adapter adapters.Reader) error {
-	uc.Mode = UpModeFolder // TODO
-
 	// ready to run
 	ctx := cmd.Context()
 	err := uc.client.Open(ctx, uc.app)
