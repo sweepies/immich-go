@@ -31,6 +31,14 @@ func (ac *ArchiveCmd) Run(cmd *cobra.Command, source adapters.Source) error {
 	if err != nil {
 		return err
 	}
+	// Close the underlying filesystem if it supports closing (defensive code for future FS types)
+	if c, ok := destFS.(interface{ Close() error }); ok {
+		defer func() {
+			if closeErr := c.Close(); closeErr != nil {
+				log.Error("failed to close filesystem", "error", closeErr)
+			}
+		}()
+	}
 
 	gChan := source.Browse(ctx)
 	errCount := 0
