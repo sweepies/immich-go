@@ -146,7 +146,7 @@ Implementation notes:
 - Updated `internal/upload/pipeline/pipeline.go`: Uses `adapters.Source` type alias
 - Legacy adapters remain functional; new `Source` interface enables gradual migration
 
-## Phase 5: CLI refactor and command wiring
+## Phase 5: CLI refactor and command wiring ✅
 Objective: reduce command types to configuration and routing only.
 
 1. Replace `UpCmd` with a small config struct passed to the upload pipeline.
@@ -157,6 +157,33 @@ Objective: reduce command types to configuration and routing only.
 Exit criteria:
 - Command types contain only flags and option mapping logic.
 - Upload behavior remains identical from a user perspective.
+
+Implementation notes:
+- Created `internal/upload/config.go` with pure data `Config` struct (no CLI dependencies)
+- Created `internal/cli/upload/` package with:
+  - `flags.go`: `Flags` struct for CLI flag registration, validation, and config mapping
+  - `command.go`: `CommandBuilder` for creating cobra commands with proper flag registration
+- Created `internal/cli/archive/` package with:
+  - `flags.go`: `Flags` struct and `Config` type for archive command
+  - `command.go`: `CommandBuilder` for archive command
+- Created `internal/cli/stack/` package with:
+  - `flags.go`: `Flags` struct and `Config` type for stack command
+  - `command.go`: `CommandBuilder` for stack command
+- Refactored `app/upload/upload.go`:
+  - Removed legacy `NewUploadCommand()` function
+  - `NewUploadCommandFromCLI()` is now the only command creation method
+  - `UpCmd` struct simplified to use `config` field for all configuration
+  - Removed redundant flag fields (Overwrite, Tags, SessionTag, source mode flags)
+- Refactored `app/archive/archiveCmd.go`:
+  - Removed legacy `NewArchiveCommand()` function
+  - `NewArchiveCommandFromCLI()` is now the only command creation method
+  - `ArchiveCmd` struct simplified to use `config` field
+- Refactored `app/stack/stack.go`:
+  - Removed legacy `NewStackCommand()` function
+  - `NewStackCommandFromCLI()` is now the only command creation method
+  - `StackCmd` struct simplified to use `config` field
+- Updated `app/root/rootCmd.go` to use new `*FromCLI` command functions
+- All existing tests pass with the new structure
 
 ## Phase 6: Testing, docs, and cleanup
 Objective: raise confidence and remove unused legacy code.

@@ -433,10 +433,10 @@ func (uc *UpCmd) handleAsset(ctx context.Context, a *assets.Asset) error {
 func (uc *UpCmd) uploadAsset(ctx context.Context, a *assets.Asset) (string, error) {
 	defer uc.app.Log().Debug("upload asset", "file", a)
 
-	if uc.SessionTag {
+	if uc.config.SessionTag {
 		a.AddTag(uc.session)
 	}
-	for _, tag := range uc.Tags {
+	for _, tag := range uc.config.Tags {
 		a.AddTag(tag)
 	}
 

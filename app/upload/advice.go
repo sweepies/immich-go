@@ -286,7 +286,7 @@ func (ii *immichIndex) ShouldUpload(la *assets.Asset, upCmd *UpCmd) (*Advice, er
 			compareSize := size - int64(sa.FileSize)
 
 			switch {
-			case compareDate == 0 && upCmd.Overwrite:
+			case compareDate == 0 && upCmd.config.Overwrite:
 				return ii.adviceForceUpload(sa), nil
 			case compareDate == 0 && compareSize == 0:
 				return ii.adviceSameOnServer(sa), nil

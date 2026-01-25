@@ -15,12 +15,12 @@ func (ac *ArchiveCmd) Run(cmd *cobra.Command, adapter adapters.Reader) error {
 	// ready to run
 	ctx := cmd.Context()
 	log := ac.app.Log()
-	log.Info("in ArchiveCmd.Run", "archivePath", ac.ArchivePath)
+	log.Info("in ArchiveCmd.Run", "archivePath", ac.config.ArchivePath)
 
 	// Initialize the FileProcessor using centralized factory
 	ac.app.EnsureFileProcessor()
 
-	p := ac.ArchivePath
+	p := ac.config.ArchivePath
 	err := os.MkdirAll(p, 0o755)
 	if err != nil {
 		return err
