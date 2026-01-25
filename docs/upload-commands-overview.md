@@ -110,7 +110,7 @@ This section explains how `immich-go upload --google` processes a Google Photos 
 
 #### Pass 1: Discovery and Cataloging
 
-First, the tool scans all the files in your Takeout archive (which can be one or more `.zip` files or a decompressed folder).
+First, the tool scans all the files in your Takeout archive (which can be one or more `.zip` files, a decompressed folder, or a folder containing `takeout-*.zip` parts that are auto-expanded).
 
 1.  **File Identification**: It identifies two main types of files:
     *   **Media Files**: Your actual photos and videos.

@@ -138,6 +138,11 @@ Upload from Google Photos Takeout archives.
 immich-go upload --google [options] <takeout-path>
 ```
 
+`<takeout-path>` can be:
+- One or more `takeout-*.zip` files
+- A decompressed Takeout folder
+- A directory containing `takeout-*.zip` parts (the `.zip` files are added automatically)
+
 ### Takeout Handling
 
 | Option                    | Default | Description                        |
@@ -170,6 +175,9 @@ Same options as folder mode for burst, RAW/JPEG, and HEIC/JPEG management.
 ```bash
 # Basic Google Photos import
 immich-go upload --google --server=http://localhost:2283 --api-key=your-key /path/to/takeout-*.zip
+
+# Folder of takeout parts (auto-expands .zip files)
+immich-go upload --google --server=http://localhost:2283 --api-key=your-key /path/to/takeout
 
 # Import including unmatched files
 immich-go upload --google --include-unmatched --server=http://localhost:2283 --api-key=your-key /takeout

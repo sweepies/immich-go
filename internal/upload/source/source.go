@@ -62,6 +62,10 @@ func ParsePaths(paths []string) ([]fs.FS, error) {
 	if len(paths) == 0 {
 		return nil, errors.New("no paths provided")
 	}
+	paths, err := expandTakeoutArgs(paths)
+	if err != nil {
+		return nil, err
+	}
 	fsyss, err := fshelper.ParsePath(paths)
 	if err != nil {
 		return nil, err
