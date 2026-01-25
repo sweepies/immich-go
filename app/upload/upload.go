@@ -3,15 +3,10 @@ package upload
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
-	"github.com/simulot/immich-go/adapters"
-	"github.com/simulot/immich-go/adapters/folder"
-	"github.com/simulot/immich-go/adapters/fromimmich"
-	gp "github.com/simulot/immich-go/adapters/googlePhotos"
-	"github.com/simulot/immich-go/adapters/shared"
 	"github.com/simulot/immich-go/app"
+	"github.com/simulot/immich-go/internal/adapters"
 	"github.com/simulot/immich-go/internal/assets"
 	cliupload "github.com/simulot/immich-go/internal/cli/upload"
 	"github.com/simulot/immich-go/internal/filters"
@@ -54,15 +49,10 @@ func (m UpLoadMode) String() string {
 // This struct focuses on runtime state and adapter coordination.
 type UpCmd struct {
 	// Stack options (from config)
-	shared.StackOptions
+	adapters.StackOptions
 
 	// Server client
 	client app.Client
-
-	// Adapter configurations (for creating adapters)
-	folderCmd     folder.ImportFolderCmd
-	googleCmd     gp.TakeoutCmd
-	fromImmichCmd fromimmich.FromImmichCmd
 
 	// Upload command state (runtime)
 	tz   *time.Location
@@ -118,62 +108,29 @@ func NewUploadCommandFromCLI(ctx context.Context, a *app.Application) *cobra.Com
 	})
 }
 
-// run creates the appropriate adapter based on config source mode and executes the upload.
+// run creates the appropriate source based on config and executes the upload.
 func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
-	var adapter adapters.Reader
-	var closer io.Closer
-	var err error
 
-	// Select and create the appropriate adapter based on config source mode
+	// Set mode for display purposes
 	switch uc.config.SourceMode {
 	case uploadcfg.SourceModeFromImmich:
 		uc.Mode = UpModeFolder
-		adapter, err = uc.fromImmichCmd.NewAdapter(ctx, uc.app)
-		if err != nil {
-			return fmt.Errorf("failed to create immich adapter: %w", err)
-		}
-
 	case uploadcfg.SourceModeGoogle:
 		uc.Mode = UpModeGoogleTakeout
-		adapter, err = uc.googleCmd.NewAdapter(uc.app, args)
-		if err != nil {
-			return fmt.Errorf("failed to create google photos adapter: %w", err)
-		}
-		closer = &uc.googleCmd
-
 	case uploadcfg.SourceModeICloud:
 		uc.Mode = UpModeICloud
-		adapter, err = uc.folderCmd.NewAdapter(cmd, uc.app, args, folder.SourceModeICloud)
-		if err != nil {
-			return fmt.Errorf("failed to create icloud adapter: %w", err)
-		}
-		closer = &uc.folderCmd
-
 	case uploadcfg.SourceModePicasa:
 		uc.Mode = UpModePicasa
-		adapter, err = uc.folderCmd.NewAdapter(cmd, uc.app, args, folder.SourceModePicasa)
-		if err != nil {
-			return fmt.Errorf("failed to create picasa adapter: %w", err)
-		}
-		closer = &uc.folderCmd
-
 	default:
-		// Default: folder mode
 		uc.Mode = UpModeFolder
-		adapter, err = uc.folderCmd.NewAdapter(cmd, uc.app, args, folder.SourceModeFolder)
-		if err != nil {
-			return fmt.Errorf("failed to create folder adapter: %w", err)
-		}
-		closer = &uc.folderCmd
 	}
 
-	return uc.Run(cmd, adapter, closer)
+	return uc.Run(ctx, cmd)
 }
 
-// Run executes the upload with the given adapter using the new pipeline.
-func (uc *UpCmd) Run(cmd *cobra.Command, adapter adapters.Reader, closer io.Closer) error {
-	ctx := cmd.Context()
+// Run executes the upload using the new source factory and pipeline.
+func (uc *UpCmd) Run(ctx context.Context, cmd *cobra.Command) error {
 	err := uc.client.Open(ctx, uc.app)
 	if err != nil {
 		return err
@@ -183,6 +140,34 @@ func (uc *UpCmd) Run(cmd *cobra.Command, adapter adapters.Reader, closer io.Clos
 
 	// Initialize the FileProcessor if not already done
 	uc.app.EnsureFileProcessor()
+
+	// Create source factory
+	factory := source.NewFactory(
+		uc.app.Log().Logger,
+		uc.app.FileProcessor(),
+		uc.app.GetSupportedMedia(),
+		uc.tz,
+		uc.app.ConcurrentTask,
+	)
+
+	// Create source from config
+	var cfg any
+	switch uc.config.SourceMode {
+	case uploadcfg.SourceModeFromImmich:
+		cfg = uc.config.FromImmichConfig
+	case uploadcfg.SourceModeGoogle:
+		cfg = uc.config.GoogleConfig
+	case uploadcfg.SourceModeICloud, uploadcfg.SourceModePicasa, uploadcfg.SourceModeFolder:
+		cfg = uc.config.FolderConfig
+	default:
+		cfg = uc.config.FolderConfig
+	}
+
+	adapterSource, err := factory.CreateFromConfig(ctx, uc.config.SourceMode, cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create source: %w", err)
+	}
+	defer adapterSource.Close()
 
 	// Build groupers from config stack options
 	var groupers []groups.Grouper
@@ -201,9 +186,6 @@ func (uc *UpCmd) Run(cmd *cobra.Command, adapter adapters.Reader, closer io.Clos
 		uc.ManageRawJPG.GroupFilter(),
 		uc.ManageHEICJPG.GroupFilter(),
 	}
-
-	// Wrap the legacy adapter as a Source
-	adapterSource := source.NewLegacyReaderAdapter(adapter, closer)
 
 	// Create the server client adapter
 	serverClient := &pipeline.ServerClientAdapter{

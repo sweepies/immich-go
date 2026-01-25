@@ -4,14 +4,14 @@ import (
 	"errors"
 	"os"
 
-	"github.com/simulot/immich-go/adapters"
 	"github.com/simulot/immich-go/adapters/folder"
+	"github.com/simulot/immich-go/internal/adapters"
 	"github.com/simulot/immich-go/internal/fileevent"
 	"github.com/simulot/immich-go/internal/fshelper/osfs"
 	"github.com/spf13/cobra"
 )
 
-func (ac *ArchiveCmd) Run(cmd *cobra.Command, adapter adapters.Reader) error {
+func (ac *ArchiveCmd) Run(cmd *cobra.Command, source adapters.Source) error {
 	// ready to run
 	ctx := cmd.Context()
 	log := ac.app.Log()
@@ -32,7 +32,7 @@ func (ac *ArchiveCmd) Run(cmd *cobra.Command, adapter adapters.Reader) error {
 		return err
 	}
 
-	gChan := adapter.Browse(ctx)
+	gChan := source.Browse(ctx)
 	errCount := 0
 	for {
 		select {

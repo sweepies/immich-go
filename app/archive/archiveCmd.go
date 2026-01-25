@@ -4,23 +4,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/simulot/immich-go/adapters"
 	"github.com/simulot/immich-go/adapters/folder"
-	"github.com/simulot/immich-go/adapters/fromimmich"
-	gp "github.com/simulot/immich-go/adapters/googlePhotos"
 	"github.com/simulot/immich-go/app"
+	"github.com/simulot/immich-go/internal/adapters"
 	cliarchive "github.com/simulot/immich-go/internal/cli/archive"
+	"github.com/simulot/immich-go/internal/upload/source"
 	"github.com/spf13/cobra"
 )
 
 // ArchiveCmd holds the state for archive command execution.
 // CLI flags are managed by the internal/cli/archive package.
 type ArchiveCmd struct {
-	// Adapter configurations (for creating adapters)
-	folderCmd     folder.ImportFolderCmd
-	googleCmd     gp.TakeoutCmd
-	fromImmichCmd fromimmich.FromImmichCmd
-
 	app    *app.Application
 	dest   *folder.LocalAssetWriter
 	config *cliarchive.Config
@@ -50,49 +44,46 @@ func NewArchiveCommandFromCLI(ctx context.Context, a *app.Application) *cobra.Co
 	})
 }
 
-// run creates the appropriate adapter based on config source mode and executes the archive.
+// run creates the appropriate source based on config and executes the archive.
 func (ac *ArchiveCmd) run(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
-	var adapter adapters.Reader
-	var err error
 
-	// Select and create the appropriate adapter based on config source mode
+	// Create source factory
+	factory := source.NewFactory(
+		ac.app.Log().Logger,
+		ac.app.FileProcessor(),
+		ac.app.GetSupportedMedia(),
+		ac.app.GetTZ(),
+		ac.app.ConcurrentTask,
+	)
+
+	// Map CLI source mode to adapter source mode and get config
+	var sourceMode adapters.SourceMode
+	var cfg any
+
 	switch ac.config.SourceMode {
 	case cliarchive.SourceModeFromImmich:
-		adapter, err = ac.fromImmichCmd.NewAdapter(ctx, ac.app)
-		if err != nil {
-			return fmt.Errorf("failed to create immich adapter: %w", err)
-		}
-
+		sourceMode = adapters.SourceModeFromImmich
+		cfg = ac.config.FromImmichConfig
 	case cliarchive.SourceModeGoogle:
-		adapter, err = ac.googleCmd.NewAdapter(ac.app, args)
-		if err != nil {
-			return fmt.Errorf("failed to create google photos adapter: %w", err)
-		}
-		defer ac.googleCmd.Close()
-
+		sourceMode = adapters.SourceModeGoogle
+		cfg = ac.config.GoogleConfig
 	case cliarchive.SourceModeICloud:
-		adapter, err = ac.folderCmd.NewAdapter(cmd, ac.app, args, folder.SourceModeICloud)
-		if err != nil {
-			return fmt.Errorf("failed to create icloud adapter: %w", err)
-		}
-		defer ac.folderCmd.Close()
-
+		sourceMode = adapters.SourceModeICloud
+		cfg = ac.config.FolderConfig
 	case cliarchive.SourceModePicasa:
-		adapter, err = ac.folderCmd.NewAdapter(cmd, ac.app, args, folder.SourceModePicasa)
-		if err != nil {
-			return fmt.Errorf("failed to create picasa adapter: %w", err)
-		}
-		defer ac.folderCmd.Close()
-
+		sourceMode = adapters.SourceModePicasa
+		cfg = ac.config.FolderConfig
 	default:
-		// Default: folder mode
-		adapter, err = ac.folderCmd.NewAdapter(cmd, ac.app, args, folder.SourceModeFolder)
-		if err != nil {
-			return fmt.Errorf("failed to create folder adapter: %w", err)
-		}
-		defer ac.folderCmd.Close()
+		sourceMode = adapters.SourceModeFolder
+		cfg = ac.config.FolderConfig
 	}
 
-	return ac.Run(cmd, adapter)
+	adapterSource, err := factory.CreateFromConfig(ctx, sourceMode, cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create source: %w", err)
+	}
+	defer adapterSource.Close()
+
+	return ac.Run(cmd, adapterSource)
 }
