@@ -22,7 +22,7 @@ This guide provides recommendations for optimal performance, reliability, and or
 #### Large Collections (100k+ Photos)
 ```bash
 # Conservative approach for maximum reliability
-immich-go upload from-google-photos \
+immich-go upload --google \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --concurrent-tasks=4 \
@@ -36,7 +36,7 @@ immich-go upload from-google-photos \
 #### Medium Collections (10k-100k Photos)
 ```bash
 # Balanced performance and reliability
-immich-go upload from-google-photos \
+immich-go upload --google \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --concurrent-tasks=8 \
@@ -48,7 +48,7 @@ immich-go upload from-google-photos \
 #### Small Collections (<10k Photos)
 ```bash
 # Fast import with full processing
-immich-go upload from-google-photos \
+immich-go upload --google \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --concurrent-tasks=12 \
@@ -68,7 +68,7 @@ immich-go upload from-google-photos \
 
 2. **Force Import Unmatched Files**:
    ```bash
-   immich-go upload from-google-photos \
+   immich-go upload --google \
      --include-unmatched \
      --server=... --api-key=... /path/to/takeout-*.zip
    ```
@@ -158,7 +158,7 @@ immich-go upload from-google-photos \
 #### Folder-Based Albums
 ```bash
 # Create albums from folder structure
-immich-go upload from-folder \
+immich-go upload \
   --folder-as-album=FOLDER \
   --album-path-joiner=" - " \
   --server=... --api-key=... /organized/photos/
@@ -174,7 +174,7 @@ immich-go upload from-folder \
 #### Date-Based Organization
 ```bash
 # Let Immich organize by date, use tags for categories
-immich-go upload from-folder \
+immich-go upload \
   --tag="Source/Import2024" \
   --tag="Camera/Canon5D" \
   --session-tag \
@@ -191,7 +191,7 @@ immich-go upload from-folder \
 #### Hybrid Approach
 ```bash
 # Combine albums and tags strategically
-immich-go upload from-folder \
+immich-go upload \
   --folder-as-album=PATH \
   --folder-as-tags=true \
   --tag="Import/$(date +%Y-%m)" \
@@ -289,9 +289,9 @@ immich-go upload from-folder \
 #### Implementation Example
 ```bash
 # Local backup (Copy 2)
-immich-go archive from-immich \
-  --server=http://localhost:2283 \
-  --api-key=your-api-key \
+immich-go archive --from-immich \
+  --from-server=http://localhost:2283 \
+  --from-api-key=your-api-key \
   --write-to-folder=/local-backup/immich
 
 # Offsite backup (Copy 3) - sync local backup to cloud
@@ -306,9 +306,9 @@ rsync -av /local-backup/immich/ user@remote-server:/backups/immich/
 YESTERDAY=$(date -d '1 day ago' '+%Y-%m-%d')
 TODAY=$(date '+%Y-%m-%d')
 
-immich-go archive from-immich \
-  --server=http://localhost:2283 \
-  --api-key=your-api-key \
+immich-go archive --from-immich \
+  --from-server=http://localhost:2283 \
+  --from-api-key=your-api-key \
   --from-date-range="$YESTERDAY,$TODAY" \
   --write-to-folder="/backup/incremental/$TODAY"
 ```
@@ -316,9 +316,9 @@ immich-go archive from-immich \
 #### Full Periodic Backups
 ```bash
 # Monthly full backup
-immich-go archive from-immich \
-  --server=http://localhost:2283 \
-  --api-key=your-api-key \
+immich-go archive --from-immich \
+  --from-server=http://localhost:2283 \
+  --from-api-key=your-api-key \
   --write-to-folder="/backup/full/$(date +%Y-%m)"
 ```
 
@@ -327,16 +327,15 @@ immich-go archive from-immich \
 #### Pre-Migration Testing
 ```bash
 # Test with small subset first
-immich-go upload from-folder \
+immich-go --log-level=DEBUG upload \
   --dry-run \
-  --log-level=DEBUG \
   --server=... --api-key=... /small-test-folder/
 ```
 
 #### Backup Validation
 ```bash
 # Test restore capability
-immich-go upload from-folder \
+immich-go upload \
   --server=http://test-server:2283 \
   --api-key=test-api-key \
   /backup/folder/2024/2024-01/
@@ -360,10 +359,10 @@ BACKUP_KEY="key-with-read-only-permissions"
 ADMIN_KEY="key-with-admin-permissions"
 
 # Upload operations
-immich-go upload from-folder --api-key="$UPLOAD_KEY" ...
+immich-go upload --api-key="$UPLOAD_KEY" ...
 
 # Backup operations  
-immich-go archive from-immich --api-key="$BACKUP_KEY" ...
+immich-go archive --from-immich --from-api-key="$BACKUP_KEY" ...
 ```
 
 #### Script Security
@@ -376,8 +375,8 @@ API_KEY=$(cat ~/.config/immich-go/api-key)
 chmod 600 ~/.config/immich-go/api-key  # Restrict permissions
 
 # Or use environment variable
-export IMMICH_API_KEY="your-key"
-immich-go upload from-folder --api-key="$IMMICH_API_KEY" ...
+export IMMICH_GO_API_KEY="your-key"
+immich-go upload --api-key="$IMMICH_GO_API_KEY" ...
 ```
 
 ### Network Security
@@ -385,15 +384,15 @@ immich-go upload from-folder --api-key="$IMMICH_API_KEY" ...
 #### SSL/TLS Configuration
 ```bash
 # Always use HTTPS in production
-immich-go upload from-folder \
+immich-go upload \
   --server=https://immich.yourdomain.com \
   --api-key=your-key \
   /photos/
 
 # Only use --skip-verify-ssl for testing/development
-immich-go upload from-folder \
+immich-go upload \
   --server=https://immich-dev.local \
-  --skip-verify-ssl \  # Only for self-signed certs in dev
+  --skip-verify-ssl \
   --api-key=your-key \
   /photos/
 ```
@@ -411,8 +410,7 @@ immich-go logs to stdout/stderr, so capture output with shell redirection when y
 
 #### Development/Testing
 ```bash
-immich-go upload from-folder \
-  --log-level=DEBUG \
+immich-go --log-level=DEBUG upload \
   --api-trace \
   --server=... --api-key=... /photos/ \
   > /tmp/immich-go-debug.log 2>&1
@@ -420,17 +418,14 @@ immich-go upload from-folder \
 
 #### Production Operations
 ```bash
-immich-go upload from-folder \
-  --log-level=INFO \
+immich-go --log-level=INFO upload \
   --server=... --api-key=... /photos/ \
   > /var/log/immich-go/upload-$(date +%Y%m%d).log 2>&1
 ```
 
 #### Automated Operations
 ```bash
-immich-go upload from-folder \
-  --log-level=WARN \
-  --non-interactive \
+immich-go --log-level=WARN upload \
   --server=... --api-key=... /photos/ \
   > /var/log/immich-go/automated.log 2>&1
 ```
@@ -440,7 +435,7 @@ immich-go upload from-folder \
 #### Upload Progress Tracking
 ```bash
 # Monitor upload with session tags
-immich-go upload from-folder \
+immich-go upload \
   --session-tag \
   --tag="Batch/$(date +%Y%m%d-%H%M)" \
   --server=... --api-key=... /photos/
@@ -469,9 +464,8 @@ nethogs
 #### Handling Upload Failures
 ```bash
 # Continue on errors, log issues
-immich-go upload from-folder \
+immich-go --log-level=INFO upload \
   --on-errors=continue \
-  --log-level=INFO \
   --server=... --api-key=... /photos/ \
   > /var/log/errors.log 2>&1
 
@@ -482,14 +476,14 @@ grep "ERROR" /var/log/errors.log
 #### Network Interruption Recovery
 ```bash
 # Restart with same parameters - Immich-Go handles duplicates
-immich-go upload from-folder \
+immich-go upload \
   --server=... --api-key=... /photos/
 ```
 
 #### Partial Import Recovery
 ```bash
 # Use session tags to identify what was processed
-immich-go upload from-folder \
+immich-go upload \
   --session-tag \
   --server=... --api-key=... /remaining-photos/
 ```
@@ -522,7 +516,7 @@ immich-go upload from-folder \
 #### Phase 1: Test Migration
 ```bash
 # Small test batch
-immich-go upload from-folder \
+immich-go upload \
   --dry-run \
   --server=... --api-key=... /test-photos/
 ```
@@ -530,7 +524,7 @@ immich-go upload from-folder \
 #### Phase 2: Pilot Migration
 ```bash
 # Subset of real data
-immich-go upload from-folder \
+immich-go upload \
   --session-tag \
   --tag="Migration/Pilot" \
   --server=... --api-key=... /pilot-batch/
@@ -539,7 +533,7 @@ immich-go upload from-folder \
 #### Phase 3: Full Migration
 ```bash
 # Complete migration with monitoring
-immich-go upload from-google-photos \
+immich-go upload --google \
   --session-tag \
   --tag="Migration/Full" \
   --concurrent-tasks=8 \

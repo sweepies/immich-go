@@ -142,7 +142,7 @@ This should display the version number.
 
 ### Basic Syntax
 ```bash
-immich-go command sub-command [options] [path]
+immich-go command [source-flags] [options] [path]
 ```
 
 ### Platform-Specific Notes

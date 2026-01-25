@@ -1,19 +1,19 @@
 # Command Reference
 
-Immich-Go uses a hierarchical command structure with global options, commands, sub-commands, and specific options.
+Immich-Go uses a simple command structure with global options, commands, source flags, and command options.
 
 ## Command Structure
 
 ```bash
-immich-go [global-options] command sub-command [command-options] [path]
+immich-go [global-options] command [source-flags] [command-options] [path]
 ```
 
 ## Available Commands
 
-| Command | Description | Sub-commands |
-|---------|-------------|--------------|
-| [upload](upload.md) | Upload photos/videos to Immich server | from-folder, from-google-photos, from-icloud, from-picasa, from-immich |
-| [archive](archive.md) | Export/archive photos to local folder structure | from-folder, from-google-photos, from-icloud, from-picasa, from-immich |
+| Command | Description | Source Flags |
+|---------|-------------|-------------------------------|
+| [upload](upload.md) | Upload photos/videos to Immich server | `--google`, `--icloud`, `--picasa`, `--from-immich` |
+| [archive](archive.md) | Export/archive photos to local folder structure | `--google`, `--icloud`, `--picasa`, `--from-immich` |
 | [stack](stack.md) | Organize related photos into stacks on server | (none) |
 | version | Display version information | (none) |
 
@@ -25,10 +25,9 @@ These options work with all commands:
 |--------|---------|-------------|
 | `-h, --help` | - | Show help information |
 | `--log-level` | `INFO` | Set logging level: DEBUG, INFO, WARN, ERROR |
-| `--log-type` | `TEXT` | Log format: TEXT or JSON |
 | `-v, --version` | - | Display current version |
 
-Logs are written to stdout/stderr. Redirect output to capture a file.
+Logs are written to stderr. Redirect output to capture a file (e.g., `2> logs.txt`).
 
 ## Environment Variables
 
@@ -39,11 +38,14 @@ Logs are written to stdout/stderr. Redirect output to capture a file.
 ## Quick Examples
 
 ```bash
-# Upload from local folder
-immich-go upload from-folder --server=http://localhost:2283 --api-key=your-key /photos
+# Upload from local folder (default mode)
+immich-go upload --server=http://localhost:2283 --api-key=your-key /photos
 
-# Archive from server
-immich-go archive from-immich --server=http://localhost:2283 --api-key=your-key --write-to-folder=/backup
+# Upload from Google Photos takeout
+immich-go upload --google --server=http://localhost:2283 --api-key=your-key /takeout-*.zip
+
+# Archive from Immich server
+immich-go archive --from-immich --write-to-folder=/backup --from-server=http://localhost:2283 --from-api-key=your-key
 
 # Stack photos on server
 immich-go stack --server=http://localhost:2283 --api-key=your-key --manage-burst=Stack
