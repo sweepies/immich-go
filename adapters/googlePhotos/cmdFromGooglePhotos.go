@@ -3,7 +3,6 @@ package gp
 import (
 	"errors"
 	"io/fs"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -114,9 +113,6 @@ func (toc *TakeoutCmd) NewAdapter(app *app.Application, args []string) (adapters
 			}
 		}
 
-		if filepath.Ext(toc.TakeoutName) == ".zip" {
-			toc.TakeoutName = strings.TrimSuffix(toc.TakeoutName, filepath.Base(toc.TakeoutName))
-		}
 		if toc.TakeoutName == "" {
 			toc.TakeoutTag = false
 		}
