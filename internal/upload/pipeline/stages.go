@@ -140,8 +140,6 @@ type UploadStage struct {
 	Overwrite    bool
 	Concurrency  int
 	OnError      func(err error) error // Called on each error, return non-nil to abort
-	deleteList   []*assets.Asset       // Assets to delete after upload
-	deleteListMu sync.Mutex
 }
 
 func (s *UploadStage) Name() string { return "upload" }
@@ -184,20 +182,7 @@ func (s *UploadStage) Run(ctx context.Context, pctx *Context) error {
 	}()
 
 	wg.Wait()
-	err := context.Cause(ctx)
-
-	// Cleanup: delete server assets if needed
-	if len(s.deleteList) > 0 {
-		ids := make([]iimmich.AssetID, 0, len(s.deleteList))
-		for _, da := range s.deleteList {
-			ids = append(ids, iimmich.AssetID(da.ID))
-		}
-		if delErr := pctx.Server.DeleteAssets(ctx, ids, false); delErr != nil {
-			return fmt.Errorf("can't delete server's assets: %w", delErr)
-		}
-	}
-
-	return err
+	return context.Cause(ctx)
 }
 
 func (s *UploadStage) handleGroup(ctx context.Context, pctx *Context, g *assets.Group) error {
