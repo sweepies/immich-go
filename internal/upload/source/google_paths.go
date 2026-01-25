@@ -3,8 +3,16 @@ package source
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
+
+func takeoutDedupKey(path string) string {
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+		return strings.ToLower(path)
+	}
+	return path
+}
 
 func expandTakeoutArgs(args []string) ([]string, error) {
 	expanded := make([]string, 0, len(args))
@@ -12,11 +20,11 @@ func expandTakeoutArgs(args []string) ([]string, error) {
 
 	for _, arg := range args {
 		clean := filepath.Clean(arg)
-		cleanLower := strings.ToLower(clean)
-		if _, ok := seen[cleanLower]; ok {
+		cleanKey := takeoutDedupKey(clean)
+		if _, ok := seen[cleanKey]; ok {
 			continue
 		}
-		seen[cleanLower] = struct{}{}
+		seen[cleanKey] = struct{}{}
 
 		info, err := os.Stat(clean)
 		if err != nil || !info.IsDir() {
@@ -39,11 +47,11 @@ func expandTakeoutArgs(args []string) ([]string, error) {
 				continue
 			}
 			zipPath := filepath.Clean(filepath.Join(clean, entry.Name()))
-			zipLower := strings.ToLower(zipPath)
-			if _, ok := seen[zipLower]; ok {
+			zipKey := takeoutDedupKey(zipPath)
+			if _, ok := seen[zipKey]; ok {
 				continue
 			}
-			seen[zipLower] = struct{}{}
+			seen[zipKey] = struct{}{}
 			expanded = append(expanded, zipPath)
 			foundZips = true
 		}
