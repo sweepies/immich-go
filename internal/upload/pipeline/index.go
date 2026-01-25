@@ -8,10 +8,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/simulot/immich-go/immich"
 	"github.com/simulot/immich-go/internal/assets"
 	"github.com/simulot/immich-go/internal/gen/syncmap"
 	"github.com/simulot/immich-go/internal/gen/syncset"
+	iimmich "github.com/simulot/immich-go/internal/immich"
 )
 
 // AdviceCode represents the decision about whether to upload an asset.
@@ -87,7 +87,7 @@ func NewIndex() *Index {
 
 // AddImmichAsset adds an asset from the server to the index.
 // Returns the asset and true if added, or existing asset and false if already present.
-func (idx *Index) AddImmichAsset(ia *immich.Asset) (*assets.Asset, bool) {
+func (idx *Index) AddImmichAsset(ia *iimmich.Asset) (*assets.Asset, bool) {
 	idx.lock.Lock()
 	defer idx.lock.Unlock()
 
@@ -95,7 +95,7 @@ func (idx *Index) AddImmichAsset(ia *immich.Asset) (*assets.Asset, bool) {
 		panic("asset ID is empty")
 	}
 
-	if existing, ok := idx.immichAssets.Load(ia.ID); ok {
+	if existing, ok := idx.immichAssets.Load(string(ia.ID)); ok {
 		return existing, false
 	}
 	a := ia.AsAsset()

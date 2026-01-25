@@ -86,7 +86,7 @@ Implementation notes:
 - Created `internal/observability/reporting/reporting.go` for report generation
 - Pipeline stages are independently testable with fake adapters and mock server clients
 
-## Phase 3: Immich client redesign
+## Phase 3: Immich client redesign ✅
 Objective: create cohesive sub-clients and simplify interfaces.
 
 1. Split `immich/immich.go` into interfaces by domain in `internal/immich` (assets, albums, tags, stacks, jobs).
@@ -97,6 +97,25 @@ Objective: create cohesive sub-clients and simplify interfaces.
 Exit criteria:
 - Upload pipeline uses `AssetsClient`, `AlbumsClient`, `TagsClient`, etc. instead of `ImmichInterface`.
 - HTTP client configuration is centralized and tested.
+
+Implementation notes:
+- Created `internal/immich/` package with domain-specific interfaces and types:
+  - `types.go`: Typed IDs (`AssetID`, `AlbumID`, `TagID`, `StackID`, `UserID`) and time types
+  - `assets.go`: `AssetsService` interface and `Asset`, `AssetResponse`, `AssetStatistics` types
+  - `albums.go`: `AlbumsService` interface and `AlbumSimplified`, `AlbumContent` types
+  - `tags.go`: `TagsService` interface and `TagSimplified`, `TagAssetsResponse` types
+  - `stacks.go`: `StacksService` interface and `StackResponse` type
+  - `jobs.go`: `JobsService` interface with `JobCommand`, `JobName` constants
+  - `server.go`: `ServerService` interface and `User`, `ServerStatistics`, `AboutInfo` types
+  - `immich.go`: Combined `Client` and `UploadClient` interfaces
+- Created `internal/immich/client/` package for HTTP client configuration:
+  - `client.go`: `Config` struct with functional options (`WithEndPoint`, `WithAPIKey`, etc.)
+  - `client_test.go`: Unit tests for configuration
+- Updated `internal/upload/pipeline/server.go`:
+  - Pipeline interfaces now use typed IDs from `internal/immich`
+  - `ServerClientAdapter` converts between old `immich` package and new `internal/immich` types
+- Updated `internal/upload/pipeline/stages.go` and `index.go` to use new types
+- All existing tests pass with updated types
 
 ## Phase 4: Adapter and source refactor
 Objective: make source adapters explicit, composable, and testable.
