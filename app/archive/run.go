@@ -11,10 +11,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type closer interface {
-	Close() error
-}
-
 func (ac *ArchiveCmd) Run(cmd *cobra.Command, source adapters.Source) error {
 	// ready to run
 	ctx := cmd.Context()
@@ -35,9 +31,9 @@ func (ac *ArchiveCmd) Run(cmd *cobra.Command, source adapters.Source) error {
 	if err != nil {
 		return err
 	}
-	// Close the underlying filesystem if it supports closing
-	if fsys, ok := destFS.(closer); ok {
-		defer fsys.Close()
+	// Close the underlying filesystem if it supports closing (defensive code for future FS types)
+	if c, ok := destFS.(interface{ Close() error }); ok {
+		defer c.Close()
 	}
 
 	gChan := source.Browse(ctx)
