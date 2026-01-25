@@ -125,7 +125,7 @@ func NewUploadCommand(ctx context.Context, app *app.Application) *cobra.Command 
 
 By default, uploads from local folders. Use source flags to change the source:
   --google      Import from Google Photos takeout
-  --icloud      Import from iCloud takeout  
+  --icloud      Import from iCloud takeout
   --picasa      Enable Picasa album parsing
   --from-immich Transfer from another Immich server (no paths required)`,
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -207,6 +207,11 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 
 	case uc.GoogleTakeout:
 		uc.Mode = UpModeGoogleTakeout
+		defer func() {
+			if err != nil {
+				uc.googleCmd.Close()
+			}
+		}()
 		adapter, err = uc.googleCmd.NewAdapter(uc.app, args)
 		if err != nil {
 			return fmt.Errorf("failed to create google photos adapter: %w", err)
@@ -215,6 +220,11 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 
 	case uc.ICloudTakeout:
 		uc.Mode = UpModeICloud
+		defer func() {
+			if err != nil {
+				uc.folderCmd.Close()
+			}
+		}()
 		adapter, err = uc.folderCmd.NewAdapter(cmd, uc.app, args, folder.SourceModeICloud)
 		if err != nil {
 			return fmt.Errorf("failed to create icloud adapter: %w", err)
@@ -223,6 +233,11 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 
 	case uc.PicasaMode:
 		uc.Mode = UpModePicasa
+		defer func() {
+			if err != nil {
+				uc.folderCmd.Close()
+			}
+		}()
 		adapter, err = uc.folderCmd.NewAdapter(cmd, uc.app, args, folder.SourceModePicasa)
 		if err != nil {
 			return fmt.Errorf("failed to create picasa adapter: %w", err)
@@ -232,6 +247,11 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 	default:
 		// Default: folder mode
 		uc.Mode = UpModeFolder
+		defer func() {
+			if err != nil {
+				uc.folderCmd.Close()
+			}
+		}()
 		adapter, err = uc.folderCmd.NewAdapter(cmd, uc.app, args, folder.SourceModeFolder)
 		if err != nil {
 			return fmt.Errorf("failed to create folder adapter: %w", err)
