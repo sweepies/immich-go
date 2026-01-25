@@ -1,6 +1,6 @@
 # Examples and Use Cases
 
-This guide provides practical examples for common Immich-Go scenarios.
+This guide provides practical examples for common immich-go scenarios.
 
 ## Quick Reference
 

@@ -1,6 +1,6 @@
-# Immich-Go Documentation
+# immich-go Documentation
 
-Welcome to the complete documentation for **Immich-Go**, an open-source tool for uploading and managing photo collections with your self-hosted Immich server.
+Welcome to the complete documentation for **immich-go**, an open-source tool for uploading and managing photo collections with your self-hosted Immich server.
 
 ## 📖 Documentation Overview
 
@@ -29,7 +29,7 @@ This documentation is organized into several sections to help you get started qu
 ## 🎯 Quick Navigation by Use Case
 
 ### New Users
-1. Start with [Installation](installation.md) to set up Immich-Go
+1. Start with [Installation](installation.md) to set up immich-go
 2. Review [Examples](examples.md) for your specific use case
 3. Check [Best Practices](best-practices.md) for optimal performance
 
@@ -102,7 +102,7 @@ Documentation improvements are always welcome! See our [contributing guidelines]
 
 ## 📄 License
 
-This documentation is part of the Immich-Go project and is licensed under the same terms as specified in the [LICENSE](../LICENSE) file.
+This documentation is part of the immich-go project and is licensed under the same terms as specified in the [LICENSE](../LICENSE) file.
 
 ---
 

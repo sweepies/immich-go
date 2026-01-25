@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide covers all installation methods for Immich-Go across different platforms.
+This guide covers all installation methods for immich-go across different platforms.
 
 ## Prerequisites
 
@@ -14,11 +14,11 @@ This guide covers all installation methods for Immich-Go across different platfo
 ### System Requirements
 - **Immich Server**: You need a running Immich server
 - **API Key**: Generate from Account settings > API Keys > New API Key
-- **Basic Command Line Knowledge**: Immich-Go is a command-line tool
+- **Basic Command Line Knowledge**: immich-go is a command-line tool
 
 ## API Permissions
 `
-Create an` immich API key for each user account you plan to use with `Immich-Go` with the following permissions:
+Create an` immich API key for each user account you plan to use with `immich-go` with the following permissions:
 - `asset.read`
 - `asset.statistics` 
 - `asset.update`
@@ -36,7 +36,7 @@ Create an` immich API key for each user account you plan to use with `Immich-Go`
 - `tag.create`
 - `user.read`
 
-Immich-Go needs to pause Immich jobs during upload operations. Create an admin-linked API key that includes the permissions listed above, plus the following additional permission:
+immich-go needs to pause Immich jobs during upload operations. Create an admin-linked API key that includes the permissions listed above, plus the following additional permission:
 
 - `job.create`
 - `job.read`
@@ -96,7 +96,7 @@ go install
 
 ### Option 3: Nix Package Manager
 
-Immich-Go is available in nixpkgs:
+immich-go is available in nixpkgs:
 
 ```bash
 # Try without installing
@@ -130,7 +130,7 @@ source ~/.bashrc
 
 ## Verification
 
-After installation, verify Immich-Go works correctly:
+After installation, verify immich-go works correctly:
 
 ```bash
 immich-go --version
@@ -138,7 +138,7 @@ immich-go --version
 
 This should display the version number.
 
-## Running Immich-Go
+## Running immich-go
 
 ### Basic Syntax
 ```bash

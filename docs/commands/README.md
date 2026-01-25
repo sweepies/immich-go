@@ -1,6 +1,6 @@
 # Command Reference
 
-Immich-Go uses a simple command structure with global options, commands, source flags, and command options.
+immich-go uses a simple command structure with global options, commands, source flags, and command options.
 
 ## Command Structure
 
@@ -33,7 +33,7 @@ Logs are written to stderr. Redirect output to capture a file (e.g., `2> logs.tx
 
 | Variable | Description |
 |----------|-------------|
-| `IMMICHGO_TEMPDIR` | Temporary directory for Immich-Go operations |
+| `IMMICHGO_TEMPDIR` | Temporary directory for immich-go operations |
 
 ## Quick Examples
 

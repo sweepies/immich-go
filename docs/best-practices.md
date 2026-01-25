@@ -1,6 +1,6 @@
 # Best Practices
 
-This guide provides recommendations for optimal performance, reliability, and organization when using Immich-Go.
+This guide provides recommendations for optimal performance, reliability, and organization when using immich-go.
 
 ## Google Photos Migration
 
@@ -76,7 +76,7 @@ immich-go upload --google \
 3. **Request New Takeout**: If data seems incomplete, create a new takeout for missing periods
 
 #### Resuming Interrupted Imports
-- **Safe to Restart**: Immich-Go detects existing files and skips duplicates
+- **Safe to Restart**: immich-go detects existing files and skips duplicates
 - **Use Session Tags**: Enable `--session-tag` to track what was imported when
 - **Check Logs**: Review captured output (redirect to a file if needed) to identify where the import stopped
 
@@ -475,7 +475,7 @@ grep "ERROR" /var/log/errors.log
 
 #### Network Interruption Recovery
 ```bash
-# Restart with same parameters - Immich-Go handles duplicates
+# Restart with same parameters - immich-go handles duplicates
 immich-go upload \
   --server=... --api-key=... /photos/
 ```

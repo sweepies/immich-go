@@ -1,6 +1,6 @@
 # Miscellaneous Documentation
 
-This directory contains additional documentation, guides, and resources for Immich-Go development and usage.
+This directory contains additional documentation, guides, and resources for immich-go development and usage.
 
 ## Documentation Files
 
@@ -11,7 +11,7 @@ Detailed guide for working with Google Photos takeout files, including:
 - Troubleshooting common takeout issues
 
 ### [Better Asset Selection](better_asset_selection.md)  
-Analysis and recommendations for improving asset selection and filtering capabilities in Immich-Go.
+Analysis and recommendations for improving asset selection and filtering capabilities in immich-go.
 
 ### [Debug Data Collection](how-to-send-debug-data.md)
 Instructions for users on how to collect and submit debug information when reporting issues:
@@ -23,7 +23,7 @@ Instructions for users on how to collect and submit debug information when repor
 Development notes about code refactoring efforts, architectural improvements, and technical debt management.
 
 ### [Release Notes](releases.md)
-Historical release information and changelog details for Immich-Go versions.
+Historical release information and changelog details for immich-go versions.
 
 ### [TODO List](todo.md)
 Development roadmap, feature requests, and planned improvements for future versions.
@@ -50,7 +50,7 @@ PowerShell script for analyzing the contents of ZIP archives, useful for:
 ## Usage Notes
 
 These files are primarily for:
-- **Developers** working on Immich-Go improvements
+- **Developers** working on immich-go improvements
 - **Advanced users** troubleshooting complex issues
 - **Contributors** understanding project history and roadmap
 - **Documentation maintainers** managing project resources

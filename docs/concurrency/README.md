@@ -1,11 +1,11 @@
 # Concurrency and Performance
 
-This directory contains documentation about Immich-Go's concurrency features and performance characteristics.
+This directory contains documentation about immich-go's concurrency features and performance characteristics.
 
 ## Files
 
 ### [Multi-threading Analysis](multi-threading.md)
-Detailed analysis of Immich-Go's multi-threading capabilities, including:
+Detailed analysis of immich-go's multi-threading capabilities, including:
 - Performance benchmarks with different concurrency levels
 - Network bandwidth vs CPU utilization analysis
 - Recommendations for optimal `--concurrent-tasks` settings

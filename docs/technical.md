@@ -1,11 +1,11 @@
 # Technical Details
 
-This document covers the technical aspects of how Immich-Go processes files, handles metadata, and implements various features.
+This document covers the technical aspects of how immich-go processes files, handles metadata, and implements various features.
 
 ## Output Formats
 
 ### Text Output (Default)
-Immich-Go follows Unix philosophy for text output:
+immich-go follows Unix philosophy for text output:
 - **Logs**: Written to stderr
 - **Progress**: Line-by-line updates every 5 seconds to stderr
 
@@ -96,7 +96,7 @@ Immich-go supports same formats as Immich supports, among them:
 
 ### Banned Files
 
-Immich-Go automatically excludes several junk patterns. A trailing `/` means the pattern applies to directories; omit the slash to match files.
+immich-go automatically excludes several junk patterns. A trailing `/` means the pattern applies to directories; omit the slash to match files.
 
 | Pattern              | Source          | Description              |
 | -------------------- | --------------- | ------------------------ |
@@ -141,7 +141,7 @@ Immich-Go automatically excludes several junk patterns. A trailing `/` means the
 
 ### XMP Sidecar Processing
 
-Immich-Go passes XMP files to the Immich server without modification. Immich uses them for:
+immich-go passes XMP files to the Immich server without modification. Immich uses them for:
 - **Date/Time Information**: Capture date and timezone
 - **GPS Location**: Latitude/longitude coordinates
 - **Tags/Keywords**: Hierarchical tag structures
@@ -150,7 +150,7 @@ Immich-Go passes XMP files to the Immich server without modification. Immich use
 
 ### Google Photos JSON Processing
 
-Google Photos JSON files contain rich metadata extracted and used by Immich-Go:
+Google Photos JSON files contain rich metadata extracted and used by immich-go:
 
 ```json
 {
@@ -185,7 +185,7 @@ Google Photos JSON files contain rich metadata extracted and used by Immich-Go:
 
 ### Archive Metadata Format
 
-Immich-Go generates comprehensive JSON metadata for archived photos:
+immich-go generates comprehensive JSON metadata for archived photos:
 
 ```json
 {

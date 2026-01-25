@@ -1,6 +1,6 @@
 # Configuration
 
-Immich-Go is configured through **CLI flags** and **environment variables**. Configuration files are not supported.
+immich-go is configured through **CLI flags** and **environment variables**. Configuration files are not supported.
 
 ## Configuration Methods
 
