@@ -85,16 +85,6 @@ go test -race -v -count=1 -coverprofile=coverage.out ./...
 
 E2E infrastructure was removed during simplification, so only unit tests are available right now.
 
-### Linting
-
-The project uses `golangci-lint` for code quality. To run the linter, you can use the `golangci-lint` command:
-
-```sh
-golangci-lint run
-```
-
-This is also integrated into the CI pipeline.
-
 # Version Control
 
 Use semantic/conventional commit messages
