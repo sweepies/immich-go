@@ -8,7 +8,6 @@ import (
 
 	"github.com/simulot/immich-go/internal/adapters"
 	"github.com/simulot/immich-go/internal/filters"
-	"github.com/simulot/immich-go/internal/groups"
 )
 
 // SourceMode indicates which adapter to use for reading assets.
@@ -70,21 +69,6 @@ type StackOptions struct {
 	ManageRawJPG        filters.RawJPGFlag
 	ManageBurst         filters.BurstFlag
 	ManageEpsonFastFoto bool
-}
-
-// Groupers returns the grouper functions based on stack options.
-func (so *StackOptions) Groupers() []groups.Grouper {
-	var groupers []groups.Grouper
-
-	if so.ManageEpsonFastFoto {
-		// TODO: Use epsonfastfoto.Group when available
-	}
-	if so.ManageBurst != filters.BurstNothing {
-		// TODO: Use burst.Group when available
-	}
-	// TODO: Always add series.Group
-
-	return groupers
 }
 
 // Filters returns the filter functions based on stack options.

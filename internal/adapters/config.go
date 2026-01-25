@@ -1,8 +1,6 @@
 package adapters
 
 import (
-	"time"
-
 	cliflags "github.com/simulot/immich-go/internal/cliFlags"
 	"github.com/simulot/immich-go/internal/filters"
 	"github.com/simulot/immich-go/internal/namematcher"
@@ -116,12 +114,4 @@ type StackOptions struct {
 	ManageRawJPG        filters.RawJPGFlag
 	ManageHEICJPG       filters.HeicJpgFlag
 	ManageEpsonFastFoto bool
-}
-
-// DateRange returns the date range from inclusion flags if set.
-func (c *FolderConfig) DateRange() *time.Time {
-	if c.InclusionFlags.DateRange.IsSet() {
-		return nil // TODO: implement proper date range handling
-	}
-	return nil
 }
