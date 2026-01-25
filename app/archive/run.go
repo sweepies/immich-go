@@ -11,6 +11,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type closer interface {
+	Close() error
+}
+
 func (ac *ArchiveCmd) Run(cmd *cobra.Command, source adapters.Source) error {
 	// ready to run
 	ctx := cmd.Context()
@@ -30,6 +34,10 @@ func (ac *ArchiveCmd) Run(cmd *cobra.Command, source adapters.Source) error {
 	ac.dest, err = folder.NewLocalAssetWriter(destFS, ".")
 	if err != nil {
 		return err
+	}
+	// Close the underlying filesystem if it supports closing
+	if fsys, ok := destFS.(closer); ok {
+		defer fsys.Close()
 	}
 
 	gChan := source.Browse(ctx)
