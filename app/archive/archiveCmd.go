@@ -137,14 +137,14 @@ func (ac *ArchiveCmd) run(cmd *cobra.Command, args []string) error {
 		defer ac.googleCmd.Close()
 
 	case ac.ICloudTakeout:
-		adapter, err = ac.folderCmd.NewAdapter(ac.app, args, folder.SourceModeICloud)
+		adapter, err = ac.folderCmd.NewAdapter(cmd, ac.app, args, folder.SourceModeICloud)
 		if err != nil {
 			return fmt.Errorf("failed to create icloud adapter: %w", err)
 		}
 		defer ac.folderCmd.Close()
 
 	case ac.PicasaMode:
-		adapter, err = ac.folderCmd.NewAdapter(ac.app, args, folder.SourceModePicasa)
+		adapter, err = ac.folderCmd.NewAdapter(cmd, ac.app, args, folder.SourceModePicasa)
 		if err != nil {
 			return fmt.Errorf("failed to create picasa adapter: %w", err)
 		}
@@ -152,7 +152,7 @@ func (ac *ArchiveCmd) run(cmd *cobra.Command, args []string) error {
 
 	default:
 		// Default: folder mode
-		adapter, err = ac.folderCmd.NewAdapter(ac.app, args, folder.SourceModeFolder)
+		adapter, err = ac.folderCmd.NewAdapter(cmd, ac.app, args, folder.SourceModeFolder)
 		if err != nil {
 			return fmt.Errorf("failed to create folder adapter: %w", err)
 		}

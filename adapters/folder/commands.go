@@ -135,7 +135,7 @@ func (ifc *ImportFolderCmd) RegisterFlagsFlat(flags *pflag.FlagSet, forUpload bo
 
 // NewAdapter creates a folder adapter with the given configuration.
 // This is the factory function for the flattened CLI approach.
-func (ifc *ImportFolderCmd) NewAdapter(app *app.Application, args []string, mode SourceMode) (adapters.Reader, error) {
+func (ifc *ImportFolderCmd) NewAdapter(cmd *cobra.Command, app *app.Application, args []string, mode SourceMode) (adapters.Reader, error) {
 	var err error
 
 	if ifc.ImportIntoAlbum != "" && ifc.UsePathAsAlbumName != FolderModeNone {
@@ -154,7 +154,7 @@ func (ifc *ImportFolderCmd) NewAdapter(app *app.Application, args []string, mode
 	case SourceModePicasa:
 		ifc.ICloudTakeout = false
 		// PicasaAlbum is set via --album-picasa flag, default to true for picasa mode
-		if !ifc.PicasaAlbum {
+		if cmd != nil && !cmd.Flags().Changed("album-picasa") {
 			ifc.PicasaAlbum = true
 		}
 	default:

@@ -212,7 +212,7 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 
 	case uc.ICloudTakeout:
 		uc.Mode = UpModeICloud
-		adapter, err = uc.folderCmd.NewAdapter(uc.app, args, folder.SourceModeICloud)
+		adapter, err = uc.folderCmd.NewAdapter(cmd, uc.app, args, folder.SourceModeICloud)
 		if err != nil {
 			return fmt.Errorf("failed to create icloud adapter: %w", err)
 		}
@@ -220,7 +220,7 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 
 	case uc.PicasaMode:
 		uc.Mode = UpModePicasa
-		adapter, err = uc.folderCmd.NewAdapter(uc.app, args, folder.SourceModePicasa)
+		adapter, err = uc.folderCmd.NewAdapter(cmd, uc.app, args, folder.SourceModePicasa)
 		if err != nil {
 			return fmt.Errorf("failed to create picasa adapter: %w", err)
 		}
@@ -229,7 +229,7 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 	default:
 		// Default: folder mode
 		uc.Mode = UpModeFolder
-		adapter, err = uc.folderCmd.NewAdapter(uc.app, args, folder.SourceModeFolder)
+		adapter, err = uc.folderCmd.NewAdapter(cmd, uc.app, args, folder.SourceModeFolder)
 		if err != nil {
 			return fmt.Errorf("failed to create folder adapter: %w", err)
 		}
