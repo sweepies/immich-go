@@ -58,7 +58,7 @@ Exit criteria:
 - `app/app.go` no longer holds mutable global state or is only a thin wiring layer.
 - New context is used by upload and archive commands without behavior changes.
 
-## Phase 2: Upload pipeline extraction
+## Phase 2: Upload pipeline extraction ✅
 Objective: split upload orchestration into distinct stages with clear contracts.
 
 1. Define pipeline stages in `internal/upload/pipeline`:
@@ -74,6 +74,17 @@ Objective: split upload orchestration into distinct stages with clear contracts.
 Exit criteria:
 - `app/upload/run.go` is mostly removed or becomes a small orchestration wrapper.
 - Pipeline stages are independently testable with fake adapters and fake immich clients.
+
+Implementation notes:
+- Created `internal/upload/pipeline/` package with:
+  - `pipeline.go`: Core pipeline orchestration with `Context`, `Stage`, and `Pipeline` types
+  - `server.go`: `ServerClient` interface with narrow sub-interfaces (`AssetsClient`, `AlbumsClient`, etc.)
+  - `index.go`: Asset index with de-duplication logic (extracted from `app/upload/advice.go`)
+  - `stages.go`: Pipeline stages (`DiscoveryStage`, `AlbumDiscoveryStage`, `UploadStage`, `FinalizeStage`, `JobControlStage`)
+  - `runner.go`: High-level runner that orchestrates the pipeline execution
+  - `index_test.go`: Unit tests for the index and advice logic
+- Created `internal/observability/reporting/reporting.go` for report generation
+- Pipeline stages are independently testable with fake adapters and mock server clients
 
 ## Phase 3: Immich client redesign
 Objective: create cohesive sub-clients and simplify interfaces.
