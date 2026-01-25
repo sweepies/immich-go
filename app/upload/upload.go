@@ -196,6 +196,8 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 	var adapter adapters.Reader
 	var err error
 
+	uc.syncSharedFlags()
+
 	// Select and create the appropriate adapter based on source flags
 	switch {
 	case uc.FromImmich:
@@ -297,4 +299,22 @@ func (uc *UpCmd) Run(cmd *cobra.Command, adapter adapters.Reader) error {
 	uc.infoCollector = filenames.NewInfoCollector(uc.tz, uc.app.GetSupportedMedia())
 
 	return uc.upload(ctx, adapter)
+}
+
+func (uc *UpCmd) syncSharedFlags() {
+	syncStackOptions(&uc.StackOptions, uc.folderCmd.StackOptions)
+	syncSharedFlagsToGoogle(&uc.folderCmd, &uc.googleCmd)
+}
+
+func syncSharedFlagsToGoogle(folderCmd *folder.ImportFolderCmd, googleCmd *gp.TakeoutCmd) {
+	googleCmd.BannedFiles = folderCmd.BannedFiles
+	googleCmd.InclusionFlags = folderCmd.InclusionFlags
+	syncStackOptions(&googleCmd.StackOptions, folderCmd.StackOptions)
+}
+
+func syncStackOptions(dst *shared.StackOptions, src shared.StackOptions) {
+	dst.ManageHEICJPG = src.ManageHEICJPG
+	dst.ManageRawJPG = src.ManageRawJPG
+	dst.ManageBurst = src.ManageBurst
+	dst.ManageEpsonFastFoto = src.ManageEpsonFastFoto
 }

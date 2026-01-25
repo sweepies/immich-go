@@ -121,6 +121,8 @@ func (ac *ArchiveCmd) run(cmd *cobra.Command, args []string) error {
 	var adapter adapters.Reader
 	var err error
 
+	syncSharedArchiveFlags(&ac.folderCmd, &ac.googleCmd)
+
 	// Select and create the appropriate adapter based on source flags
 	switch {
 	case ac.FromImmich:
@@ -180,4 +182,9 @@ func (ac *ArchiveCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	return ac.Run(cmd, adapter)
+}
+
+func syncSharedArchiveFlags(folderCmd *folder.ImportFolderCmd, googleCmd *gp.TakeoutCmd) {
+	googleCmd.BannedFiles = folderCmd.BannedFiles
+	googleCmd.InclusionFlags = folderCmd.InclusionFlags
 }
