@@ -117,7 +117,7 @@ Implementation notes:
 - Updated `internal/upload/pipeline/stages.go` and `index.go` to use new types
 - All existing tests pass with updated types
 
-## Phase 4: Adapter and source refactor
+## Phase 4: Adapter and source refactor ✅
 Objective: make source adapters explicit, composable, and testable.
 
 1. Define a `Source` interface in `internal/adapters` that returns a stream of `assets.Asset`.
@@ -128,6 +128,23 @@ Objective: make source adapters explicit, composable, and testable.
 Exit criteria:
 - `UpCmd` no longer owns adapter state.
 - Each adapter has focused unit tests and can be swapped in pipeline tests.
+
+Implementation notes:
+- Created `internal/adapters/` package with:
+  - `source.go`: `Source` interface with `Browse(ctx) <-chan *assets.Group` and `io.Closer`
+  - `config.go`: Configuration types (`FolderConfig`, `GoogleConfig`, `FromImmichConfig`, `StackOptions`)
+  - `SourceDependencies` struct with narrow dependencies (Logger, Processor, SupportedMedia, TimeZone, ConcurrentTasks)
+  - `SourceMode` enum for source type identification
+- Created `internal/upload/source/` package with:
+  - `source.go`: `Factory` for creating sources from configuration
+  - `folder.go`: `FolderSource` implementing `adapters.Source` for folder/iCloud/Picasa imports
+  - `google.go`: `GoogleSource` stub (full migration in Phase 5/6)
+  - `fromimmich.go`: `FromImmichSource` stub (full migration in Phase 5/6)
+  - `adapter.go`: `LegacyReaderAdapter` for bridging old `Reader` to new `Source` interface
+  - `source_test.go`: Unit tests for factory and adapter functionality
+- Updated `adapters/adapters.go`: Added `Source` interface alongside legacy `Reader`
+- Updated `internal/upload/pipeline/pipeline.go`: Uses `adapters.Source` type alias
+- Legacy adapters remain functional; new `Source` interface enables gradual migration
 
 ## Phase 5: CLI refactor and command wiring
 Objective: reduce command types to configuration and routing only.

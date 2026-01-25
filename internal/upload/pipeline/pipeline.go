@@ -12,7 +12,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/simulot/immich-go/internal/assets"
+	"github.com/simulot/immich-go/internal/adapters"
 	"github.com/simulot/immich-go/internal/fileprocessor"
 	"github.com/simulot/immich-go/internal/filetypes"
 )
@@ -69,12 +69,9 @@ func NewContext(cfg Config, log *slog.Logger, processor *fileprocessor.FileProce
 	return ctx
 }
 
-// Source is an interface for asset sources (adapters).
+// Source is an alias to adapters.Source for asset sources.
 // It provides a stream of asset groups for processing.
-type Source interface {
-	// Browse returns a channel of asset groups from the source.
-	Browse(ctx context.Context) <-chan *assets.Group
-}
+type Source = adapters.Source
 
 // Stage represents a processing stage in the pipeline.
 type Stage interface {
