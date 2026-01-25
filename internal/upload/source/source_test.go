@@ -68,12 +68,13 @@ func TestFactory_CreateFromConfig_InvalidConfig(t *testing.T) {
 	}
 }
 
-// mockSource is a simple source for testing
-type mockSource struct {
+// mockLegacyReader is a mock that implements the legacy adapters.Reader interface
+// with a bidirectional channel as required by the old interface.
+type mockLegacyReader struct {
 	groups []*assets.Group
 }
 
-func (m *mockSource) Browse(ctx context.Context) <-chan *assets.Group {
+func (m *mockLegacyReader) Browse(ctx context.Context) chan *assets.Group {
 	out := make(chan *assets.Group)
 	go func() {
 		defer close(out)
@@ -88,16 +89,12 @@ func (m *mockSource) Browse(ctx context.Context) <-chan *assets.Group {
 	return out
 }
 
-func (m *mockSource) Close() error {
-	return nil
-}
-
 func TestLegacyReaderAdapter(t *testing.T) {
 	expectedGroups := []*assets.Group{
 		assets.NewGroup(assets.GroupByNone),
 	}
 
-	mock := &mockSource{groups: expectedGroups}
+	mock := &mockLegacyReader{groups: expectedGroups}
 	adapter := NewLegacyReaderAdapter(mock, nil)
 
 	ctx := context.Background()

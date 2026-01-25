@@ -18,7 +18,6 @@ import (
 	"github.com/simulot/immich-go/internal/fshelper"
 	"github.com/simulot/immich-go/internal/gen"
 	"github.com/simulot/immich-go/internal/immichfs"
-	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
@@ -174,87 +173,6 @@ func (fic *FromImmichCmd) NewAdapter(ctx context.Context, app *app.Application) 
 	}
 
 	return fic, nil
-}
-
-// Run executes the FromImmichCmd command, initializing the Immich client and validating filter values
-// (such as Make, Model, Country, State, and City) against Immich's search suggestions. It also resolves
-// albums, tags, and people filters before delegating execution to the provided runner. Returns an error
-// if any validation or resolution step fails.
-func (fic *FromImmichCmd) Run(ctx context.Context, cmd *cobra.Command, app *app.Application, runner adapters.Runner) error {
-	err := fic.client.Open(ctx, app)
-	if err != nil {
-		return err
-	}
-
-	fic.processor = app.FileProcessor()
-	fic.ifs = immichfs.NewImmichFS(ctx, fic.client.Server, fic.client.Immich)
-	fic.ic = filenames.NewInfoCollector(time.Local, fic.client.Immich.SupportedMedia())
-
-	// check filters values against immich suggestions
-	if fic.Make != "" {
-		err = fic.checkSuggestion(ctx, immich.SearchSuggestionRequest{
-			Type: immich.SearchSuggestionTypeCameraMake,
-		}, fic.Make)
-		if err != nil {
-			return fmt.Errorf("invalid make: %w", err)
-		}
-	}
-	if fic.Model != "" {
-		err = fic.checkSuggestion(ctx, immich.SearchSuggestionRequest{
-			Type: immich.SearchSuggestionTypeCameraModel,
-			Make: fic.Make,
-		}, fic.Model)
-		if err != nil {
-			return fmt.Errorf("invalid model: %w", err)
-		}
-	}
-	if fic.Country != "" {
-		err = fic.checkSuggestion(ctx, immich.SearchSuggestionRequest{
-			Type: immich.SearchSuggestionTypeCountry,
-		}, fic.Country)
-		if err != nil {
-			return fmt.Errorf("invalid country: %w", err)
-		}
-	}
-	if fic.State != "" {
-		err = fic.checkSuggestion(ctx, immich.SearchSuggestionRequest{
-			Type:    immich.SearchSuggestionTypeState,
-			Country: fic.Country,
-		}, fic.State)
-		if err != nil {
-			return fmt.Errorf("invalid state: %w", err)
-		}
-	}
-	if fic.City != "" {
-		err = fic.checkSuggestion(ctx, immich.SearchSuggestionRequest{
-			Type:    immich.SearchSuggestionTypeCity,
-			Country: fic.Country,
-			State:   fic.State,
-		}, fic.City)
-		if err != nil {
-			return fmt.Errorf("invalid city: %w", err)
-		}
-	}
-
-	err = fic.resolveAlbums(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = fic.resolveTags(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = fic.resolvePeople(ctx)
-	if err != nil {
-		return err
-	}
-
-	// call the main command back (upload, archive)
-	err = runner.Run(cmd, fic)
-
-	return err
 }
 
 func (fic *FromImmichCmd) checkSuggestion(ctx context.Context, q immich.SearchSuggestionRequest, suggestion string) error {

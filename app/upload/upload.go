@@ -3,6 +3,7 @@ package upload
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/simulot/immich-go/adapters"
@@ -11,17 +12,16 @@ import (
 	gp "github.com/simulot/immich-go/adapters/googlePhotos"
 	"github.com/simulot/immich-go/adapters/shared"
 	"github.com/simulot/immich-go/app"
-	"github.com/simulot/immich-go/immich"
 	"github.com/simulot/immich-go/internal/assets"
-	"github.com/simulot/immich-go/internal/assets/cache"
 	cliupload "github.com/simulot/immich-go/internal/cli/upload"
-	"github.com/simulot/immich-go/internal/filenames"
 	"github.com/simulot/immich-go/internal/filters"
-	"github.com/simulot/immich-go/internal/gen/syncset"
+	"github.com/simulot/immich-go/internal/groups"
 	"github.com/simulot/immich-go/internal/groups/burst"
 	"github.com/simulot/immich-go/internal/groups/epsonfastfoto"
 	"github.com/simulot/immich-go/internal/groups/series"
 	uploadcfg "github.com/simulot/immich-go/internal/upload"
+	"github.com/simulot/immich-go/internal/upload/pipeline"
+	"github.com/simulot/immich-go/internal/upload/source"
 	"github.com/spf13/cobra"
 )
 
@@ -65,19 +65,9 @@ type UpCmd struct {
 	fromImmichCmd fromimmich.FromImmichCmd
 
 	// Upload command state (runtime)
-	tz                *time.Location
-	Mode              UpLoadMode
-	app               *app.Application
-	assetIndex        *immichIndex                         // List of assets present on the server
-	localAssets       *syncset.Set[string]                 // List of assets present on the local input by name+size
-	immichAssetsReady chan struct{}                        // Signal that the asset index is ready
-	deleteServerList  []*immich.Asset                      // List of server assets to remove
-	adapter           adapters.Reader                      // the source of assets
-	albumsCache       *cache.CollectionCache[assets.Album] // List of albums present on the server
-	tagsCache         *cache.CollectionCache[assets.Tag]   // List of tags present on the server
-	finished          bool                                 // the finish task has been run
-	infoCollector     *filenames.InfoCollector             // Collects information about the files being processed
-	session           string                               // Session tag value (computed at runtime)
+	tz   *time.Location
+	Mode UpLoadMode
+	app  *app.Application
 
 	// Configuration (built from CLI flags)
 	config *uploadcfg.Config
@@ -96,10 +86,8 @@ func NewUploadCommandFromCLI(ctx context.Context, a *app.Application) *cobra.Com
 
 		// Create UpCmd with configuration
 		uc := &UpCmd{
-			app:               a,
-			localAssets:       syncset.New[string](),
-			immichAssetsReady: make(chan struct{}),
-			config:            cfg,
+			app:    a,
+			config: cfg,
 		}
 
 		// Copy stack options
@@ -134,6 +122,7 @@ func NewUploadCommandFromCLI(ctx context.Context, a *app.Application) *cobra.Com
 func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	var adapter adapters.Reader
+	var closer io.Closer
 	var err error
 
 	// Select and create the appropriate adapter based on config source mode
@@ -151,7 +140,7 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create google photos adapter: %w", err)
 		}
-		defer uc.googleCmd.Close()
+		closer = &uc.googleCmd
 
 	case uploadcfg.SourceModeICloud:
 		uc.Mode = UpModeICloud
@@ -159,7 +148,7 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create icloud adapter: %w", err)
 		}
-		defer uc.folderCmd.Close()
+		closer = &uc.folderCmd
 
 	case uploadcfg.SourceModePicasa:
 		uc.Mode = UpModePicasa
@@ -167,7 +156,7 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create picasa adapter: %w", err)
 		}
-		defer uc.folderCmd.Close()
+		closer = &uc.folderCmd
 
 	default:
 		// Default: folder mode
@@ -176,14 +165,14 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create folder adapter: %w", err)
 		}
-		defer uc.folderCmd.Close()
+		closer = &uc.folderCmd
 	}
 
-	return uc.Run(cmd, adapter)
+	return uc.Run(cmd, adapter, closer)
 }
 
-// Run executes the upload with the given adapter.
-func (uc *UpCmd) Run(cmd *cobra.Command, adapter adapters.Reader) error {
+// Run executes the upload with the given adapter using the new pipeline.
+func (uc *UpCmd) Run(cmd *cobra.Command, adapter adapters.Reader, closer io.Closer) error {
 	ctx := cmd.Context()
 	err := uc.client.Open(ctx, uc.app)
 	if err != nil {
@@ -195,22 +184,120 @@ func (uc *UpCmd) Run(cmd *cobra.Command, adapter adapters.Reader) error {
 	// Initialize the FileProcessor if not already done
 	uc.app.EnsureFileProcessor()
 
-	// Set session tag from config
-	if uc.config.SessionTag {
-		uc.session = fmt.Sprintf("{immich-go}/%s", time.Now().Format("2006-01-02 15:04:05"))
-	}
-
-	// Set up groupers from config stack options
+	// Build groupers from config stack options
+	var groupers []groups.Grouper
 	if uc.ManageEpsonFastFoto {
 		g := epsonfastfoto.Group{}
-		uc.Groupers = append(uc.Groupers, g.Group)
+		groupers = append(groupers, g.Group)
 	}
 	if uc.ManageBurst != filters.BurstNothing {
-		uc.Groupers = append(uc.Groupers, burst.Group)
+		groupers = append(groupers, burst.Group)
 	}
-	uc.Groupers = append(uc.Groupers, series.Group)
-	uc.Filters = append(uc.Filters, uc.ManageBurst.GroupFilter(), uc.ManageRawJPG.GroupFilter(), uc.ManageHEICJPG.GroupFilter())
-	uc.infoCollector = filenames.NewInfoCollector(uc.tz, uc.app.GetSupportedMedia())
+	groupers = append(groupers, series.Group)
 
-	return uc.upload(ctx, adapter)
+	// Build filters
+	filterList := []filters.Filter{
+		uc.ManageBurst.GroupFilter(),
+		uc.ManageRawJPG.GroupFilter(),
+		uc.ManageHEICJPG.GroupFilter(),
+	}
+
+	// Wrap the legacy adapter as a Source
+	adapterSource := source.NewLegacyReaderAdapter(adapter, closer)
+
+	// Create the server client adapter
+	serverClient := &pipeline.ServerClientAdapter{
+		Immich:      uc.client.Immich,
+		AdminImmich: uc.client.AdminImmich,
+		User:        uc.client.User,
+	}
+
+	// Create pipeline context
+	pipelineCfg := pipeline.Config{
+		DryRun:         uc.config.Server.DryRun,
+		Overwrite:      uc.config.Overwrite,
+		ConcurrentTask: uc.app.ConcurrentTask,
+		SessionTag:     uc.config.SessionTag,
+		Tags:           uc.config.Tags,
+		TimeZone:       uc.tz,
+		OutputFormat:   uc.app.Output,
+	}
+
+	pctx := pipeline.NewContext(
+		pipelineCfg,
+		uc.app.Log().Logger,
+		uc.app.FileProcessor(),
+		uc.app.GetSupportedMedia(),
+		serverClient,
+	)
+
+	// Create save callbacks for albums and tags
+	saveAlbum := func(album assets.Album, ids []string) (assets.Album, error) {
+		return uc.saveAlbum(ctx, album, ids)
+	}
+	saveTag := func(tag assets.Tag, ids []string) (assets.Tag, error) {
+		return uc.saveTag(ctx, tag, ids)
+	}
+
+	// Create and run the pipeline runner
+	runner := pipeline.NewRunner(pipeline.RunnerConfig{
+		Source:      adapterSource,
+		Server:      serverClient,
+		PipelineCtx: pctx,
+		Groupers:    groupers,
+		Filters:     filterList,
+		PauseJobs:   uc.client.PauseImmichBackgroundJobs,
+		OnError:     uc.app.ProcessError,
+		SaveAlbum:   saveAlbum,
+		SaveTag:     saveTag,
+	})
+
+	return runner.Run(ctx)
+}
+
+// saveAlbum creates or updates an album on the server.
+func (uc *UpCmd) saveAlbum(ctx context.Context, album assets.Album, ids []string) (assets.Album, error) {
+	if len(ids) == 0 {
+		return album, nil
+	}
+	if album.ID == "" {
+		r, err := uc.client.Immich.CreateAlbum(ctx, album.Title, album.Description, ids)
+		if err != nil {
+			uc.app.Log().Error("failed to create album", "err", err, "album", album.Title)
+			return album, err
+		}
+		uc.app.Log().Info("created album", "album", album.Title, "assets", len(ids))
+		album.ID = r.ID
+		return album, nil
+	}
+	_, err := uc.client.Immich.AddAssetToAlbum(ctx, album.ID, ids)
+	if err != nil {
+		uc.app.Log().Error("failed to add assets to album", "err", err, "album", album.Title, "assets", len(ids))
+		return album, err
+	}
+	uc.app.Log().Info("updated album", "album", album.Title, "assets", len(ids))
+	return album, err
+}
+
+// saveTag creates or updates a tag on the server.
+func (uc *UpCmd) saveTag(ctx context.Context, tag assets.Tag, ids []string) (assets.Tag, error) {
+	if len(ids) == 0 {
+		return tag, nil
+	}
+	if tag.ID == "" {
+		r, err := uc.client.Immich.UpsertTags(ctx, []string{tag.Value})
+		if err != nil {
+			uc.app.Log().Error("failed to create tag", "err", err, "tag", tag.Name)
+			return tag, err
+		}
+		uc.app.Log().Info("created tag", "tag", tag.Value)
+		tag.ID = r[0].ID
+	}
+	_, err := uc.client.Immich.TagAssets(ctx, tag.ID, ids)
+	if err != nil {
+		uc.app.Log().Error("failed to add assets to tag", "err", err, "tag", tag.Value, "assets", len(ids))
+		return tag, err
+	}
+	uc.app.Log().Info("updated tag", "tag", tag.Value, "assets", len(ids))
+	return tag, err
 }

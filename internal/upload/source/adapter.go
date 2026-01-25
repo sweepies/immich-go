@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	legacyadapters "github.com/simulot/immich-go/adapters"
 	"github.com/simulot/immich-go/internal/adapters"
 	"github.com/simulot/immich-go/internal/assets"
 )
@@ -11,12 +12,12 @@ import (
 // LegacyReaderAdapter wraps an old-style adapters.Reader to implement the new adapters.Source interface.
 // This enables gradual migration from the old adapter pattern to the new one.
 type LegacyReaderAdapter struct {
-	reader adapters.Source
+	reader legacyadapters.Reader
 	closer io.Closer
 }
 
 // NewLegacyReaderAdapter creates an adapter that wraps an old-style Reader.
-func NewLegacyReaderAdapter(reader adapters.Source, closer io.Closer) *LegacyReaderAdapter {
+func NewLegacyReaderAdapter(reader legacyadapters.Reader, closer io.Closer) *LegacyReaderAdapter {
 	return &LegacyReaderAdapter{
 		reader: reader,
 		closer: closer,
@@ -25,6 +26,7 @@ func NewLegacyReaderAdapter(reader adapters.Source, closer io.Closer) *LegacyRea
 
 // Browse implements adapters.Source.
 func (a *LegacyReaderAdapter) Browse(ctx context.Context) <-chan *assets.Group {
+	// The legacy Reader returns a bidirectional channel, we return it as receive-only
 	return a.reader.Browse(ctx)
 }
 

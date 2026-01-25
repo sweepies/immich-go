@@ -219,6 +219,60 @@ Implementation notes:
 - Updated `README.md` with new Architecture section documenting the package layout
 - Legacy `app/upload/` code retained (still actively used) but marked for migration
 
+## Phase 7: Final wiring and legacy removal ✅
+Objective: Wire up all new packages and remove legacy code.
+
+### Legacy code inventory
+
+| Location | Type | Status |
+|----------|------|--------|
+| `adapters/adapters.go:Reader` | Interface | Deprecated, kept for adapter compatibility |
+| `adapters/adapters.go:Runner` | Interface | **Removed** |
+| `adapters/adapters.go:AssetWriter` | Interface | Used by archive command, kept |
+| `app/upload/advice.go:immichIndex` | Type | **Deleted** (replaced by `pipeline.Index`) |
+| `app/upload/run.go` | Orchestration | **Deleted** (replaced by `pipeline.Runner`) |
+| `app/upload/noui.go` | UI logic | **Deleted** (merged into `pipeline.Runner`) |
+| `app/client.go:Client` | Type | Kept (used via `ServerClientAdapter`) |
+| `immich/*.go` | Package | Active, bridged via `ServerClientAdapter` |
+
+### New packages now wired
+
+| Package | Status | Notes |
+|---------|--------|-------|
+| `internal/upload/pipeline/` | **Wired** | `Runner` now executes upload via `app/upload/upload.go` |
+| `internal/upload/source/` | **Wired** | `LegacyReaderAdapter` bridges old adapters to new `Source` interface |
+| `internal/upload/pipeline/server.go` | **Wired** | `ServerClientAdapter` bridges old `immich` client to pipeline |
+| `internal/immich/*.go` | **Wired** | Types used in pipeline execution path |
+
+### Tasks completed
+
+1. ~~Delete unused `AssetWriter` interface~~ — Kept (used by archive command)
+2. ✅ Wire `internal/upload/pipeline.Runner` to replace `app/upload/run.go` orchestration
+3. ✅ Wire `internal/upload/source.LegacyReaderAdapter` to wrap legacy adapters
+4. ✅ Pipeline report generation now handled by `pipeline.Runner.generateReport()`
+5. ✅ Client bridged via `pipeline.ServerClientAdapter` (keeps `app/client.go` for connection setup)
+6. ✅ Adapters bridged via `LegacyReaderAdapter` (Reader interface kept for compatibility)
+7. ✅ Remove `adapters.Runner` interface and unused `run`/`Run` methods
+8. ✅ Delete `app/upload/advice.go` (replaced by `pipeline.Index`)
+9. ✅ Delete `app/upload/run.go` and `app/upload/noui.go` (replaced by `pipeline.Runner`)
+10. ✅ Update done criteria
+
+Exit criteria:
+- ✅ All new `internal/upload/pipeline` packages are wired into the execution path
+- ✅ Legacy `Runner` interface removed from `adapters/adapters.go`
+- ✅ `app/upload/run.go`, `app/upload/noui.go`, and `app/upload/advice.go` deleted
+- ✅ Client bridged via `ServerClientAdapter` (single execution path through pipeline)
+
+Implementation notes:
+- Wired `pipeline.Runner` as the main upload orchestrator in `app/upload/upload.go`
+- Created `LegacyReaderAdapter` to wrap old `adapters.Reader` as new `adapters.Source`
+- Used `ServerClientAdapter` to bridge old `immich` package to new `internal/immich` types
+- Upload command (`UpCmd.Run`) now creates pipeline context and runner, delegating all orchestration
+- Removed 600+ lines of legacy code (`run.go`, `noui.go`, `advice.go`)
+- Removed unused `Runner` interface and legacy `run`/`Run` methods from adapters
+- Kept `Reader` interface for adapter compatibility (adapters still use bidirectional channels)
+- All tests pass with the new wiring
+
 ## Migration strategy
 - Maintain a compatibility layer in `internal/upload` that can accept legacy `UpCmd` inputs during transition.
 - Introduce new stages incrementally while leaving legacy behavior in place behind a switch.
