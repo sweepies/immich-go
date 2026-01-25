@@ -35,6 +35,7 @@ const (
 	UpModeFolder
 	UpModeICloud
 	UpModePicasa
+	UpModeFromImmich
 )
 
 func (m UpLoadMode) String() string {
@@ -47,6 +48,8 @@ func (m UpLoadMode) String() string {
 		return "iCloud"
 	case UpModePicasa:
 		return "Picasa"
+	case UpModeFromImmich:
+		return "From Immich"
 	default:
 		return "Unknown"
 	}
@@ -196,7 +199,7 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 	// Select and create the appropriate adapter based on source flags
 	switch {
 	case uc.FromImmich:
-		uc.Mode = UpModeFolder // Will be overridden, but set a default
+		uc.Mode = UpModeFromImmich
 		adapter, err = uc.fromImmichCmd.NewAdapter(ctx, uc.app)
 		if err != nil {
 			return fmt.Errorf("failed to create immich adapter: %w", err)
