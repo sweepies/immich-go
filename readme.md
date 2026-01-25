@@ -1,8 +1,7 @@
-# immich-go: The Missing Piece
+# immich-go: fast, multi-source uploader for Immich
 
-![logo](https://raw.githubusercontent.com/sweepies/immich-go/refs/heads/main/logo.jpg)
-
-**Immich-Go** is an open-source tool designed to streamline uploading large photo collections to your Immich server.
+<img src="https://raw.githubusercontent.com/sweepies/immich-go/refs/heads/main/logo.jpg" alt="logo" width="512"/>
+**immich-go** is an open-source tool designed to streamline uploading large photo collections to your Immich server.
 
 > ℹ️ **This is a fork** of [simulot/immich-go](https://github.com/simulot/immich-go). See [Fork Differences](#-fork-differences) for details about this fork.
 
@@ -54,7 +53,7 @@ For the upstream project, see [simulot/immich-go](https://github.com/simulot/imm
 
 ## 🚀 Quick Start
 
-### 1. Install Immich-Go
+### 1. Install immich-go
 
 Download the pre-built binary for your system from the [GitHub releases page](https://github.com/sweepies/immich-go/releases).
 
@@ -82,7 +81,7 @@ immich-go upload --server=http://your-ip:2283 --api-key=your-api-key --output=js
 ## 🙈 Skip System Files
 
 - Use `--ban-file` to exclude junk artifacts. Patterns ending with `/` apply to directories (for example, `--ban-file .Spotlight-V100/`), while patterns without the trailing slash apply to individual files (for example, `--ban-file .DS_Store`).
-- Immich-Go ships with sensible defaults that already skip common clutter such as `@eaDir/`, `@__thumb/`, `SYNOFILE_THUMB_*.*`, `Lightroom Catalog/`, `thumbnails/`, `.DS_Store`, `/._*`, `.Spotlight-V100/`, `.photostructure/`, and `Recently Deleted/`.
+- immich-go ships with sensible defaults that already skip common clutter such as `@eaDir/`, `@__thumb/`, `SYNOFILE_THUMB_*.*`, `Lightroom Catalog/`, `thumbnails/`, `.DS_Store`, `/._*`, `.Spotlight-V100/`, `.photostructure/`, and `Recently Deleted/`.
 - Add additional patterns as needed to keep uploads focused on real photos. See the [banned files reference](docs/technical.md#banned-files) for details.
 
 ## 📚 Documentation
