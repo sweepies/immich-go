@@ -3,6 +3,7 @@ package gp
 import (
 	"errors"
 	"io/fs"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -115,8 +116,11 @@ func (toc *TakeoutCmd) NewAdapter(app *app.Application, args []string) (adapters
 
 		if toc.TakeoutName == "" {
 			toc.TakeoutTag = false
+		} else {
+			base := filepath.Base(toc.TakeoutName)
+			base = strings.TrimSuffix(base, filepath.Ext(base))
+			toc.TakeoutName = _re3digits.ReplaceAllString(base, "")
 		}
-		toc.TakeoutName = _re3digits.ReplaceAllString(toc.TakeoutName, "")
 	}
 	if toc.ManageEpsonFastFoto {
 		g := epsonfastfoto.Group{}
