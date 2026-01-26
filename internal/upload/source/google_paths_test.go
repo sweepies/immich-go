@@ -161,3 +161,24 @@ func TestExpandTakeoutArgsCaseInsensitive(t *testing.T) {
 		}
 	}
 }
+
+func TestTakeoutNameExtraction(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"zip part", "takeout-20240101T120000Z-001.zip", "takeout-20240101T120000Z"},
+		{"zip without part", "takeout-20240101T120000Z.zip", "takeout-20240101T120000Z"},
+		{"folder name", "takeout-20240101T120000Z", "takeout-20240101T120000Z"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeTakeoutName(tt.input)
+			if got != tt.expected {
+				t.Errorf("takeout name = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
