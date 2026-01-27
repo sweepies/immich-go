@@ -2,3 +2,11 @@
 goreleaser = "latest"
 go = "latest"
 changie = "latest"
+
+[tasks.release]
+run = """
+    change batch auto
+    changie merge
+    git add CHANGELOG.md .changes/
+    git commit -m "build(release): bump version to $(changie latest)"
+"""
