@@ -2,65 +2,88 @@ package archive
 
 import (
 	"context"
-	"errors"
+	"fmt"
 
 	"github.com/simulot/immich-go/adapters/folder"
-	"github.com/simulot/immich-go/adapters/fromimmich"
-	gp "github.com/simulot/immich-go/adapters/googlePhotos"
 	"github.com/simulot/immich-go/app"
-	"github.com/simulot/immich-go/internal/assettracker"
-	"github.com/simulot/immich-go/internal/fileevent"
-	"github.com/simulot/immich-go/internal/fileprocessor"
+	"github.com/simulot/immich-go/internal/adapters"
+	cliarchive "github.com/simulot/immich-go/internal/cli/archive"
+	"github.com/simulot/immich-go/internal/upload/source"
 	"github.com/spf13/cobra"
 )
 
+// ArchiveCmd holds the state for archive command execution.
+// CLI flags are managed by the internal/cli/archive package.
 type ArchiveCmd struct {
-	ArchivePath string
-
-	app  *app.Application
-	dest *folder.LocalAssetWriter
+	app    *app.Application
+	dest   *folder.LocalAssetWriter
+	config *cliarchive.Config
 }
 
-func NewArchiveCommand(ctx context.Context, app *app.Application) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "archive",
-		Short: "Archive various sources of photos to a file system",
-	}
-	ac := &ArchiveCmd{
-		app: app,
-	}
+// NewArchiveCommandFromCLI creates an archive command using the CLI package.
+func NewArchiveCommandFromCLI(ctx context.Context, a *app.Application) *cobra.Command {
+	builder := cliarchive.NewCommandBuilder()
 
-	cmd.PersistentFlags().StringVarP(&ac.ArchivePath, "write-to-folder", "w", "", "Path where to write the archive")
-	_ = cmd.MarkPersistentFlagRequired("write-to-folder")
-
-	cmd.AddCommand(folder.NewFromFolderCommand(ctx, cmd, app, ac))
-	cmd.AddCommand(folder.NewFromICloudCommand(ctx, cmd, app, ac))
-	cmd.AddCommand(folder.NewFromPicasaCommand(ctx, cmd, app, ac))
-	cmd.AddCommand(fromimmich.NewFromImmichCommand(ctx, cmd, app, ac))
-	cmd.AddCommand(gp.NewFromGooglePhotosCommand(ctx, cmd, app, ac))
-
-	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		// Initialize the FileProcessor (tracker + logger)
-		if app.FileProcessor() == nil {
-			logger := fileevent.NewRecorder(app.Log().Logger)
-			tracker := assettracker.NewWithLogger(app.Log().Logger, app.DryRun) // Enable debug mode in dry-run
-			processor := fileprocessor.New(tracker, logger)
-			app.SetFileProcessor(processor)
+	return builder.Build(ctx, func(cmd *cobra.Command, args []string, flags *cliarchive.Flags) error {
+		// Build configuration from CLI flags
+		cfg, err := flags.ToConfig(args)
+		if err != nil {
+			return err
 		}
 
-		// app.SetTZ(time.Local)
-		// if tz, err := cmd.Flags().GetString("time-zone"); err == nil && tz != "" {
-		// 	if loc, err := time.LoadLocation(tz); err == nil {
-		// 		app.SetTZ(loc)
-		// 	}
-		// } else {
-		// 	return err
-		// }
-		return nil
+		// Create ArchiveCmd with configuration
+		ac := &ArchiveCmd{
+			app:    a,
+			config: cfg,
+		}
+
+		// Initialize application
+		a.EnsureFileProcessor()
+
+		return ac.run(cmd, args)
+	})
+}
+
+// run creates the appropriate source based on config and executes the archive.
+func (ac *ArchiveCmd) run(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
+
+	// Create source factory
+	factory := source.NewFactory(
+		ac.app.Log().Logger,
+		ac.app.FileProcessor(),
+		ac.app.GetSupportedMedia(),
+		ac.app.GetTZ(),
+		ac.app.ConcurrentTask,
+	)
+
+	// Map CLI source mode to adapter source mode and get config
+	var sourceMode adapters.SourceMode
+	var cfg any
+
+	switch ac.config.SourceMode {
+	case cliarchive.SourceModeFromImmich:
+		sourceMode = adapters.SourceModeFromImmich
+		cfg = ac.config.FromImmichConfig
+	case cliarchive.SourceModeGoogle:
+		sourceMode = adapters.SourceModeGoogle
+		cfg = ac.config.GoogleConfig
+	case cliarchive.SourceModeICloud:
+		sourceMode = adapters.SourceModeICloud
+		cfg = ac.config.FolderConfig
+	case cliarchive.SourceModePicasa:
+		sourceMode = adapters.SourceModePicasa
+		cfg = ac.config.FolderConfig
+	default:
+		sourceMode = adapters.SourceModeFolder
+		cfg = ac.config.FolderConfig
 	}
 
-	cmd.RunE = func(cmd *cobra.Command, args []string) error { //nolint:contextcheck
-		return errors.New("you must specify a subcommand to the archive command")
+	adapterSource, err := factory.CreateFromConfig(ctx, sourceMode, cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create source: %w", err)
 	}
-	return cmd
+	defer adapterSource.Close()
+
+	return ac.Run(cmd, adapterSource)
 }

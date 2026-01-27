@@ -29,3 +29,11 @@ func (so *StackOptions) RegisterFlags(flags *pflag.FlagSet) {
 	flags.Var(&so.ManageBurst, "manage-burst", "Manage burst photos. Possible values: NoStack, Stack, StackKeepRaw, StackKeepJPEG")
 	flags.BoolVar(&so.ManageEpsonFastFoto, "manage-epson-fastfoto", false, "Manage Epson FastFoto file (default: false)")
 }
+
+// RegisterFlagsSafe registers flags only if they don't already exist
+func (so *StackOptions) RegisterFlagsSafe(flags *pflag.FlagSet) {
+	SafeVar(flags, &so.ManageHEICJPG, "manage-heic-jpeg", "Manage coupled HEIC and JPEG files. Possible values: NoStack, KeepHeic, KeepJPG, StackCoverHeic, StackCoverJPG")
+	SafeVar(flags, &so.ManageRawJPG, "manage-raw-jpeg", "Manage coupled RAW and JPEG files. Possible values: NoStack, KeepRaw, KeepJPG, StackCoverRaw, StackCoverJPG")
+	SafeVar(flags, &so.ManageBurst, "manage-burst", "Manage burst photos. Possible values: NoStack, Stack, StackKeepRaw, StackKeepJPEG")
+	SafeBoolVar(flags, &so.ManageEpsonFastFoto, "manage-epson-fastfoto", false, "Manage Epson FastFoto file (default: false)")
+}

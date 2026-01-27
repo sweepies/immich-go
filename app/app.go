@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/simulot/immich-go/internal/appcontext"
 	cliflags "github.com/simulot/immich-go/internal/cliFlags"
 	"github.com/simulot/immich-go/internal/config"
 	"github.com/simulot/immich-go/internal/fileprocessor"
@@ -20,17 +21,14 @@ import (
 // - the log and the log-level
 // - application counters
 // - the concurrency
-// - the configuration file
+// - configuration values
 
 type Application struct {
 	// CLI flags
 	DryRun         bool
 	OnErrors       cliflags.OnErrorsFlag
-	SaveConfig     bool
 	ConcurrentTask int
-	CfgFile        string
 	Output         string // Output format: text or json
-	NonInteractive bool   // Disable interactive UI, use text progress output
 
 	// Internal state
 	log       *Log
@@ -44,13 +42,10 @@ type Application struct {
 }
 
 func (app *Application) RegisterFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&app.CfgFile, "config", "", "config file (default is ./immich-go.yaml)")
 	flags.BoolVar(&app.DryRun, "dry-run", false, "dry run")
-	flags.BoolVar(&app.SaveConfig, "save-config", false, "Save the configuration to immich-go.yaml")
 	flags.Var(&app.OnErrors, "on-errors", "What to do when an error occurs (stop, continue, accept N errors at max)")
 	flags.IntVar(&app.ConcurrentTask, "concurrent-tasks", runtime.NumCPU(), "Number of concurrent tasks (1-20)")
 	flags.StringVarP(&app.Output, "output", "o", "text", "Output format (text|json) - json outputs JSONL to stdout, logs to stderr")
-	flags.BoolVar(&app.NonInteractive, "non-interactive", false, "Disable interactive progress UI (auto-detected if not running in a terminal)")
 }
 
 func New(ctx context.Context, cmd *cobra.Command) *Application {
@@ -125,4 +120,28 @@ func (app *Application) ProcessError(err error) error {
 		return err
 	}
 	return nil
+}
+
+// Context creates an immutable appcontext.Context from the current Application state.
+// This serves as a bridge during the transition from Application to appcontext.Context,
+// allowing commands to gradually adopt the new pattern.
+func (app *Application) Context() *appcontext.Context {
+	return appcontext.New(
+		appcontext.WithDryRun(app.DryRun),
+		appcontext.WithOnErrors(app.OnErrors),
+		appcontext.WithConcurrentTasks(app.ConcurrentTask),
+		appcontext.WithOutput(app.Output),
+		appcontext.WithTimeZone(app.tz),
+		appcontext.WithLogger(app.log.Logger),
+		appcontext.WithFileProcessor(app.processor),
+		appcontext.WithSupportedMedia(app.sm),
+	)
+}
+
+// EnsureFileProcessor ensures the FileProcessor is initialized.
+// If not already set, it creates one using the appcontext factory.
+func (app *Application) EnsureFileProcessor() {
+	if app.processor == nil {
+		app.processor = appcontext.NewFileProcessor(app.log.Logger, app.DryRun)
+	}
 }

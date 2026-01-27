@@ -1,5 +1,5 @@
 // Package config provides configuration management for the immich-go application.
-// It integrates Viper for configuration file handling, environment variables, and Cobra for CLI flags.
+// It integrates Viper for environment variables and Cobra for CLI flags.
 // The ConfigurationManager handles flag registration, binding, and origin tracking.
 package config
 
@@ -19,15 +19,13 @@ const (
 	OriginCLI = "cli"
 	// OriginEnvironment indicates the value came from environment variables
 	OriginEnvironment = "environment"
-	// OriginConfigFile indicates the value came from a configuration file
-	OriginConfigFile = "config file"
 	// OriginDefault indicates the value is the default
 	OriginDefault = "default"
 )
 
 // ConfigurationManager manages application configuration using Viper and Cobra.
 // It handles flag registration, binding to configuration sources, and tracks the origin
-// of configuration values (CLI, environment, config file, or default).
+// of configuration values (CLI, environment, or default).
 type ConfigurationManager struct {
 	v         *viper.Viper      // Viper instance for configuration handling
 	command   *cobra.Command    // Root command being processed
@@ -44,26 +42,11 @@ func New() *ConfigurationManager {
 	}
 }
 
-// Init initializes the configuration manager with the specified config file.
-// If cfgFile is empty, it defaults to looking for "immich-go.toml" in the current directory.
-// It sets up environment variable prefix and automatic environment binding.
-func (cm *ConfigurationManager) Init(cfgFile string) error {
-	if cfgFile != "" {
-		cm.v.SetConfigFile(cfgFile)
-	} else {
-		cm.v.AddConfigPath(".")
-		cm.v.SetConfigName("immich-go")
-	}
-
+// Init initializes the configuration manager for environment variable binding.
+func (cm *ConfigurationManager) Init() error {
 	cm.v.SetEnvPrefix("IMMICH_GO")
 	cm.v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	cm.v.AutomaticEnv()
-
-	if err := cm.v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -129,10 +112,10 @@ func (cm *ConfigurationManager) processFlagSet(cmd *cobra.Command, fs *pflag.Fla
 			err = errors.Join(fs.Set(f.Name, fmt.Sprintf("%v", val)))
 			// Determine origin
 			envKey := "IMMICH_GO_" + strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(key, ".", "_"), "-", "_"))
-			if os.Getenv(envKey) != "" {
+			if _, ok := os.LookupEnv(envKey); ok {
 				origins[key] = OriginEnvironment
 			} else {
-				origins[key] = OriginConfigFile
+				origins[key] = OriginDefault
 			}
 		} else if _, ok := origins[key]; !ok {
 			origins[key] = OriginDefault
@@ -170,23 +153,11 @@ func getViperKey(cmd *cobra.Command, f *pflag.Flag) string {
 }
 
 // GetFlagOrigin returns the origin source of a flag's value.
-// Possible origins are: "cli", "environment", "config file", or "default".
+// Possible origins are: "cli", "environment", or "default".
 func (cm *ConfigurationManager) GetFlagOrigin(cmd *cobra.Command, flag *pflag.Flag) string {
 	key := getViperKey(cmd, flag)
 	if origin, ok := cm.origins[key]; ok {
 		return origin
 	}
 	return OriginDefault
-}
-
-// GetConfigFile returns the name of the configuration file used, if any.
-// Returns empty string if no config file was loaded.
-func (cm *ConfigurationManager) GetConfigFile() string {
-	return cm.v.ConfigFileUsed()
-}
-
-// Save writes the current configuration to the specified file.
-// The file format is determined by the file extension (e.g., .toml, .yaml, .json).
-func (cm *ConfigurationManager) Save(fileName string) error {
-	return cm.v.WriteConfigAs(fileName)
 }

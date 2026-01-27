@@ -25,9 +25,8 @@ One year later, the necessity to refactor the code is obvious:
 immich-go [global flags] command sub-command [flags] arguments
 
 ex:
-immich-go --log-level=INFO import from-folder --server=xxxx --key=qqqqq --folder-as-album-name=PATH path/to/photos
+immich-go --log-level=INFO upload --server=xxxx --api-key=qqqqq --folder-as-album=PATH path/to/photos
 
 
 ## Better logging
-
 

@@ -62,6 +62,53 @@ func (client *Client) RegisterFlags(flags *pflag.FlagSet, prefix string) {
 	flags.StringVar(&client.TimeZone, prefix+"time-zone", client.TimeZone, "Override the system time zone")
 }
 
+// RegisterFlagsSafe adds client-related command-line flags only if they don't already exist.
+// This is used for the flattened CLI where multiple adapters may register the same flags.
+func (client *Client) RegisterFlagsSafe(flags *pflag.FlagSet, prefix string) {
+	client.DeviceUUID, _ = os.Hostname()
+
+	if prefix == "" {
+		safeStringVarP(flags, &client.Server, prefix+"server", "s", client.Server, "Immich server address (example http://your-ip:2283 or https://your-domain)")
+		safeStringVarP(flags, &client.APIKey, prefix+"api-key", "k", "", "API Key")
+	} else {
+		safeStringVar(flags, &client.Server, prefix+"server", client.Server, "Immich server address (example http://your-ip:2283 or https://your-domain)")
+		safeStringVar(flags, &client.APIKey, prefix+"api-key", "", "API Key")
+	}
+	safeStringVar(flags, &client.AdminAPIKey, prefix+"admin-api-key", "", "Admin's API Key for managing server's jobs")
+	safeBoolVar(flags, &client.APITrace, prefix+"api-trace", false, "Enable trace of api calls")
+	safeBoolVar(flags, &client.PauseImmichBackgroundJobs, prefix+"pause-immich-jobs", true, "Pause Immich background jobs during upload operations")
+	safeBoolVar(flags, &client.SkipSSL, prefix+"skip-verify-ssl", false, "Skip SSL verification")
+	safeDurationVar(flags, &client.ClientTimeout, prefix+"client-timeout", 20*time.Minute, "Set server calls timeout")
+	safeStringVar(flags, &client.DeviceUUID, prefix+"device-uuid", client.DeviceUUID, "Set a device UUID")
+	safeBoolVar(flags, &client.DryRun, prefix+"dry-run", false, "Simulate all actions")
+	safeStringVar(flags, &client.TimeZone, prefix+"time-zone", client.TimeZone, "Override the system time zone")
+}
+
+// Safe flag registration helpers
+func safeBoolVar(flags *pflag.FlagSet, p *bool, name string, value bool, usage string) {
+	if flags.Lookup(name) == nil {
+		flags.BoolVar(p, name, value, usage)
+	}
+}
+
+func safeStringVar(flags *pflag.FlagSet, p *string, name string, value string, usage string) {
+	if flags.Lookup(name) == nil {
+		flags.StringVar(p, name, value, usage)
+	}
+}
+
+func safeStringVarP(flags *pflag.FlagSet, p *string, name, shorthand string, value string, usage string) {
+	if flags.Lookup(name) == nil {
+		flags.StringVarP(p, name, shorthand, value, usage)
+	}
+}
+
+func safeDurationVar(flags *pflag.FlagSet, p *time.Duration, name string, value time.Duration, usage string) {
+	if flags.Lookup(name) == nil {
+		flags.DurationVar(p, name, value, usage)
+	}
+}
+
 // Open establishes a connection to the Immich server.
 // It validates configuration, sets up logging, creates client instances,
 // and performs initial server validation including ping and authentication.

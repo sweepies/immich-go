@@ -5,18 +5,22 @@ The `upload` command transfers photos and videos from various sources to your Im
 ## Syntax
 
 ```bash
-immich-go upload <sub-command> [options] <source-path>
+immich-go upload [source-flags] [options] <paths>...
 ```
 
-## Sub-commands
+## Source Modes
 
-| Sub-command                               | Source           | Description                                |
-| ----------------------------------------- | ---------------- | ------------------------------------------ |
-| [from-folder](#from-folder)               | Local filesystem | Upload from local folders or ZIP archives  |
-| [from-google-photos](#from-google-photos) | Google Takeout   | Upload from Google Photos takeout archives |
-| [from-icloud](#from-icloud)               | iCloud export    | Upload from iCloud takeout                 |
-| [from-picasa](#from-picasa)               | Picasa           | Upload from Picasa photo collections       |
-| [from-immich](#from-immich)               | Immich server    | Transfer between Immich servers            |
+By default, `upload` processes local folders. Use source flags to change the source:
+
+| Flag           | Source           | Description                                |
+| -------------- | ---------------- | ------------------------------------------ |
+| *(default)*    | Local filesystem | Upload from local folders or ZIP archives  |
+| `--google`     | Google Takeout   | Upload from Google Photos takeout archives |
+| `--icloud`     | iCloud export    | Upload from iCloud takeout                 |
+| `--picasa`     | Picasa           | Enable Picasa album parsing                |
+| `--from-immich`| Immich server    | Transfer between Immich servers (no paths) |
+
+**Note**: `--google`, `--icloud`, and `--from-immich` are mutually exclusive. `--picasa` can be combined with folder mode.
 
 ## Server Connection Options
 
@@ -47,26 +51,25 @@ All upload sub-commands require these connection parameters:
 | `--tag`         | -            | Add custom tags (can be used multiple times) |
 | `--device-uuid` | `$LOCALHOST` | Set device identifier                        |
 
-## User Interface
+## Output Options
 
 | Option              | Default | Description                                     |
 | ------------------- | ------- | ----------------------------------------------- |
-| `--non-interactive` | `false` | Force non-interactive mode (line-by-line output) |
 | `--output`          | `text`  | Output format: `text` or `json`                  |
 | `--api-trace`       | `false` | Enable API call tracing                          |
 
 ---
 
-## from-folder
+## Folder Mode (Default)
 
 Upload photos from local folders, including ZIP archives.
 
 ### Usage
 ```bash
-immich-go upload from-folder [options] <folder-path>
+immich-go upload [options] <folder-path>
 ```
 
-### Specific Options
+### Folder Options
 
 | Option                   | Default | Description                                             |
 | ------------------------ | ------- | ------------------------------------------------------- |
@@ -106,37 +109,39 @@ immich-go upload from-folder [options] <folder-path>
 ### Examples
 ```bash
 # Basic folder upload
-immich-go upload from-folder --server=http://localhost:2283 --api-key=your-key /path/to/photos
+immich-go upload --server=http://localhost:2283 --api-key=your-key /path/to/photos
 
 # Create albums from folder structure
-immich-go upload from-folder --folder-as-album=FOLDER --server=http://localhost:2283 --api-key=your-key /photos
+immich-go upload --folder-as-album=FOLDER --server=http://localhost:2283 --api-key=your-key /photos
 
 # Stack RAW+JPEG files
-immich-go upload from-folder --manage-raw-jpeg=StackCoverRaw --server=http://localhost:2283 --api-key=your-key /photos
+immich-go upload --manage-raw-jpeg=StackCoverRaw --server=http://localhost:2283 --api-key=your-key /photos
 
 # Filter by date and file type
-immich-go upload from-folder --date-range=2023 --include-type=IMAGE --server=http://localhost:2283 --api-key=your-key /photos
+immich-go upload --date-range=2023 --include-type=IMAGE --server=http://localhost:2283 --api-key=your-key /photos
 
 # JSON output for automation
-immich-go upload from-folder --output=json --server=http://localhost:2283 --api-key=your-key /photos
+immich-go upload --output=json --server=http://localhost:2283 --api-key=your-key /photos
 
-# Non-interactive mode for scripts
-immich-go upload from-folder --non-interactive --server=http://localhost:2283 --api-key=your-key /photos
-
-# Auto-detected non-interactive (when piped)
-immich-go upload from-folder --server=http://localhost:2283 --api-key=your-key /photos | grep "error"
+# Pipe output for filtering
+immich-go upload --server=http://localhost:2283 --api-key=your-key /photos 2>&1 | grep "error"
 ```
 
 ---
 
-## from-google-photos
+## Google Photos Mode (`--google`)
 
 Upload from Google Photos Takeout archives.
 
 ### Usage
 ```bash
-immich-go upload from-google-photos [options] <takeout-path>
+immich-go upload --google [options] <takeout-path>
 ```
+
+`<takeout-path>` can be:
+- One or more `takeout-*.zip` files
+- A decompressed Takeout folder
+- A directory containing `takeout-*.zip` parts (the `.zip` files are added automatically)
 
 ### Takeout Handling
 
@@ -164,29 +169,32 @@ immich-go upload from-google-photos [options] <takeout-path>
 | `--people-tag`  | `true`  | Tag with people names from JSON |
 
 ### File Management
-Same options as `from-folder` for burst, RAW/JPEG, and HEIC/JPEG management.
+Same options as folder mode for burst, RAW/JPEG, and HEIC/JPEG management.
 
 ### Examples
 ```bash
 # Basic Google Photos import
-immich-go upload from-google-photos --server=http://localhost:2283 --api-key=your-key /path/to/takeout-*.zip
+immich-go upload --google --server=http://localhost:2283 --api-key=your-key /path/to/takeout-*.zip
+
+# Folder of takeout parts (auto-expands .zip files)
+immich-go upload --google --server=http://localhost:2283 --api-key=your-key /path/to/takeout
 
 # Import including unmatched files
-immich-go upload from-google-photos --include-unmatched --server=http://localhost:2283 --api-key=your-key /takeout
+immich-go upload --google --include-unmatched --server=http://localhost:2283 --api-key=your-key /takeout
 
 # Import from specific album only
-immich-go upload from-google-photos --from-album-name="Vacation 2023" --server=http://localhost:2283 --api-key=your-key /takeout
+immich-go upload --google --from-album-name="Vacation 2023" --server=http://localhost:2283 --api-key=your-key /takeout
 ```
 
 ---
 
-## from-icloud
+## iCloud Mode (`--icloud`)
 
 Upload from iCloud takeout archives.
 
 ### Usage
 ```bash
-immich-go upload from-icloud [options] <icloud-path>
+immich-go upload --icloud [options] <icloud-path>
 ```
 
 ### Specific Options
@@ -198,35 +206,37 @@ immich-go upload from-icloud [options] <icloud-path>
 ### Examples
 ```bash
 # Basic iCloud import
-immich-go upload from-icloud --server=http://localhost:2283 --api-key=your-key /path/to/icloud-export
+immich-go upload --icloud --server=http://localhost:2283 --api-key=your-key /path/to/icloud-export
 
 # Include memories as albums  
-immich-go upload from-icloud --memories --server=http://localhost:2283 --api-key=your-key /path/to/icloud-export
+immich-go upload --icloud --memories --server=http://localhost:2283 --api-key=your-key /path/to/icloud-export
 ```
 
 ---
 
-## from-picasa
+## Picasa Mode (`--picasa`)
 
-Upload from Picasa photo collections.
+Upload from Picasa photo collections with automatic `.picasa.ini` parsing.
 
 ### Usage
 ```bash
-immich-go upload from-picasa [options] <picasa-path>
+immich-go upload --picasa [options] <picasa-path>
 ```
 
-Uses same options as `from-folder` with automatic Picasa metadata detection.
+Uses same options as folder mode with automatic Picasa metadata detection.
 
 ---
 
-## from-immich
+## Immich-to-Immich Mode (`--from-immich`)
 
 Transfer photos between Immich servers.
 
 ### Usage
 ```bash
-immich-go upload from-immich [source-options] [destination-options]
+immich-go upload --from-immich [source-options] [destination-options]
 ```
+
+**Note**: This mode does not accept path arguments.
 
 ### Source Server Options
 
@@ -252,17 +262,17 @@ immich-go upload from-immich [source-options] [destination-options]
 ### Examples
 ```bash
 # Transfer all photos between servers
-immich-go upload from-immich \
+immich-go upload --from-immich \
   --from-server=http://old-server:2283 --from-api-key=old-key \
   --server=http://new-server:2283 --api-key=new-key
 
 # Transfer images with a rating of 3 or above
-immich-go upload from-immich \
+immich-go upload --from-immich \
   --from-server=http://old-server:2283 --from-api-key=old-key --from-minimal-rating=3 \
   --server=http://new-server:2283 --api-key=new-key
 
 # Transfer photos from a specific date range
-immich-go upload from-immich \
+immich-go upload --from-immich \
   --from-server=http://old-server:2283 --from-api-key=old-key --from-date-range=2023-01-01,2023-06-30 \
   --server=http://new-server:2283 --api-key=new-key
 ```
@@ -279,14 +289,13 @@ immich-go upload from-immich \
 ## Output Modes
 
 ### Text Mode (Default)
-- Interactive mode shows a progress spinner with real-time updates
-- Non-interactive mode shows line-by-line progress every 5 seconds
+- Shows line-by-line progress updates
 - Logs are written to stderr following Unix conventions
 
 ### JSON Mode (`--output=json`)
 - Outputs structured JSON Lines (JSONL) to stdout
 - Progress updates and final summary are separate JSON objects
-- Always uses non-interactive mode
+- Uses line-by-line progress output (no interactive TUI)
 - Ideal for automation and integration with other tools
 
 #### JSON Output Format
@@ -327,16 +336,16 @@ immich-go upload from-immich \
 
 ```bash
 # Save JSON output to file
-immich-go upload from-folder --output=json /photos > upload.jsonl
+immich-go upload --output=json --server=... --api-key=... /photos > upload.jsonl
 
 # Process JSON output with jq
-immich-go upload from-folder --output=json /photos | jq '.type'
+immich-go upload --output=json --server=... --api-key=... /photos | jq '.type'
 
 # Extract only errors from JSON output
-immich-go upload from-folder --output=json /photos | jq 'select(.type == "summary" and .exit_code != 0)'
+immich-go upload --output=json --server=... --api-key=... /photos | jq 'select(.type == "summary" and .exit_code != 0)'
 
 # Save logs separately from JSON data
-immich-go upload from-folder --output=json /photos > data.jsonl 2> errors.log
+immich-go upload --output=json --server=... --api-key=... /photos > data.jsonl 2> errors.log
 ```
 
 ## See Also

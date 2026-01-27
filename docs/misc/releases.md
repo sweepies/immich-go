@@ -50,7 +50,7 @@ The `--capture-date-method` is now set to `NONE` by default.
 Archive photos from Immich
 
 Usage:
-  immich-go archive from-immich [from-flags] [flags]
+  immich-go archive --from-immich [from-flags] [flags]
 
 Flags:
       --from-album strings             Get assets only from those albums, can be used multiple times
@@ -60,7 +60,7 @@ Flags:
       --from-date-range date-range     Get assets only within this date range (fromat: YYYY[-MM[-DD[,YYYY-MM-DD]]]) (default unset)
       --from-server string             Immich server address (example http://your-ip:2283 or https://your-domain)
       --from-skip-verify-ssl           Skip SSL verification
-  -h, --help                           help for from-immich
+  -h, --help                           help for archive
 
 Global Flags:
       --log-level string         Log level (DEBUG|INFO|WARN|ERROR), default INFO (default "INFO")
@@ -151,19 +151,19 @@ Those XMP files use a custom schema to store the Google Photos metadata:
 
 The general syntax is:
 ```sh
-.\immich-go archive from-xxx [from-xxx flags...] --write-to-folder <destination> <source> 
+.\immich-go archive [source-flags...] --write-to-folder <destination> <source> 
 ```
 
-##### The command `archive --from-google-photos` archives a Google Photos takeout into a folder structure
+##### The command `archive --google` archives a Google Photos takeout into a folder structure
 
 This command create a folder structure in `/path/to/destination` with the result of the takeout analysis.
-The resulting folder structure can be re-imported into immich-go with the command `upload from-google-photo path/to/archived-folder`.
+The resulting folder structure can be re-imported into immich-go with the command `immich-go upload /path/to/archived-folder`.
 
-##### The command `archive --from-` archives a Google Photos takeout into a folder structure
+##### The command `archive --google` archives a Google Photos takeout into a folder structure
 
 Example:
 ```sh
-.\immich-go archive from-google-photos  --include-partner  --write-to-folder /path/to/destination /path/to/takeout*.zip
+.\immich-go archive --google --include-partner --write-to-folder /path/to/destination /path/to/takeout*.zip
 ```
 
 Coming soon: 
@@ -225,7 +225,7 @@ The toy project has grown up. The code has been refactored to be more modular an
 Upload photos from a folder
 
 Usage:
-  immich-go upload from-folder [flags] <path>...
+  immich-go upload [flags] <path>...
 
 Flags:
       --album-path-joiner string           Specify a string to use when joining multiple folder names to create an album name (e.g. ' ',' - ') (default " / ")
@@ -238,7 +238,7 @@ Flags:
       --exiftool-timezone timezone         Timezone to use when parsing exif timestamps without timezone Options: LOCAL (use the system's local timezone), UTC (use UTC timezone), or a valid timezone name (e.g. America/New_York) (default Local)
       --filename-timezone timezone         Specify the timezone to use when detecting the date from the filename. Options: Local (use the system's local timezone), UTC (use UTC timezone), or a valid timezone name (e.g. America/New_York) (default Local)
       --folder-as-album folderMode         Import all files in albums defined by the folder structure. Can be set to 'FOLDER' to use the folder name as the album name, or 'PATH' to use the full path as the album name (default NONE)
-  -h, --help                               help for from-folder
+  -h, --help                               help for upload
       --ignore-sidecar-files               Don't upload sidecar with the photo.
       --include-extensions ExtensionList   Comma-separated list of extension to include. (e.g. .jpg,.heic) (default: all)
       --into-album string                  Specify an album to import all files into
@@ -264,14 +264,14 @@ Global Flags:
 Upload photos either from a zipped Google Photos takeout or decompressed archive
 
 Usage:
-  immich-go upload from-google-photos [flags] <takeout-*.zip> | <takeout-folder>
+  immich-go upload --google [flags] <takeout-*.zip> | <takeout-folder>
 
 Flags:
       --ban-file FileList                  Exclude a file based on a pattern (case-insensitive). Can be specified multiple times.
       --date-range date-range              Only import photos taken within the specified date range (default unset)
       --exclude-extensions ExtensionList   Comma-separated list of extension to exclude. (e.g. .gif,.PM) (default: none)
       --from-album-name string             Only import photos from the specified Google Photos album
-  -h, --help                               help for from-google-photos
+  -h, --help                               help for upload
   -a, --include-archived                   Import archived Google Photos (default true)
       --include-extensions ExtensionList   Comma-separated list of extension to include. (e.g. .jpg,.heic) (default: all)
   -p, --include-partner                    Import photos from your partner's Google Photos account (default true)

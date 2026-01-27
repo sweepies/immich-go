@@ -76,12 +76,7 @@ func (log *Log) Open(ctx context.Context, cmd *cobra.Command, app *Application) 
 	// List flags
 	log.Info(GetVersion())
 
-	// Log configuration file if used
-	if configFile := app.Config.GetConfigFile(); configFile != "" {
-		log.Info("", "Configuration file", configFile)
-	} else {
-		log.Info("", "Configuration file", "none (using defaults)")
-	}
+	log.Info("", "Configuration file", "disabled (env + flags only)")
 
 	log.Info("Running environment:", "architecture", runtime.GOARCH, "os", runtime.GOOS)
 

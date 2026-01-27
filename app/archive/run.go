@@ -4,30 +4,23 @@ import (
 	"errors"
 	"os"
 
-	"github.com/simulot/immich-go/adapters"
 	"github.com/simulot/immich-go/adapters/folder"
-	"github.com/simulot/immich-go/internal/assettracker"
+	"github.com/simulot/immich-go/internal/adapters"
 	"github.com/simulot/immich-go/internal/fileevent"
-	"github.com/simulot/immich-go/internal/fileprocessor"
 	"github.com/simulot/immich-go/internal/fshelper/osfs"
 	"github.com/spf13/cobra"
 )
 
-func (ac *ArchiveCmd) Run(cmd *cobra.Command, adapter adapters.Reader) error {
+func (ac *ArchiveCmd) Run(cmd *cobra.Command, source adapters.Source) error {
 	// ready to run
 	ctx := cmd.Context()
 	log := ac.app.Log()
-	log.Info("in ArchiveCmd.Run", "archivePath", ac.ArchivePath)
+	log.Info("in ArchiveCmd.Run", "archivePath", ac.config.ArchivePath)
 
-	// Initialize the Journal and FileProcessor
-	if ac.app.FileProcessor() == nil {
-		recorder := fileevent.NewRecorder(ac.app.Log().Logger)
-		tracker := assettracker.NewWithLogger(ac.app.Log().Logger, ac.app.DryRun)
-		processor := fileprocessor.New(tracker, recorder)
-		ac.app.SetFileProcessor(processor)
-	}
+	// Initialize the FileProcessor using centralized factory
+	ac.app.EnsureFileProcessor()
 
-	p := ac.ArchivePath
+	p := ac.config.ArchivePath
 	err := os.MkdirAll(p, 0o755)
 	if err != nil {
 		return err
@@ -38,8 +31,16 @@ func (ac *ArchiveCmd) Run(cmd *cobra.Command, adapter adapters.Reader) error {
 	if err != nil {
 		return err
 	}
+	// Close the underlying filesystem if it supports closing (defensive code for future FS types)
+	if c, ok := destFS.(interface{ Close() error }); ok {
+		defer func() {
+			if closeErr := c.Close(); closeErr != nil {
+				log.Error("failed to close filesystem", "error", closeErr)
+			}
+		}()
+	}
 
-	gChan := adapter.Browse(ctx)
+	gChan := source.Browse(ctx)
 	errCount := 0
 	for {
 		select {
