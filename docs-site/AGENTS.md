@@ -1,0 +1,1 @@
+Do not track changes with changie when making changes to the docs site. 

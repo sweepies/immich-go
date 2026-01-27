@@ -14,7 +14,7 @@ The project uses the Cobra library for its CLI structure and `goreleaser` to man
 
 # Changie
 
-We use `changie` for changelog management. After making a **user-facing** change, you must document it via `changie new -b <body> -k <kind>`.
+We use `changie` for changelog management. After making a **user-facing** change to the **core application** (i.e. not docs), you must document it via `changie new -b <body> -k <kind>`.
 
 Use the conventional commit style for the body.
 
