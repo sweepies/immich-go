@@ -70,6 +70,7 @@ These options are command-scoped. Replace `<COMMAND>` with `UPLOAD` or `STACK` b
 | `--session-tag` | `IMMICH_GO_UPLOAD_SESSION_TAG` | `false` | Tag with session timestamp |
 | `--tag` | `IMMICH_GO_UPLOAD_TAG` | - | Add custom tags |
 | `--pause-immich-jobs` | `IMMICH_GO_UPLOAD_PAUSE_IMMICH_JOBS` | `true` | Pause server jobs during upload |
+| `--no-resume-jobs` | `IMMICH_GO_UPLOAD_NO_RESUME_JOBS` | `false` | Do not resume server jobs after upload (testing) |
 
 ### Source Mode Flags
 

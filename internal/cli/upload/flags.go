@@ -26,6 +26,7 @@ type Flags struct {
 	TimeZone      string
 	DryRun        bool
 	PauseJobs     bool
+	NoResumeJobs  bool
 
 	// Upload behavior flags
 	Overwrite  bool
@@ -114,6 +115,7 @@ func (f *Flags) RegisterFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&f.TimeZone, "time-zone", f.TimeZone, "Override the system time zone")
 	flags.BoolVar(&f.DryRun, "dry-run", false, "Simulate all actions")
 	flags.BoolVar(&f.PauseJobs, "pause-immich-jobs", f.PauseJobs, "Pause Immich background jobs during upload operations")
+	flags.BoolVar(&f.NoResumeJobs, "no-resume-jobs", false, "Do not resume Immich background jobs after upload (for testing)")
 
 	// Upload behavior flags
 	flags.BoolVar(&f.Overwrite, "overwrite", false, "Always overwrite files on the server with local versions")
@@ -228,6 +230,7 @@ func (f *Flags) ToConfig(args []string) (*uploadcfg.Config, error) {
 		TimeZone:      f.TimeZone,
 		DryRun:        f.DryRun,
 		PauseJobs:     f.PauseJobs,
+		NoResumeJobs:  f.NoResumeJobs,
 	}
 
 	// Upload behavior

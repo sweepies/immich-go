@@ -161,6 +161,7 @@ The following environment variables can be used to configure `immich-go`.
 | `IMMICH_GO_UPLOAD_OVERWRITE` | `--overwrite` | `false` | Always overwrite files on the server with local versions |
 | `IMMICH_GO_UPLOAD_PARTNER_SHARED_ALBUM` | `--partner-shared-album` |  | Add partner's photo to the specified album name |
 | `IMMICH_GO_UPLOAD_PAUSE_IMMICH_JOBS` | `--pause-immich-jobs` | `true` | Pause Immich background jobs during upload operations |
+| `IMMICH_GO_UPLOAD_NO_RESUME_JOBS` | `--no-resume-jobs` | `false` | Do not resume Immich background jobs after upload (testing) |
 | `IMMICH_GO_UPLOAD_PEOPLE_TAG` | `--people-tag` | `true` | Tag uploaded photos with tags "people/name" found in the JSON file |
 | `IMMICH_GO_UPLOAD_PICASA` | `--picasa` | `false` | Enable Picasa album parsing |
 | `IMMICH_GO_UPLOAD_RECURSIVE` | `--recursive` | `true` | Explore the folder and all its sub-folders |

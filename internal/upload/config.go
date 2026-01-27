@@ -61,6 +61,7 @@ type ServerConfig struct {
 	TimeZone      string        // Timezone override
 	DryRun        bool          // Simulate all actions
 	PauseJobs     bool          // Pause Immich background jobs during upload
+	NoResumeJobs  bool          // Do not resume Immich background jobs after upload
 }
 
 // StackOptions holds configuration for photo stacking behavior.
