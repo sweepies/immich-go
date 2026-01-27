@@ -94,15 +94,59 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-s.AssetsReady:
+		type albumInfo struct {
+			album assets.Album
+			ids   []string
+		}
+
+		// Channel to receive album info from workers
+		updates := make(chan albumInfo)
+
+		// Error group for workers
+		wg, ctx := errgroup.WithContext(ctx)
+		concurrency := pctx.Config.ConcurrentTask
+		if concurrency <= 0 {
+			concurrency = 1
+		}
+		wg.SetLimit(concurrency)
+
+		var albumErr error
+		var albumErrMu sync.Mutex
+
+		// Consumer goroutine: updates index and cache
+		consumerDone := make(chan struct{})
+		go func() {
+			defer close(consumerDone)
+			for info := range updates {
+				s.AlbumsCache.NewCollection(info.album.Title, info.album, info.ids)
+				pctx.Logger.Info("got album from the server", "album", info.album.Title, "assets", len(info.ids))
+
+				// assign the album to the assets
+				for _, id := range info.ids {
+					asset := pctx.Index.GetByID(id)
+					if asset == nil {
+						pctx.Logger.Debug("processing the immich albums: asset not found in index", "id", id)
+						continue
+					}
+					asset.Albums = append(asset.Albums, info.album)
+				}
+			}
+		}()
+
+		// Producers: fetch album info
 		for _, a := range serverAlbums {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
+			a := a
+			wg.Go(func() error {
 				r, err := pctx.Server.GetAlbumInfo(ctx, a.ID, false)
 				if err != nil {
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
 					pctx.Logger.Error("can't get the album info from the server", "album", a.AlbumName, "err", err)
-					continue
+					albumErrMu.Lock()
+					albumErr = errors.Join(albumErr, fmt.Errorf("album %s: %w", a.AlbumName, err))
+					albumErrMu.Unlock()
+					return nil
 				}
 				ids := make([]string, 0, len(r.Assets))
 				for _, aa := range r.Assets {
@@ -110,22 +154,26 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 				}
 
 				album := assets.NewAlbum(string(a.ID), a.AlbumName, a.Description)
-				s.AlbumsCache.NewCollection(a.AlbumName, album, ids)
-				pctx.Logger.Info("got album from the server", "album", a.AlbumName, "assets", len(r.Assets))
-
-				// assign the album to the assets
-				for _, id := range ids {
-					asset := pctx.Index.GetByID(id)
-					if asset == nil {
-						pctx.Logger.Debug("processing the immich albums: asset not found in index", "id", id)
-						continue
-					}
-					asset.Albums = append(asset.Albums, album)
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case updates <- albumInfo{album: album, ids: ids}:
 				}
-			}
+				return nil
+			})
 		}
+
+		err := wg.Wait()
+		close(updates)
+		<-consumerDone
+		if err != nil {
+			return err
+		}
+		if albumErr != nil {
+			return fmt.Errorf("album discovery encountered errors: %w", albumErr)
+		}
+		return nil
 	}
-	return nil
 }
 
 // UploadStage handles uploading assets to the server.
