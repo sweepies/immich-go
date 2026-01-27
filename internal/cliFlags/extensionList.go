@@ -23,6 +23,21 @@ func (flags *InclusionFlags) RegisterFlags(fs *pflag.FlagSet, prefix string) {
 	fs.Var(&flags.IncludedType, prefix+"include-type", "Single file type to include. (VIDEO or IMAGE) (default: all)")
 }
 
+// RegisterFlagsSafe registers flags only if they don't already exist
+func (flags *InclusionFlags) RegisterFlagsSafe(fs *pflag.FlagSet, prefix string) {
+	safeVar(fs, &flags.DateRange, prefix+"date-range", "Only import photos taken within the specified date range")
+	safeVar(fs, &flags.ExcludedExtensions, prefix+"exclude-extensions", "Comma-separated list of extension to exclude. (e.g. .gif,.PM) (default: none)")
+	safeVar(fs, &flags.IncludedExtensions, prefix+"include-extensions", "Comma-separated list of extension to include. (e.g. .jpg,.heic) (default: all)")
+	safeVar(fs, &flags.IncludedType, prefix+"include-type", "Single file type to include. (VIDEO or IMAGE) (default: all)")
+}
+
+// safeVar registers a flag only if it doesn't already exist
+func safeVar(fs *pflag.FlagSet, value pflag.Value, name string, usage string) {
+	if fs.Lookup(name) == nil {
+		fs.Var(value, name, usage)
+	}
+}
+
 // An IncludeType is either of the constants below which
 // represents a collection of extensions.
 type IncludeType string

@@ -2,9 +2,9 @@
 
 This document provides a comprehensive guide to the `immich-go` command-line tool, explaining how its various commands process and upload your media to an Immich server. It covers file selection, metadata handling, grouping, and the intelligent integration with Immich's features.
 
-## 1. The `from-folder` Command: Uploading from Local Folders
+## 1. Folder Mode (Default): Uploading from Local Folders
 
-This section provides a detailed explanation of how the `immich-go` command-line tool processes and uploads files from a local folder to an Immich server. It covers file selection, metadata handling, grouping, and the various ways `immich-go` interacts with the Immich API.
+This section provides a detailed explanation of how `immich-go upload` processes and uploads files from a local folder to an Immich server. It covers file selection, metadata handling, grouping, and the various ways `immich-go` interacts with the Immich API.
 
 ### File Selection and Filtering
 
@@ -83,26 +83,26 @@ The final stage is the upload itself and the integration with Immich’s feature
 *   **Graceful Shutdown**: If you press Ctrl+C, the application attempts to finish any in-progress uploads before exiting.
 *   **Unsupported Files**: Files that aren’t recognized as supported media types are simply skipped.
 
-### Specialized `from-folder` Commands
+### Specialized Folder Modes
 
-The `from-picasa` and `from-icloud` commands are specialized versions of `from-folder`, tailored to handle the specific structures of those services' backups.
+The `--picasa` and `--icloud` flags enable specialized versions of folder mode, tailored to handle the specific structures of those services' backups.
 
-#### The `from-picasa` Command
+#### Picasa Mode (`--picasa`)
 
-This command is optimized for folders that have been managed by Google's Picasa software. It functions exactly like `from-folder`, but with one key addition: it automatically looks for `.picasa.ini` files in each directory.
+This mode is optimized for folders that have been managed by Google's Picasa software. It functions exactly like folder mode, but with one key addition: it automatically looks for `.picasa.ini` files in each directory.
 
 When a `.picasa.ini` file is found, `immich-go` reads it to extract the album name and description, and then associates all the photos in that directory with the corresponding album in Immich.
 
-#### The `from-icloud` Command
+#### iCloud Mode (`--icloud`)
 
-This command is designed to handle the structure of an Apple iCloud Photos takeout. It uses a two-pass process to ensure metadata and album information are correctly applied.
+This mode is designed to handle the structure of an Apple iCloud Photos takeout. It uses a two-pass process to ensure metadata and album information are correctly applied.
 
 1.  **First Pass (Metadata Scan)**: The tool first scans the entire takeout specifically for `.csv` files. It parses these files to build a map of all your photos, linking them to their original creation dates and album memberships (including "Memories," which can be imported as albums using the `--memories` flag).
 2.  **Second Pass (Asset Processing)**: The tool then processes the actual media files. For each photo and video, it looks up the information gathered in the first pass and applies the correct creation date and album information. This is crucial because iCloud takeout files often have incorrect file modification dates.
 
-## 2. The `from-google-photos` Command: Migrating Google Photos Takeout
+## 2. Google Photos Mode (`--google`): Migrating Google Photos Takeout
 
-This section explains how the `immich-go` command `from-google-photos` processes a Google Photos Takeout archive and uploads it to an Immich server. The process is designed to preserve as much of your Google Photos organization as possible, including albums, metadata, and tags.
+This section explains how `immich-go upload --google` processes a Google Photos Takeout archive and uploads it to an Immich server. The process is designed to preserve as much of your Google Photos organization as possible, including albums, metadata, and tags.
 
 ### The Two-Pass Process
 
@@ -110,7 +110,7 @@ This section explains how the `immich-go` command `from-google-photos` processes
 
 #### Pass 1: Discovery and Cataloging
 
-First, the tool scans all the files in your Takeout archive (which can be one or more `.zip` files or a decompressed folder).
+First, the tool scans all the files in your Takeout archive (which can be one or more `.zip` files, a decompressed folder, or a folder containing `takeout-*.zip` parts that are auto-expanded).
 
 1.  **File Identification**: It identifies two main types of files:
     *   **Media Files**: Your actual photos and videos.
@@ -174,20 +174,20 @@ The final upload process is shared with other `immich-go` commands and includes 
 *   **Concurrent Uploads**: For faster performance.
 *   **Stacking**: RAW+JPEG pairs and bursts can be automatically stacked in Immich.
 
-By combining a robust parsing strategy with intelligent feature mapping, the `from-google-photos` command provides a powerful way to migrate your entire Google Photos library to Immich while keeping your organization intact.
+By combining a robust parsing strategy with intelligent feature mapping, Google Photos mode provides a powerful way to migrate your entire Google Photos library to Immich while keeping your organization intact.
 
-## 3. The `from-immich` Command: Server-to-Server Migration
+## 3. Immich-to-Immich Mode (`--from-immich`): Server-to-Server Migration
 
-The `from-immich` command is a powerful tool for selecting assets from one Immich server and piping them to another command, such as `upload` or `archive`. Its primary use case is migrating or copying a subset of your library from one Immich instance to another.
+The `--from-immich` flag enables a powerful mode for selecting assets from one Immich server and transferring them to another. Its primary use case is migrating or copying a subset of your library from one Immich instance to another.
 
 ### How it Works
 
-Instead of reading files from a local folder, `from-immich` connects to a *source* Immich server and fetches assets based on the criteria you specify. It then acts as a data source for another `immich-go` command.
+Instead of reading files from a local folder, this mode connects to a *source* Immich server and fetches assets based on the criteria you specify. It then uploads them to the destination server.
 
 For example, to copy all favorite photos from a source server to a destination server, you would use a command like this:
 
 ```bash
-immich-go upload from-immich \
+immich-go upload --from-immich \
   --from-server https://source.immich.app --from-api-key <source_key> \
   --from-favorite \
   --server https://destination.immich.app --api-key <destination_key>

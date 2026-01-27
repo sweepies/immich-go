@@ -1,6 +1,6 @@
-# Immich-Go Documentation
+# immich-go Documentation
 
-Welcome to the complete documentation for **Immich-Go**, an open-source tool for uploading and managing photo collections with your self-hosted Immich server.
+Welcome to the complete documentation for **immich-go**, an open-source tool for uploading and managing photo collections with your self-hosted Immich server.
 
 ## 📖 Documentation Overview
 
@@ -29,14 +29,14 @@ This documentation is organized into several sections to help you get started qu
 ## 🎯 Quick Navigation by Use Case
 
 ### New Users
-1. Start with [Installation](installation.md) to set up Immich-Go
+1. Start with [Installation](installation.md) to set up immich-go
 2. Review [Examples](examples.md) for your specific use case
 3. Check [Best Practices](best-practices.md) for optimal performance
 
 ### Google Photos Migration
 - [Google Photos Takeout Guide](misc/google-takeout.md)
 - [Migration Best Practices](best-practices.md#google-photos-migration)
-- [Upload from Google Photos](commands/upload.md#from-google-photos)
+- [Upload from Google Photos](commands/upload.md)
 
 ### Advanced Users
 - [Technical Details](technical.md) for deep dive into functionality
@@ -47,13 +47,13 @@ This documentation is organized into several sections to help you get started qu
 
 ```bash
 # Upload from local folder
-immich-go upload from-folder --server=SERVER --api-key=KEY /path/to/photos
+immich-go upload --server=SERVER --api-key=KEY /path/to/photos
 
 # Upload Google Photos takeout
-immich-go upload from-google-photos --server=SERVER --api-key=KEY /path/to/takeout.zip
+immich-go upload --google --server=SERVER --api-key=KEY /path/to/takeout.zip
 
 # Archive from Immich server
-immich-go archive from-immich --server=SERVER --api-key=KEY --write-to-folder=/archive
+immich-go archive --from-immich --from-server=SERVER --from-api-key=KEY --write-to-folder=/archive
 
 # Stack similar photos
 immich-go stack --server=SERVER --api-key=KEY
@@ -102,7 +102,7 @@ Documentation improvements are always welcome! See our [contributing guidelines]
 
 ## 📄 License
 
-This documentation is part of the Immich-Go project and is licensed under the same terms as specified in the [LICENSE](../LICENSE) file.
+This documentation is part of the immich-go project and is licensed under the same terms as specified in the [LICENSE](../LICENSE) file.
 
 ---
 

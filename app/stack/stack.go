@@ -9,6 +9,7 @@ import (
 	"github.com/simulot/immich-go/app"
 	"github.com/simulot/immich-go/immich"
 	"github.com/simulot/immich-go/internal/assets"
+	clistack "github.com/simulot/immich-go/internal/cli/stack"
 	cliflags "github.com/simulot/immich-go/internal/cliFlags"
 	"github.com/simulot/immich-go/internal/filenames"
 	"github.com/simulot/immich-go/internal/filetypes"
@@ -18,17 +19,12 @@ import (
 	"github.com/simulot/immich-go/internal/groups/epsonfastfoto"
 	"github.com/simulot/immich-go/internal/groups/series"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
-/*
-TODO
-- [X] dry-run mode
-- [X] existing stack --> apparently correctly handled by the server
-- [X] Take sub second exif time into account
-*/
+// StackCmd holds the state for stack command execution.
+// CLI flags are managed by the internal/cli/stack package.
 type StackCmd struct {
-	// CLI flags
+	// Stack options (from config)
 	StackOptions shared.StackOptions
 	DateRange    cliflags.DateRange
 
@@ -40,34 +36,49 @@ type StackCmd struct {
 	client         app.Client
 	groupers       []groups.Grouper // groups are used to group assets
 	filters        []filters.Filter // filters are used to filter assets in groups
+
+	// Configuration (built from CLI flags)
+	config *clistack.Config
 }
 
-func (sc *StackCmd) RegisterFlags(flags *pflag.FlagSet) {
-	sc.StackOptions.RegisterFlags(flags)
-	flags.Var(&sc.DateRange, "date-range", "photos must be taken in the date range")
-}
+// NewStackCommandFromCLI creates a stack command using the CLI package.
+func NewStackCommandFromCLI(ctx context.Context, a *app.Application) *cobra.Command {
+	builder := clistack.NewCommandBuilder()
 
-// const timeFormat = "2006-01-02T15:04:05.000Z"
-
-func NewStackCommand(ctx context.Context, a *app.Application) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "stack [flags]",
-		Short: "Update Immich for stacking related photos",
-		Long:  `Stack photos related to each other according to the options`,
-	}
-
-	o := &StackCmd{}
-	o.RegisterFlags(cmd.Flags())
-	o.client.RegisterFlags(cmd.Flags(), "")
-	cmd.TraverseChildren = true
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error { //nolint:contextcheck
-		// ready to run
-		ctx := cmd.Context()
-		err := o.client.Open(ctx, a)
+	return builder.Build(ctx, func(cmd *cobra.Command, args []string, flags *clistack.Flags) error {
+		// Build configuration from CLI flags
+		cfg, err := flags.ToConfig()
 		if err != nil {
 			return err
 		}
+
+		// Create StackCmd with configuration
+		o := &StackCmd{
+			config: cfg,
+		}
+
+		// Copy stack options from config
+		o.StackOptions.ManageHEICJPG = cfg.StackOptions.ManageHEICJPG
+		o.StackOptions.ManageRawJPG = cfg.StackOptions.ManageRawJPG
+		o.StackOptions.ManageBurst = cfg.StackOptions.ManageBurst
+		o.StackOptions.ManageEpsonFastFoto = cfg.StackOptions.ManageEpsonFastFoto
+
+		// Copy server config to client
+		o.client.Server = cfg.Server.Server
+		o.client.APIKey = cfg.Server.APIKey
+		o.client.AdminAPIKey = cfg.Server.AdminAPIKey
+		o.client.APITrace = cfg.Server.APITrace
+		o.client.SkipSSL = cfg.Server.SkipSSL
+		o.client.ClientTimeout = cfg.Server.ClientTimeout
+		o.client.DeviceUUID = cfg.Server.DeviceUUID
+		o.client.TimeZone = cfg.Server.TimeZone
+		o.client.DryRun = cfg.Server.DryRun
+
+		// Open client connection
+		if err := o.client.Open(cmd.Context(), a); err != nil {
+			return err
+		}
+
 		o.TZ = a.GetTZ()
 		o.DateRange.SetTZ(a.GetTZ())
 
@@ -87,37 +98,35 @@ func NewStackCommand(ctx context.Context, a *app.Application) *cobra.Command {
 
 		so := immich.SearchOptions().WithExif().WithDateRange(o.DateRange)
 
-		err = o.client.Immich.GetFilteredAssetsFn(ctx, so,
-			func(a *immich.Asset) error {
-				if a.IsTrashed {
+		err = o.client.Immich.GetFilteredAssetsFn(cmd.Context(), so,
+			func(asset *immich.Asset) error {
+				if asset.IsTrashed {
 					return nil
 				}
 
-				asset := a.AsAsset()
-				asset.SetNameInfo(o.InfoCollector.GetInfo(asset.OriginalFileName))
-				asset.FromApplication = &assets.Metadata{
-					FileName:    a.OriginalFileName,
-					Latitude:    a.ExifInfo.Latitude,
-					Longitude:   a.ExifInfo.Longitude,
-					Description: a.ExifInfo.Description,
-					DateTaken:   a.ExifInfo.DateTimeOriginal.Time,
-					Trashed:     a.IsTrashed,
-					Archived:    a.IsArchived,
-					Favorited:   a.IsFavorite,
-					Rating:      byte(a.Rating),
-					Tags:        asset.Tags,
+				assetData := asset.AsAsset()
+				assetData.SetNameInfo(o.InfoCollector.GetInfo(assetData.OriginalFileName))
+				assetData.FromApplication = &assets.Metadata{
+					FileName:    asset.OriginalFileName,
+					Latitude:    asset.ExifInfo.Latitude,
+					Longitude:   asset.ExifInfo.Longitude,
+					Description: asset.ExifInfo.Description,
+					DateTaken:   asset.ExifInfo.DateTimeOriginal.Time,
+					Trashed:     asset.IsTrashed,
+					Archived:    asset.IsArchived,
+					Favorited:   asset.IsFavorite,
+					Rating:      byte(asset.Rating),
+					Tags:        assetData.Tags,
 				}
 
-				o.assets = append(o.assets, asset)
+				o.assets = append(o.assets, assetData)
 				return nil
 			})
 		if err != nil {
 			return err
 		}
-		err = o.ProcessAssets(ctx, a)
-		return err
-	}
-	return cmd
+		return o.ProcessAssets(cmd.Context(), a)
+	})
 }
 
 func (s *StackCmd) ProcessAssets(ctx context.Context, app *app.Application) error {

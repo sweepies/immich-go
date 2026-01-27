@@ -14,7 +14,8 @@ Google takeout structure is complex and not documented. Some information may be 
     - Hopefully, the JSON has a Trashed field.
   - The "Failed Videos" contains unreadable videos
   - Untitled albums are named in the user's language and a number: Untitled, Sin título, Sans Titre 
-  - All untitled albums can be stored into the same folder. Therefore it's impossible to rebuild original albums.
+- All untitled albums can be stored into the same folder. Therefore it's impossible to rebuild original albums.
+- Takeout archives often come as multiple `takeout-*.zip` parts. You can pass the individual zip files or a directory containing them; immich-go will automatically expand the folder and include all takeout parts.
 
 ## Images have a JSON companion file
   - the JSON contains some information on the image

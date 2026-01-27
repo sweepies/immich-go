@@ -3,7 +3,6 @@ package root
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/simulot/immich-go/app"
@@ -43,10 +42,10 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 
 	// Add all subcommands to the root command
 	cmd.AddCommand(
-		version.NewVersionCommand(ctx, a), // Version command to display app version
-		upload.NewUploadCommand(ctx, a),   // Upload command for uploading assets
-		archive.NewArchiveCommand(ctx, a), // Archive command for archiving assets
-		stack.NewStackCommand(ctx, a),     // Stack command for managing stacks
+		version.NewVersionCommand(ctx, a),        // Version command to display app version
+		upload.NewUploadCommandFromCLI(ctx, a),   // Upload command for uploading assets
+		archive.NewArchiveCommandFromCLI(ctx, a), // Archive command for archiving assets
+		stack.NewStackCommandFromCLI(ctx, a),     // Stack command for managing stacks
 	)
 
 	// PersistentPreRunE is executed before any command runs, used for initialization
@@ -54,8 +53,8 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 		// Track start time for duration calculation
 		startTime = time.Now()
 
-		// Initialize configuration from the specified config file
-		err := a.Config.Init(a.CfgFile)
+		// Initialize configuration from environment variables
+		err := a.Config.Init()
 		if err != nil {
 			return err
 		}
@@ -71,27 +70,8 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 			return fmt.Errorf("invalid output format: %q (must be 'text' or 'json')", a.Output)
 		}
 
-		// Auto-detect non-interactive mode if not explicitly set
-		if !a.NonInteractive && !cmd.Flags().Changed("non-interactive") {
-			// Check if stdout is a terminal
-			if fileInfo, err := os.Stdout.Stat(); err == nil {
-				// If stdout is not a character device (not a TTY), enable non-interactive mode
-				if (fileInfo.Mode() & os.ModeCharDevice) == 0 {
-					a.NonInteractive = true
-				}
-			}
-		}
-
 		// clip the number of concurrent tasks
 		a.ConcurrentTask = min(max(a.ConcurrentTask, 1), 20)
-
-		// Save configuration if the --save-config flag is set
-		if save, _ := cmd.Flags().GetBool("save-config"); save {
-			if err := a.Config.Save("immich-go.yaml"); err != nil {
-				fmt.Fprintln(os.Stderr, "Can't save the configuration: ", err.Error())
-				return err
-			}
-		}
 
 		// Start the log
 		err = a.Log().Open(cmd.Context(), cmd, a)
@@ -109,9 +89,10 @@ func RootImmichGoCommand(ctx context.Context) (*cobra.Command, *app.Application)
 
 		// Output JSON summary for archive and stack commands (upload handles its own)
 		// Only output if we have a FileProcessor and we're in JSON mode
-		// Exclude upload subcommands (from-folder, from-google-photos, etc.) which handle their own summary
+		// Exclude upload command and its subcommands which handle their own summary
 		isUploadSubcommand := cmd.Parent() != nil && cmd.Parent().Name() == "upload"
-		if a.Output == "json" && a.FileProcessor() != nil && !isUploadSubcommand {
+		isUploadCommand := cmd.Name() == "upload"
+		if a.Output == "json" && a.FileProcessor() != nil && !isUploadCommand && !isUploadSubcommand {
 			duration := time.Since(startTime).Seconds()
 			counters := a.FileProcessor().GetAssetCounters()
 			eventCounts := a.FileProcessor().GetEventCounts()

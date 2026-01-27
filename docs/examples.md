@@ -1,16 +1,16 @@
 # Examples and Use Cases
 
-This guide provides practical examples for common Immich-Go scenarios.
+This guide provides practical examples for common immich-go scenarios.
 
 ## Quick Reference
 
 | Scenario | Command | Documentation |
 |----------|---------|---------------|
-| [Upload local photos](#local-photo-upload) | `upload from-folder` | Basic photo upload |
-| [Google Photos migration](#google-photos-migration) | `upload from-google-photos` | Takeout import |
-| [iCloud import](#icloud-import) | `upload from-icloud` | iCloud takeout |
-| [Server backup](#server-backup) | `archive from-immich` | Full server archive |
-| [Server migration](#server-migration) | `upload from-immich` | Transfer between servers |
+| [Upload local photos](#local-photo-upload) | `upload` | Basic photo upload |
+| [Google Photos migration](#google-photos-migration) | `upload --google` | Takeout import |
+| [iCloud import](#icloud-import) | `upload --icloud` | iCloud takeout |
+| [Server backup](#server-backup) | `archive --from-immich` | Full server archive |
+| [Server migration](#server-migration) | `upload --from-immich` | Transfer between servers |
 | [Photo organization](#photo-organization) | `stack` | Organize existing photos |
 | [Selective sync](#selective-sync) | Various filters | Partial imports |
 
@@ -19,7 +19,7 @@ This guide provides practical examples for common Immich-Go scenarios.
 ### Basic Upload
 ```bash
 # Upload entire photo collection
-immich-go upload from-folder \
+immich-go upload \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   /home/user/Pictures
@@ -28,7 +28,7 @@ immich-go upload from-folder \
 ### Organized Upload with Albums
 ```bash
 # Create albums from folder structure
-immich-go upload from-folder \
+immich-go upload \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --folder-as-album=FOLDER \
@@ -39,7 +39,7 @@ immich-go upload from-folder \
 ### Tagged Upload
 ```bash
 # Add custom tags and session tracking
-immich-go upload from-folder \
+immich-go upload \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --tag="Import/2024" \
@@ -51,7 +51,7 @@ immich-go upload from-folder \
 ### ZIP Archive Upload
 ```bash
 # Upload from compressed archives
-immich-go upload from-folder \
+immich-go upload \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   /path/to/photo-archive.zip
@@ -62,7 +62,7 @@ immich-go upload from-folder \
 ### Complete Takeout Import
 ```bash
 # Import all parts of a Google Photos takeout
-immich-go upload from-google-photos \
+immich-go upload --google \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --manage-raw-jpeg=StackCoverRaw \
@@ -70,10 +70,19 @@ immich-go upload from-google-photos \
   /downloads/takeout-*.zip
 ```
 
+### Folder of Takeout Parts
+```bash
+# Auto-expand all takeout-*.zip files in a directory
+immich-go upload --google \
+  --server=http://localhost:2283 \
+  --api-key=your-api-key \
+  /downloads/takeout
+```
+
 ### Selective Import
 ```bash
-# Import only visible phtos and exclude partner photos
-immich-go upload from-google-photos \
+# Import only visible photos and exclude partner photos
+immich-go upload --google \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --include-partner=false \
@@ -84,7 +93,7 @@ immich-go upload from-google-photos \
 ### Album-Specific Import
 ```bash
 # Import from specific album only
-immich-go upload from-google-photos \
+immich-go upload --google \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --from-album-name="Vacation 2023" \
@@ -94,7 +103,7 @@ immich-go upload from-google-photos \
 ### Large Takeout (Best Practices)
 ```bash
 # Optimized for large takeouts (100k+ photos)
-immich-go upload from-google-photos \
+immich-go upload --google \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --concurrent-tasks=4 \
@@ -110,7 +119,7 @@ immich-go upload from-google-photos \
 ### Basic iCloud Import
 ```bash
 # Import iCloud takeout
-immich-go upload from-icloud \
+immich-go upload --icloud \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --manage-heic-jpeg=StackCoverJPG \
@@ -120,7 +129,7 @@ immich-go upload from-icloud \
 ### iCloud with Memories
 ```bash
 # Include iCloud memories as albums
-immich-go upload from-icloud \
+immich-go upload --icloud \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --memories \
@@ -133,18 +142,18 @@ immich-go upload from-icloud \
 ### Complete Server Archive
 ```bash
 # Backup entire Immich server
-immich-go archive from-immich \
-  --server=http://localhost:2283 \
-  --api-key=your-api-key \
+immich-go archive --from-immich \
+  --from-server=http://localhost:2283 \
+  --from-api-key=your-api-key \
   --write-to-folder=/backup/immich-complete
 ```
 
 ### Incremental Backup
 ```bash
 # Backup only recent photos (last 30 days)
-immich-go archive from-immich \
-  --server=http://localhost:2283 \
-  --api-key=your-api-key \
+immich-go archive --from-immich \
+  --from-server=http://localhost:2283 \
+  --from-api-key=your-api-key \
   --from-date-range=$(date -d '30 days ago' '+%Y-%m-%d'),$(date '+%Y-%m-%d') \
   --write-to-folder=/backup/immich-recent
 ```
@@ -152,9 +161,9 @@ immich-go archive from-immich \
 ### Album-Specific Backup
 ```bash
 # Backup specific albums
-immich-go archive from-immich \
-  --server=http://localhost:2283 \
-  --api-key=your-api-key \
+immich-go archive --from-immich \
+  --from-server=http://localhost:2283 \
+  --from-api-key=your-api-key \
   --from-album="Family Photos" \
   --from-album="Travel" \
   --write-to-folder=/backup/immich-albums
@@ -164,9 +173,9 @@ immich-go archive from-immich \
 ```bash
 # Create separate archives by year
 for year in 2020 2021 2022 2023 2024; do
-  immich-go archive from-immich \
-    --server=http://localhost:2283 \
-    --api-key=your-api-key \
+  immich-go archive --from-immich \
+    --from-server=http://localhost:2283 \
+    --from-api-key=your-api-key \
     --from-date-range=$year \
     --write-to-folder=/backup/immich-$year
 done
@@ -177,7 +186,7 @@ done
 ### Complete Migration
 ```bash
 # Transfer all photos between Immich servers
-immich-go upload from-immich \
+immich-go upload --from-immich \
   --from-server=http://old-server:2283 \
   --from-api-key=old-api-key \
   --server=http://new-server:2283 \
@@ -188,7 +197,7 @@ immich-go upload from-immich \
 ### Selective Migration
 ```bash
 # Migrate specific date range
-immich-go upload from-immich \
+immich-go upload --from-immich \
   --from-server=http://old-server:2283 \
   --from-api-key=old-api-key \
   --from-date-range=2023-01-01,2023-12-31 \
@@ -199,7 +208,7 @@ immich-go upload from-immich \
 ### Album Migration
 ```bash
 # Migrate specific albums
-immich-go upload from-immich \
+immich-go upload --from-immich \
   --from-server=http://old-server:2283 \
   --from-api-key=old-api-key \
   --from-album="Family" \
@@ -235,7 +244,7 @@ immich-go stack \
 ### Folder Reorganization
 ```bash
 # Reorganize messy folders into date-based structure
-immich-go archive from-folder \
+immich-go archive \
   --write-to-folder=/organized-photos \
   --manage-raw-jpeg=StackCoverRaw \
   /messy/photo/folders
@@ -246,7 +255,7 @@ immich-go archive from-folder \
 ### Date Range Upload
 ```bash
 # Upload photos from specific year
-immich-go upload from-folder \
+immich-go upload \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --date-range=2023 \
@@ -256,14 +265,14 @@ immich-go upload from-folder \
 ### File Type Filtering
 ```bash
 # Upload only videos
-immich-go upload from-folder \
+immich-go upload \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --include-type=VIDEO \
   /home/user/Movies
 
 # Upload only specific image formats
-immich-go upload from-folder \
+immich-go upload \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --include-extensions=.jpg,.png,.heic \
@@ -273,7 +282,7 @@ immich-go upload from-folder \
 ### Exclude Unwanted Files
 ```bash
 # Skip large video files and screenshots
-immich-go upload from-folder \
+immich-go upload \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --exclude-extensions=.mov,.mp4 \
@@ -287,7 +296,7 @@ immich-go upload from-folder \
 ### High-Performance Upload
 ```bash
 # Optimize for fast network and powerful server
-immich-go upload from-folder \
+immich-go upload \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --concurrent-tasks=16 \
@@ -299,7 +308,7 @@ immich-go upload from-folder \
 ### Conservative Upload (Slow Network)
 ```bash
 # Optimize for slow/unstable connection
-immich-go upload from-folder \
+immich-go upload \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --concurrent-tasks=1 \
@@ -311,14 +320,13 @@ immich-go upload from-folder \
 ### Background Processing
 ```bash
 # Run upload in background with logging
-nohup immich-go upload from-folder \
+nohup immich-go upload \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
-  --non-interactive \
-  /photos > /dev/null 2>&1 &
+  /photos > upload.log 2>&1 &
 
 # Background processing with JSON output
-nohup immich-go upload from-folder \
+nohup immich-go upload \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --output=json \
@@ -330,28 +338,25 @@ nohup immich-go upload from-folder \
 ### JSON Output for Automation
 ```bash
 # Basic JSON output
-immich-go upload from-folder --output=json --server=http://localhost:2283 --api-key=your-key /photos
+immich-go upload --output=json --server=http://localhost:2283 --api-key=your-key /photos
 
 # Save JSON output to file
-immich-go upload from-folder --output=json /photos > upload-$(date +%Y%m%d).jsonl
+immich-go upload --output=json --server=... --api-key=... /photos > upload-$(date +%Y%m%d).jsonl
 
 # Process JSON output with jq
-immich-go upload from-folder --output=json /photos | jq '.type'
+immich-go upload --output=json --server=... --api-key=... /photos | jq '.type'
 
 # Extract only error information
-immich-go upload from-folder --output=json /photos | jq 'select(.type == "summary" and .exit_code != 0)'
+immich-go upload --output=json --server=... --api-key=... /photos | jq 'select(.type == "summary" and .exit_code != 0)'
 ```
 
-### Non-Interactive Mode for Scripts
+### Scripting Examples
 ```bash
-# Force non-interactive mode
-immich-go upload from-folder --non-interactive --server=http://localhost:2283 --api-key=your-key /photos
-
-# Auto-detected non-interactive (when piped)
-immich-go upload from-folder --server=http://localhost:2283 --api-key=your-key /photos | grep "error"
+# Pipe output for filtering
+immich-go upload --server=http://localhost:2283 --api-key=your-key /photos 2>&1 | grep "error"
 
 # Combine with other Unix tools
-immich-go upload from-folder --non-interactive /photos 2>&1 | tee upload.log | grep -E "error|failed"
+immich-go upload --server=... --api-key=... /photos 2>&1 | tee upload.log | grep -E "error|failed"
 ```
 
 ### Bash Script for Regular Backups
@@ -372,9 +377,9 @@ echo "Starting Immich backup: $DATE"
 mkdir -p "$BACKUP_DIR/$DATE"
 
 # Backup recent photos (last 7 days)
-immich-go archive from-immich \
-  --server="$IMMICH_SERVER" \
-  --api-key="$API_KEY" \
+immich-go archive --from-immich \
+  --from-server="$IMMICH_SERVER" \
+  --from-api-key="$API_KEY" \
   --from-date-range="$(date -d '7 days ago' '+%Y-%m-%d'),$(date '+%Y-%m-%d')" \
   --write-to-folder="$BACKUP_DIR/$DATE" \
   > "$BACKUP_DIR/$DATE/backup.log" 2>&1
@@ -397,9 +402,9 @@ Write-Host "Starting Immich backup: $Date"
 New-Item -ItemType Directory -Path "$BackupDir\$Date" -Force
 
 # Backup recent photos
-& immich-go archive from-immich `
-  --server="$ImmichServer" `
-  --api-key="$ApiKey" `
+& immich-go archive --from-immich `
+  --from-server="$ImmichServer" `
+  --from-api-key="$ApiKey" `
   --from-date-range="$(Get-Date (Get-Date).AddDays(-7) -Format 'yyyy-MM-dd'),$(Get-Date -Format 'yyyy-MM-dd')" `
   --write-to-folder="$BackupDir\$Date" `
   *> "$BackupDir\$Date\backup.log"
@@ -415,7 +420,7 @@ Write-Host "Backup completed: $BackupDir\$Date"
 0 2 * * * /home/user/scripts/backup-immich.sh
 
 # Weekly full backup on Sundays at 3 AM  
-0 3 * * 0 immich-go archive from-immich --server=http://localhost:2283 --api-key=your-key --write-to-folder=/backup/weekly/$(date +\%Y-\%m-\%d)
+0 3 * * 0 immich-go archive --from-immich --from-server=http://localhost:2283 --from-api-key=your-key --write-to-folder=/backup/weekly/$(date +\%Y-\%m-\%d)
 ```
 
 ## Troubleshooting Examples
@@ -423,10 +428,11 @@ Write-Host "Backup completed: $BackupDir\$Date"
 ### Debug Upload Issues
 ```bash
 # Maximum debug information
-immich-go --log-level=DEBUG --api-trace \
-  upload from-folder \
+immich-go --log-level=DEBUG \
+  upload \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
+  --api-trace \
   --dry-run \
   /test-photos
 ```
@@ -435,9 +441,9 @@ immich-go --log-level=DEBUG --api-trace \
 ```bash
 # Verify server connectivity
 immich-go --log-level=DEBUG \
-  archive from-immich \
-  --server=http://localhost:2283 \
-  --api-key=your-api-key \
+  archive --from-immich \
+  --from-server=http://localhost:2283 \
+  --from-api-key=your-api-key \
   --from-date-range=2024-01-01,2024-01-01 \
   --write-to-folder=/tmp/test \
   --dry-run
@@ -446,7 +452,7 @@ immich-go --log-level=DEBUG \
 ### Handle Large Files
 ```bash
 # Upload large video files with extended timeout
-immich-go upload from-folder \
+immich-go upload \
   --server=http://localhost:2283 \
   --api-key=your-api-key \
   --include-type=VIDEO \

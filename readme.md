@@ -1,8 +1,7 @@
-# immich-go: The Missing Piece
+# immich-go: fast, multi-source uploader for Immich
 
-![logo](https://raw.githubusercontent.com/sweepies/immich-go/refs/heads/main/logo.jpg)
-
-**Immich-Go** is an open-source tool designed to streamline uploading large photo collections to your Immich server.
+<img src="https://raw.githubusercontent.com/sweepies/immich-go/refs/heads/main/logo.jpg" alt="logo" width="512"/>
+**immich-go** is an open-source tool designed to streamline uploading large photo collections to your Immich server.
 
 > ℹ️ **This is a fork** of [simulot/immich-go](https://github.com/simulot/immich-go). See [Fork Differences](#-fork-differences) for details about this fork.
 
@@ -24,12 +23,13 @@ This fork of [simulot/immich-go](https://github.com/simulot/immich-go) includes 
 ### New Features
 
 - **JSON output mode** – Use `--output=json` for JSONL progress streaming and structured JSON summary, with logs on stderr
-- **Non-interactive mode** – Use `--non-interactive` for line-by-line progress, with auto-detection when stdout isn't a TTY
+- **Simplified CLI** – Flag-based source selection (e.g., `upload --google`)
 
 ### Improvements
 
 - **Unix-style output** – Consistent stdout/stderr separation: reports to stdout, logs and progress to stderr
 - **Output validation** – Invalid `--output` values now show clear validation errors
+- **Streamlined interface** – Removed TUI, config files, and simplified command structure
 
 ### Bug Fixes
 
@@ -39,8 +39,10 @@ This fork of [simulot/immich-go](https://github.com/simulot/immich-go) includes 
 
 ### Breaking Changes
 
+- **CLI restructured** – Source selection now uses flags (`--google`, `--icloud`, `--picasa`, `--from-immich`)
+- **Config files removed** – The `--config` and `--save-config` flags have been removed; use environment variables or CLI flags
+- **TUI removed** – Interactive TUI has been removed; output is always text or JSON
 - **Logging flags removed** – The `--log-file` and `--log-type` flags have been removed; use shell redirection instead (e.g., `2>logs.txt`)
-- **UI flag removed** – The `--no-ui` flag has been removed; use `--non-interactive` instead
 
 ### Release Versioning
 
@@ -51,27 +53,24 @@ For the upstream project, see [simulot/immich-go](https://github.com/simulot/imm
 
 ## 🚀 Quick Start
 
-### 1. Install Immich-Go
+### 1. Install immich-go
 
 Download the pre-built binary for your system from the [GitHub releases page](https://github.com/sweepies/immich-go/releases).
 
 ### 2. Basic Usage
 
 ```bash
-# Upload photos from a local folder
-immich-go upload from-folder --server=http://your-ip:2283 --api-key=your-api-key /path/to/your/photos
+# Upload photos from a local folder (default mode)
+immich-go upload --server=http://your-ip:2283 --api-key=your-api-key /path/to/your/photos
 
 # Upload Google Photos takeout
-immich-go upload from-google-photos --server=http://your-ip:2283 --api-key=your-api-key /path/to/takeout-*.zip
+immich-go upload --google --server=http://your-ip:2283 --api-key=your-api-key /path/to/takeout-*.zip
 
 # Archive photos from Immich server
-immich-go archive from-immich --server=http://your-ip:2283 --api-key=your-api-key --write-to-folder=/path/to/archive
+immich-go archive --from-immich --write-to-folder=/path/to/archive --from-server=http://your-ip:2283 --from-api-key=your-api-key
 
 # JSON output for automation
-immich-go upload from-folder --server=http://your-ip:2283 --api-key=your-api-key --output=json /path/to/photos
-
-# Non-interactive mode for scripts
-immich-go upload from-folder --server=http://your-ip:2283 --api-key=your-api-key --non-interactive /path/to/photos
+immich-go upload --server=http://your-ip:2283 --api-key=your-api-key --output=json /path/to/photos
 ```
 
 ### 3. Requirements
@@ -82,7 +81,7 @@ immich-go upload from-folder --server=http://your-ip:2283 --api-key=your-api-key
 ## 🙈 Skip System Files
 
 - Use `--ban-file` to exclude junk artifacts. Patterns ending with `/` apply to directories (for example, `--ban-file .Spotlight-V100/`), while patterns without the trailing slash apply to individual files (for example, `--ban-file .DS_Store`).
-- Immich-Go ships with sensible defaults that already skip common clutter such as `@eaDir/`, `@__thumb/`, `SYNOFILE_THUMB_*.*`, `Lightroom Catalog/`, `thumbnails/`, `.DS_Store`, `/._*`, `.Spotlight-V100/`, `.photostructure/`, and `Recently Deleted/`.
+- immich-go ships with sensible defaults that already skip common clutter such as `@eaDir/`, `@__thumb/`, `SYNOFILE_THUMB_*.*`, `Lightroom Catalog/`, `thumbnails/`, `.DS_Store`, `/._*`, `.Spotlight-V100/`, `.photostructure/`, and `Recently Deleted/`.
 - Add additional patterns as needed to keep uploads focused on real photos. See the [banned files reference](docs/technical.md#banned-files) for details.
 
 ## 📚 Documentation
@@ -104,11 +103,11 @@ immich-go upload from-folder --server=http://your-ip:2283 --api-key=your-api-key
 
 Here's a brief overview of the main upload commands:
 
-- **`from-folder`**: The basic command for uploading from any local folder. It can create albums from your directory structure and read XMP sidecar files.
-- **`from-google-photos`**: A powerful command to migrate from a Google Photos Takeout. It intelligently matches photos with their JSON metadata to preserve albums, descriptions, and locations.
-- **`from-immich`**: A server-to-server migration tool that allows you to copy assets between two Immich instances with fine-grained filtering.
-- **`from-picasa`**: A specialized version of `from-folder` that automatically reads `.picasa.ini` files to restore your Picasa album organization.
-- **`from-icloud`**: Another specialized command that handles the complexity of an iCloud Photos takeout, correctly identifying creation dates and album structures from the included CSV files.
+- **Default (folder)**: Upload from any local folder. Creates albums from directory structure and reads XMP sidecar files.
+- **`--google`**: Migrate from a Google Photos Takeout. Intelligently matches photos with JSON metadata to preserve albums, descriptions, and locations.
+- **`--from-immich`**: Server-to-server migration tool to copy assets between Immich instances with fine-grained filtering.
+- **`--picasa`**: Enable Picasa album parsing to read `.picasa.ini` files and restore album organization.
+- **`--icloud`**: Handle iCloud Photos takeout, correctly identifying creation dates and album structures from CSV files.
 
 ### Leveraging Immich's Features
 
@@ -127,6 +126,41 @@ For a detailed explanation of how each upload command works, please see the [Upl
 - **iCloud Import**: [Step-by-step instructions](docs/examples.md#icloud-import)
 - **Server Migration**: [Transfer between Immich instances](docs/examples.md#server-migration)
 - **Bulk Organization**: [Stacking and tagging strategies](docs/best-practices.md#organization-strategies)
+
+## 🏗️ Architecture
+
+The codebase follows a modular architecture with clear separation of concerns:
+
+```
+cmd/immich-go          Main entry point
+app/                   Command implementations (Cobra CLI)
+  ├── root/            Root command and flag handling
+  ├── upload/          Upload command (legacy, migrating to internal/upload)
+  ├── archive/         Archive command
+  └── stack/           Stack command
+internal/              Core business logic
+  ├── adapters/        Source interface definitions
+  ├── appcontext/      Application context and dependency injection
+  ├── assets/          Asset domain model and caching
+  ├── cli/             CLI flag handling and configuration
+  ├── fileevent/       Event logging and tracking
+  ├── fileprocessor/   File processing coordination
+  ├── immich/          Immich API client (domain-specific interfaces)
+  ├── upload/          Upload pipeline and orchestration
+  │   ├── pipeline/    Staged upload pipeline with testable stages
+  │   └── source/      Source factory and adapters
+  └── observability/   Reporting and logging utilities
+adapters/              Source adapters (folder, Google Photos, iCloud, etc.)
+immich/                Legacy Immich API client (being migrated)
+```
+
+Key design principles:
+- **Staged pipeline**: Upload orchestration split into discovery, upload, and finalize stages
+- **Narrow interfaces**: Domain-specific client interfaces instead of monolithic structs
+- **Testable stages**: Each pipeline stage can be tested independently with mock clients
+- **Explicit dependencies**: Configuration passed explicitly rather than via service locators
+
+For development details, see [AGENTS.md](AGENTS.md) and [OVERHAUL.md](OVERHAUL.md).
 
 ## 🤝 Contributing
 

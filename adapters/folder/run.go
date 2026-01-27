@@ -3,100 +3,22 @@ package folder
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io/fs"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/simulot/immich-go/adapters"
-	"github.com/simulot/immich-go/app"
 	"github.com/simulot/immich-go/internal/assets"
 	"github.com/simulot/immich-go/internal/exif"
 	"github.com/simulot/immich-go/internal/exif/sidecars/jsonsidecar"
 	"github.com/simulot/immich-go/internal/exif/sidecars/xmpsidecar"
 	"github.com/simulot/immich-go/internal/fileevent"
-	"github.com/simulot/immich-go/internal/filenames"
 	"github.com/simulot/immich-go/internal/filetypes"
-	"github.com/simulot/immich-go/internal/filters"
 	"github.com/simulot/immich-go/internal/fshelper"
-	"github.com/simulot/immich-go/internal/gen"
 	"github.com/simulot/immich-go/internal/groups"
-	"github.com/simulot/immich-go/internal/groups/burst"
-	"github.com/simulot/immich-go/internal/groups/epsonfastfoto"
-	"github.com/simulot/immich-go/internal/groups/series"
 	"github.com/simulot/immich-go/internal/namematcher"
-	"github.com/simulot/immich-go/internal/worker"
-	"github.com/spf13/cobra"
 )
-
-func (ifc *ImportFolderCmd) run(cmd *cobra.Command, args []string, app *app.Application, runner adapters.Runner) error {
-	var err error
-	if ifc.ImportIntoAlbum != "" && ifc.UsePathAsAlbumName != FolderModeNone {
-		return errors.New("cannot use both --into-album and --folder-as-album flags")
-	}
-
-	ifc.app = app
-	ifc.processor = app.FileProcessor()
-	ifc.tz = app.GetTZ()
-	// ifc.InclusionFlags.SetIncludeTypeExtensions()
-
-	// parse arguments and generate a fs.FS per argument
-	ifc.fsyss, err = fshelper.ParsePath(args)
-	if err != nil {
-		return err
-	}
-	if len(ifc.fsyss) == 0 {
-		app.Log().Message("No file found matching the pattern: %s", strings.Join(args, ","))
-		return errors.New("No file found matching the pattern: " + strings.Join(args, ","))
-	}
-
-	defer func() {
-		if err := fshelper.CloseFSs(ifc.fsyss); err != nil {
-			// Handle the error - log it, since we can't return it
-			app.Log().Error("error closing file systems", "error", err)
-		}
-	}()
-
-	// Start the workers
-	ifc.pool = worker.NewPool(ifc.app.ConcurrentTask)
-
-	// create the adapter for folders
-	ifc.supportedMedia = ifc.app.GetSupportedMedia()
-
-	ifc.requiresDateInformation = ifc.InclusionFlags.DateRange.IsSet() ||
-		ifc.TakeDateFromFilename || ifc.ManageBurst != filters.BurstNothing ||
-		ifc.ManageHEICJPG != filters.HeicJpgNothing || ifc.ManageRawJPG != filters.RawJPGNothing
-
-	if ifc.PicasaAlbum {
-		ifc.picasaAlbums = gen.NewSyncMap[string, PicasaAlbum]() // make(map[string]PicasaAlbum)
-	}
-	if ifc.ICloudTakeout {
-		ifc.icloudMetas = gen.NewSyncMap[string, iCloudMeta]()
-		ifc.icloudMetaPass = true
-	}
-
-	if ifc.infoCollector == nil {
-		ifc.infoCollector = filenames.NewInfoCollector(ifc.tz, ifc.supportedMedia)
-	}
-
-	if ifc.InclusionFlags.DateRange.IsSet() {
-		ifc.InclusionFlags.DateRange.SetTZ(ifc.tz)
-	}
-
-	if ifc.ManageEpsonFastFoto {
-		ifc.groupers = append(ifc.groupers, epsonfastfoto.Group{}.Group)
-	}
-	if ifc.ManageBurst != filters.BurstNothing {
-		ifc.groupers = append(ifc.groupers, burst.Group)
-	}
-	ifc.groupers = append(ifc.groupers, series.Group)
-
-	// callback the caller
-	err = runner.Run(cmd, ifc)
-	return err
-}
 
 const icloudMetadataExt = ".csv"
 
