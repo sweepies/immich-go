@@ -15,7 +15,7 @@ The project uses the Cobra library for its CLI structure and `goreleaser` to man
 
 ## Release Notes
 
-When asked to generate release notes, follow this format and guidance (avoid the script-based workflow):
+When asked to generate release notes, follow this format and guidance:
 
 - Start with a brief, friendly introduction.
 - Use these sections in order:
