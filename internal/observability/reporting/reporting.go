@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/simulot/immich-go/internal/assettracker"
-	"github.com/simulot/immich-go/internal/fileevent"
-	"github.com/simulot/immich-go/internal/fileprocessor"
-	"github.com/simulot/immich-go/internal/jsonoutput"
+	"github.com/sweepies/immich-go/internal/assettracker"
+	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/fileprocessor"
+	"github.com/sweepies/immich-go/internal/jsonoutput"
 )
 
 // Reporter handles generating reports and summaries for upload operations.

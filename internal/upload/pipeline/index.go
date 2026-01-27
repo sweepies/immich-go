@@ -8,10 +8,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/simulot/immich-go/internal/assets"
-	"github.com/simulot/immich-go/internal/gen/syncmap"
-	"github.com/simulot/immich-go/internal/gen/syncset"
-	iimmich "github.com/simulot/immich-go/internal/immich"
+	"github.com/sweepies/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/gen/syncmap"
+	"github.com/sweepies/immich-go/internal/gen/syncset"
+	iimmich "github.com/sweepies/immich-go/internal/immich"
 )
 
 // AdviceCode represents the decision about whether to upload an asset.

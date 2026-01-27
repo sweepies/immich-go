@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/simulot/immich-go/app/root"
-	"github.com/simulot/immich-go/internal/config"
+	"github.com/sweepies/immich-go/app/root"
+	"github.com/sweepies/immich-go/internal/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

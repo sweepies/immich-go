@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/simulot/immich-go/adapters/folder"
-	"github.com/simulot/immich-go/app"
-	"github.com/simulot/immich-go/internal/adapters"
-	cliarchive "github.com/simulot/immich-go/internal/cli/archive"
-	"github.com/simulot/immich-go/internal/upload/source"
+	"github.com/sweepies/immich-go/adapters/folder"
+	"github.com/sweepies/immich-go/app"
+	"github.com/sweepies/immich-go/internal/adapters"
+	cliarchive "github.com/sweepies/immich-go/internal/cli/archive"
+	"github.com/sweepies/immich-go/internal/upload/source"
 	"github.com/spf13/cobra"
 )
 

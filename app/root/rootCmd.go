@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/simulot/immich-go/app"
-	"github.com/simulot/immich-go/app/archive"
-	"github.com/simulot/immich-go/app/stack"
-	"github.com/simulot/immich-go/app/upload"
-	"github.com/simulot/immich-go/app/version"
-	"github.com/simulot/immich-go/internal/jsonoutput"
+	"github.com/sweepies/immich-go/app"
+	"github.com/sweepies/immich-go/app/archive"
+	"github.com/sweepies/immich-go/app/stack"
+	"github.com/sweepies/immich-go/app/upload"
+	"github.com/sweepies/immich-go/app/version"
+	"github.com/sweepies/immich-go/internal/jsonoutput"
 	"github.com/spf13/cobra"
 )
 

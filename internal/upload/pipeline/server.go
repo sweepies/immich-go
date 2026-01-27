@@ -3,9 +3,9 @@ package pipeline
 import (
 	"context"
 
-	"github.com/simulot/immich-go/immich"
-	"github.com/simulot/immich-go/internal/assets"
-	iimmich "github.com/simulot/immich-go/internal/immich"
+	"github.com/sweepies/immich-go/immich"
+	"github.com/sweepies/immich-go/internal/assets"
+	iimmich "github.com/sweepies/immich-go/internal/immich"
 )
 
 // ServerClient defines the interface for interacting with the Immich server.

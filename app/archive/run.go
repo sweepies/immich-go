@@ -4,10 +4,10 @@ import (
 	"errors"
 	"os"
 
-	"github.com/simulot/immich-go/adapters/folder"
-	"github.com/simulot/immich-go/internal/adapters"
-	"github.com/simulot/immich-go/internal/fileevent"
-	"github.com/simulot/immich-go/internal/fshelper/osfs"
+	"github.com/sweepies/immich-go/adapters/folder"
+	"github.com/sweepies/immich-go/internal/adapters"
+	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/fshelper/osfs"
 	"github.com/spf13/cobra"
 )
 

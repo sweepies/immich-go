@@ -3,7 +3,7 @@ package immich
 import (
 	"context"
 
-	"github.com/simulot/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/assets"
 )
 
 // TagsService provides tag-related server operations.

@@ -5,25 +5,26 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/simulot/immich-go/app"
-	"github.com/simulot/immich-go/internal/adapters"
-	"github.com/simulot/immich-go/internal/assets"
-	cliupload "github.com/simulot/immich-go/internal/cli/upload"
-	"github.com/simulot/immich-go/internal/filters"
-	"github.com/simulot/immich-go/internal/groups"
-	"github.com/simulot/immich-go/internal/groups/burst"
-	"github.com/simulot/immich-go/internal/groups/epsonfastfoto"
-	"github.com/simulot/immich-go/internal/groups/series"
-	uploadcfg "github.com/simulot/immich-go/internal/upload"
-	"github.com/simulot/immich-go/internal/upload/pipeline"
-	"github.com/simulot/immich-go/internal/upload/source"
 	"github.com/spf13/cobra"
+	"github.com/sweepies/immich-go/app"
+	"github.com/sweepies/immich-go/internal/adapters"
+	"github.com/sweepies/immich-go/internal/assets"
+	cliupload "github.com/sweepies/immich-go/internal/cli/upload"
+	"github.com/sweepies/immich-go/internal/filters"
+	"github.com/sweepies/immich-go/internal/groups"
+	"github.com/sweepies/immich-go/internal/groups/burst"
+	"github.com/sweepies/immich-go/internal/groups/epsonfastfoto"
+	"github.com/sweepies/immich-go/internal/groups/series"
+	uploadcfg "github.com/sweepies/immich-go/internal/upload"
+	"github.com/sweepies/immich-go/internal/upload/pipeline"
+	"github.com/sweepies/immich-go/internal/upload/source"
 )
 
 type UpLoadMode int
 
 const (
 	UpModeGoogleTakeout UpLoadMode = iota
+	UpModeFromImmich
 	UpModeFolder
 	UpModeICloud
 	UpModePicasa
@@ -33,6 +34,8 @@ func (m UpLoadMode) String() string {
 	switch m {
 	case UpModeGoogleTakeout:
 		return "Google Takeout"
+	case UpModeFromImmich:
+		return "Immich"
 	case UpModeFolder:
 		return "Folder"
 	case UpModeICloud:
@@ -115,7 +118,7 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 	// Set mode for display purposes
 	switch uc.config.SourceMode {
 	case uploadcfg.SourceModeFromImmich:
-		uc.Mode = UpModeFolder
+		uc.Mode = UpModeFromImmich
 	case uploadcfg.SourceModeGoogle:
 		uc.Mode = UpModeGoogleTakeout
 	case uploadcfg.SourceModeICloud:

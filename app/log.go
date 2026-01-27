@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/phsym/console-slog"
-	"github.com/simulot/immich-go/immich/httptrace"
-	"github.com/simulot/immich-go/internal/fshelper/debugfiles"
-	"github.com/simulot/immich-go/internal/loghelper"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/sweepies/immich-go/immich/httptrace"
+	"github.com/sweepies/immich-go/internal/fshelper/debugfiles"
+	"github.com/sweepies/immich-go/internal/loghelper"
 )
 
 type Log struct {
@@ -55,7 +55,7 @@ func (log *Log) Open(ctx context.Context, cmd *cobra.Command, app *Application) 
 		case "version", "completion":
 			return nil
 		}
-		if cmd.Flags().Changed("--help") {
+		if c.Flags().Changed("help") {
 			return nil
 		}
 	}

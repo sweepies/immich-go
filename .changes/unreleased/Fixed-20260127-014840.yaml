@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(osfs): track open files on success'
+time: 2026-01-27T01:48:40.663717-05:00

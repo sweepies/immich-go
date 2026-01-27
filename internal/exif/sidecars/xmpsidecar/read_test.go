@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/simulot/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/assets"
 )
 
 func TestRead(t *testing.T) {

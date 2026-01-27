@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/simulot/immich-go/internal/adapters"
-	"github.com/simulot/immich-go/internal/fileprocessor"
-	"github.com/simulot/immich-go/internal/filetypes"
-	"github.com/simulot/immich-go/internal/fshelper"
+	"github.com/sweepies/immich-go/internal/adapters"
+	"github.com/sweepies/immich-go/internal/fileprocessor"
+	"github.com/sweepies/immich-go/internal/filetypes"
+	"github.com/sweepies/immich-go/internal/fshelper"
 )
 
 // Factory creates sources (adapters) from configuration.

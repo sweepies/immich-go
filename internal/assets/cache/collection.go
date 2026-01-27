@@ -3,8 +3,8 @@ package cache
 import (
 	"sync"
 
-	"github.com/simulot/immich-go/internal/gen/syncmap"
-	"github.com/simulot/immich-go/internal/gen/syncset"
+	"github.com/sweepies/immich-go/internal/gen/syncmap"
+	"github.com/sweepies/immich-go/internal/gen/syncset"
 )
 
 type saveFn[T any] func(coll T, ids []string) (T, error)

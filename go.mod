@@ -1,4 +1,4 @@
-module github.com/simulot/immich-go
+module github.com/sweepies/immich-go
 
 go 1.25
 

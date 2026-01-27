@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	cliflags "github.com/simulot/immich-go/internal/cliFlags"
+	cliflags "github.com/sweepies/immich-go/internal/cliFlags"
 )
 
 func TestNew_Defaults(t *testing.T) {

@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/simulot/immich-go/immich"
-	"github.com/simulot/immich-go/internal/filetypes"
+	"github.com/sweepies/immich-go/immich"
+	"github.com/sweepies/immich-go/internal/filetypes"
 )
 
 /*
@@ -16,19 +16,19 @@ baseline
 
 goos: linux
 goarch: amd64
-pkg: github.com/simulot/immich-go/immich
+pkg: github.com/sweepies/immich-go/immich
 cpu: Intel(R) Core(TM) i7-10750H CPU @ 2.60GHz
 Benchmark_IsExtensionPrefix-12    	 4096238	       297.3 ns/op	       3 B/op	       1 allocs/op
 PASS
-ok  	github.com/simulot/immich-go/immich	1.518s
+ok  	github.com/sweepies/immich-go/immich	1.518s
 
 goos: linux
 goarch: amd64
-pkg: github.com/simulot/immich-go/immich
+pkg: github.com/sweepies/immich-go/immich
 cpu: Intel(R) Core(TM) i7-10750H CPU @ 2.60GHz
 Benchmark_IsExtensionPrefix-12    	16536936	        72.85 ns/op	       3 B/op	       1 allocs/op
 PASS
-ok  	github.com/simulot/immich-go/immich	1.283s
+ok  	github.com/sweepies/immich-go/immich	1.283s
 */
 func Benchmark_IsExtensionPrefix(b *testing.B) {
 	sm := filetypes.DefaultSupportedMedia

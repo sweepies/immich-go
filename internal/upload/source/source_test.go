@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/simulot/immich-go/internal/adapters"
-	"github.com/simulot/immich-go/internal/assets"
-	"github.com/simulot/immich-go/internal/filetypes"
+	"github.com/sweepies/immich-go/internal/adapters"
+	"github.com/sweepies/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/filetypes"
 )
 
 func TestFactory_Dependencies(t *testing.T) {

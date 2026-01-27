@@ -1,9 +1,9 @@
 package adapters
 
 import (
-	cliflags "github.com/simulot/immich-go/internal/cliFlags"
-	"github.com/simulot/immich-go/internal/filters"
-	"github.com/simulot/immich-go/internal/namematcher"
+	cliflags "github.com/sweepies/immich-go/internal/cliFlags"
+	"github.com/sweepies/immich-go/internal/filters"
+	"github.com/sweepies/immich-go/internal/namematcher"
 )
 
 // FolderConfig holds configuration for folder-based adapters.

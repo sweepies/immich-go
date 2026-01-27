@@ -4,9 +4,9 @@ import (
 	"context"
 	"io"
 
-	"github.com/simulot/immich-go/immich"
-	"github.com/simulot/immich-go/internal/assets"
-	"github.com/simulot/immich-go/internal/filetypes"
+	"github.com/sweepies/immich-go/immich"
+	"github.com/sweepies/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/filetypes"
 )
 
 type MockedCLient struct{}

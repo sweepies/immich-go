@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/clbanning/mxj/v2"
-	"github.com/simulot/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/assets"
 )
 
 func ReadXMP(r io.Reader, md *assets.Metadata) error {

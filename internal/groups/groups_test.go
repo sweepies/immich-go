@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/simulot/immich-go/internal/assets"
-	"github.com/simulot/immich-go/internal/filenames"
-	"github.com/simulot/immich-go/internal/filetypes"
-	"github.com/simulot/immich-go/internal/fshelper"
-	"github.com/simulot/immich-go/internal/groups"
-	"github.com/simulot/immich-go/internal/groups/burst"
-	"github.com/simulot/immich-go/internal/groups/series"
+	"github.com/sweepies/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/filenames"
+	"github.com/sweepies/immich-go/internal/filetypes"
+	"github.com/sweepies/immich-go/internal/fshelper"
+	"github.com/sweepies/immich-go/internal/groups"
+	"github.com/sweepies/immich-go/internal/groups/burst"
+	"github.com/sweepies/immich-go/internal/groups/series"
 )
 
 func mockAsset(ic *filenames.InfoCollector, name string, dateTaken time.Time) *assets.Asset {
