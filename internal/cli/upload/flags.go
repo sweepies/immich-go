@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/simulot/immich-go/internal/adapters"
-	uploadcfg "github.com/simulot/immich-go/internal/upload"
+	"github.com/sweepies/immich-go/internal/adapters"
+	uploadcfg "github.com/sweepies/immich-go/internal/upload"
 	"github.com/spf13/pflag"
 )
 

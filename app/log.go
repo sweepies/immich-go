@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/phsym/console-slog"
-	"github.com/simulot/immich-go/immich/httptrace"
-	"github.com/simulot/immich-go/internal/fshelper/debugfiles"
-	"github.com/simulot/immich-go/internal/loghelper"
+	"github.com/sweepies/immich-go/immich/httptrace"
+	"github.com/sweepies/immich-go/internal/fshelper/debugfiles"
+	"github.com/sweepies/immich-go/internal/loghelper"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/simulot/immich-go/internal/assets"
-	"github.com/simulot/immich-go/internal/assets/cache"
-	"github.com/simulot/immich-go/internal/fileevent"
-	"github.com/simulot/immich-go/internal/filters"
-	"github.com/simulot/immich-go/internal/fshelper"
-	"github.com/simulot/immich-go/internal/groups"
-	iimmich "github.com/simulot/immich-go/internal/immich"
-	"github.com/simulot/immich-go/internal/worker"
+	"github.com/sweepies/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/assets/cache"
+	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/filters"
+	"github.com/sweepies/immich-go/internal/fshelper"
+	"github.com/sweepies/immich-go/internal/groups"
+	iimmich "github.com/sweepies/immich-go/internal/immich"
+	"github.com/sweepies/immich-go/internal/worker"
 	"golang.org/x/sync/errgroup"
 )
 

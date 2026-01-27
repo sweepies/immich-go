@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/simulot/immich-go/internal/fshelper/debugfiles"
+	"github.com/sweepies/immich-go/internal/fshelper/debugfiles"
 )
 
 type ZipReadCloser struct {

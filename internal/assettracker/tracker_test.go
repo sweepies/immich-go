@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/simulot/immich-go/internal/fileevent"
-	"github.com/simulot/immich-go/internal/fshelper"
+	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/fshelper"
 )
 
 // mockFS implements a simple fs.FS for testing

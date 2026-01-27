@@ -6,8 +6,8 @@ package upload
 import (
 	"time"
 
-	"github.com/simulot/immich-go/internal/adapters"
-	"github.com/simulot/immich-go/internal/filters"
+	"github.com/sweepies/immich-go/internal/adapters"
+	"github.com/sweepies/immich-go/internal/filters"
 )
 
 // SourceMode indicates which adapter to use for reading assets.

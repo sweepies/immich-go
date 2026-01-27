@@ -6,12 +6,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/simulot/immich-go/internal/assets"
-	"github.com/simulot/immich-go/internal/assets/cache"
-	"github.com/simulot/immich-go/internal/fileevent"
-	"github.com/simulot/immich-go/internal/filters"
-	"github.com/simulot/immich-go/internal/groups"
-	"github.com/simulot/immich-go/internal/jsonoutput"
+	"github.com/sweepies/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/assets/cache"
+	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/filters"
+	"github.com/sweepies/immich-go/internal/groups"
+	"github.com/sweepies/immich-go/internal/jsonoutput"
 	"golang.org/x/sync/errgroup"
 )
 

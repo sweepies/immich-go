@@ -1,8 +1,8 @@
 package shared
 
 import (
-	"github.com/simulot/immich-go/internal/filters"
-	"github.com/simulot/immich-go/internal/groups"
+	"github.com/sweepies/immich-go/internal/filters"
+	"github.com/sweepies/immich-go/internal/groups"
 	"github.com/spf13/pflag"
 )
 

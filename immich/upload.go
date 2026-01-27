@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/simulot/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/assets"
 )
 
 type callValues string

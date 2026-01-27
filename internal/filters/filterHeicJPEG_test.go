@@ -3,7 +3,7 @@ package filters
 import (
 	"testing"
 
-	"github.com/simulot/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/assets"
 )
 
 func Test_unGroupHeicJpeg(t *testing.T) {

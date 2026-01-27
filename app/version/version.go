@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/simulot/immich-go/app"
+	"github.com/sweepies/immich-go/app"
 	"github.com/spf13/cobra"
 )
 

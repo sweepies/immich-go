@@ -6,7 +6,7 @@ import (
 	"path"
 
 	"github.com/joho/godotenv"
-	"github.com/simulot/immich-go/internal/tester"
+	"github.com/sweepies/immich-go/internal/tester"
 )
 
 const EnvFile = "../../../e2e.env"

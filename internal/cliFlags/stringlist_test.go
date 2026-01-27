@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/simulot/immich-go/internal/filetypes"
+	"github.com/sweepies/immich-go/internal/filetypes"
 )
 
 func TestStringList_Include(t *testing.T) {

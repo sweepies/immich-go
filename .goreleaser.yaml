@@ -25,7 +25,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -extldflags=-static -X github.com/simulot/immich-go/app.Version={{.Version}} -X github.com/simulot/immich-go/Commit={{.Commit}} -X github.com/simulot/immich-go/Date={{.Date}} -s -w
+      - -extldflags=-static -X github.com/sweepies/immich-go/app.Version={{.Version}} -X github.com/sweepies/immich-go/Commit={{.Commit}} -X github.com/sweepies/immich-go/Date={{.Date}} -s -w
 
 archives:
   - formats: ['tar.gz']

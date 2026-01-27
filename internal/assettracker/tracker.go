@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/simulot/immich-go/internal/fileevent"
-	"github.com/simulot/immich-go/internal/fshelper"
+	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/fshelper"
 )
 
 // AssetTracker tracks the complete lifecycle of assets (images/videos) from

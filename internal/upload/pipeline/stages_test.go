@@ -10,14 +10,14 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/simulot/immich-go/internal/assets"
-	"github.com/simulot/immich-go/internal/assets/cache"
-	"github.com/simulot/immich-go/internal/assettracker"
-	"github.com/simulot/immich-go/internal/fileevent"
-	"github.com/simulot/immich-go/internal/fileprocessor"
-	"github.com/simulot/immich-go/internal/filetypes"
-	"github.com/simulot/immich-go/internal/fshelper"
-	iimmich "github.com/simulot/immich-go/internal/immich"
+	"github.com/sweepies/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/assets/cache"
+	"github.com/sweepies/immich-go/internal/assettracker"
+	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/fileprocessor"
+	"github.com/sweepies/immich-go/internal/filetypes"
+	"github.com/sweepies/immich-go/internal/fshelper"
+	iimmich "github.com/sweepies/immich-go/internal/immich"
 )
 
 // mockServerClient implements ServerClient for testing.

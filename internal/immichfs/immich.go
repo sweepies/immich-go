@@ -6,7 +6,7 @@ import (
 	"io/fs"
 	"time"
 
-	"github.com/simulot/immich-go/immich"
+	"github.com/sweepies/immich-go/immich"
 )
 
 /*

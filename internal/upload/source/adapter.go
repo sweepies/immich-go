@@ -4,9 +4,9 @@ import (
 	"context"
 	"io"
 
-	legacyadapters "github.com/simulot/immich-go/adapters"
-	"github.com/simulot/immich-go/internal/adapters"
-	"github.com/simulot/immich-go/internal/assets"
+	legacyadapters "github.com/sweepies/immich-go/adapters"
+	"github.com/sweepies/immich-go/internal/adapters"
+	"github.com/sweepies/immich-go/internal/assets"
 )
 
 // LegacyReaderAdapter wraps an old-style adapters.Reader to implement the new adapters.Source interface.

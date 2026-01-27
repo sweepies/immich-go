@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/simulot/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/assets"
 )
 
 // A group of assets link assets that are linked together. This

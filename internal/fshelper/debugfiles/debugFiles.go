@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/simulot/immich-go/internal/gen/syncmap"
+	"github.com/sweepies/immich-go/internal/gen/syncmap"
 )
 
 type _fileOpenTacker struct {

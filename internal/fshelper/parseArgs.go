@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	zipname "github.com/simulot/immich-go/internal/fshelper/zipName"
+	zipname "github.com/sweepies/immich-go/internal/fshelper/zipName"
 )
 
 // ParsePath return a list of FS bases on args

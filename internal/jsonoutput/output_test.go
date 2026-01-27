@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/simulot/immich-go/internal/assettracker"
-	"github.com/simulot/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/assettracker"
+	"github.com/sweepies/immich-go/internal/fileevent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

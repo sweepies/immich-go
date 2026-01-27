@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"time"
 
-	cliflags "github.com/simulot/immich-go/internal/cliFlags"
-	"github.com/simulot/immich-go/internal/fileprocessor"
-	"github.com/simulot/immich-go/internal/filetypes"
+	cliflags "github.com/sweepies/immich-go/internal/cliFlags"
+	"github.com/sweepies/immich-go/internal/fileprocessor"
+	"github.com/sweepies/immich-go/internal/filetypes"
 )
 
 // Context holds immutable configuration and runtime dependencies for commands.
