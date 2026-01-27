@@ -17,15 +17,16 @@ import (
 
 // RunnerConfig holds configuration for the pipeline runner.
 type RunnerConfig struct {
-	Source      Source
-	Server      ServerClient
-	PipelineCtx *Context
-	Groupers    []groups.Grouper
-	Filters     []filters.Filter
-	PauseJobs   bool
-	OnError     func(err error) error
-	SaveAlbum   func(album assets.Album, ids []string) (assets.Album, error)
-	SaveTag     func(tag assets.Tag, ids []string) (assets.Tag, error)
+	Source       Source
+	Server       ServerClient
+	PipelineCtx  *Context
+	Groupers     []groups.Grouper
+	Filters      []filters.Filter
+	PauseJobs    bool
+	NoResumeJobs bool
+	OnError      func(err error) error
+	SaveAlbum    func(album assets.Album, ids []string) (assets.Album, error)
+	SaveTag      func(tag assets.Tag, ids []string) (assets.Tag, error)
 }
 
 // Runner orchestrates the upload pipeline execution.
@@ -238,7 +239,7 @@ func (r *Runner) finish(ctx context.Context) error {
 	}
 
 	// Resume jobs if they were paused
-	if r.config.PauseJobs {
+	if r.config.PauseJobs && !r.config.NoResumeJobs {
 		resumeStage := &JobControlStage{Pause: false}
 		return resumeStage.Run(ctx, r.pctx)
 	}
