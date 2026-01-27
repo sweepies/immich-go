@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix: suppress banner output when help is requested'
+time: 2026-01-27T01:38:03.571035-05:00
