@@ -3,8 +3,8 @@ package assettracker
 import (
 	"time"
 
-	"github.com/simulot/immich-go/internal/fileevent"
-	"github.com/simulot/immich-go/internal/fshelper"
+	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/fshelper"
 )
 
 // AssetState represents the lifecycle state of an asset

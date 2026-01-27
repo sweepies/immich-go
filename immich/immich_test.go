@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/simulot/immich-go/immich"
+	"github.com/sweepies/immich-go/immich"
 )
 
 func TestImmichExifTimeUnmarshalJSON_Valid(t *testing.T) {

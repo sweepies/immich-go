@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/simulot/immich-go/internal/fshelper"
-	"github.com/simulot/immich-go/internal/fshelper/debugfiles"
+	"github.com/sweepies/immich-go/internal/fshelper"
+	"github.com/sweepies/immich-go/internal/fshelper/debugfiles"
 )
 
 /*
@@ -30,7 +30,7 @@ type dirFS string
 
 func (dir dirFS) Open(name string) (fs.File, error) {
 	f, err := os.Open(filepath.Join(string(dir), name))
-	if err != nil {
+	if err == nil {
 		debugfiles.TrackOpenFile(f, name)
 	}
 	return f, err
@@ -42,7 +42,7 @@ func (dir dirFS) Stat(name string) (fs.FileInfo, error) {
 
 func (dir dirFS) OpenFile(name string, flag int, perm fs.FileMode) (fshelper.WFile, error) {
 	f, err := os.OpenFile(filepath.Join(string(dir), name), flag, perm)
-	if err != nil {
+	if err == nil {
 		debugfiles.TrackOpenFile(f, name)
 	}
 	return f, err
@@ -61,7 +61,7 @@ func (dir dirFS) Lstat(name string) (fs.FileInfo, error) {
 }
 
 func (dir dirFS) MkSymlink(name, target string) error {
-	return os.Symlink(filepath.Join(string(dir), name), filepath.Join(string(dir), target))
+	return os.Symlink(filepath.Join(string(dir), target), filepath.Join(string(dir), name))
 }
 
 func (dir dirFS) Remove(name string) error {

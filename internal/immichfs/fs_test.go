@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/simulot/immich-go/immich"
+	"github.com/sweepies/immich-go/immich"
 )
 
 func newTestImmichServer(_ *testing.T) *immich.ImmichClient { //nolint

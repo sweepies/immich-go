@@ -1,8 +1,8 @@
-# immich-go: fast, multi-source uploader for Immich
+# immich-go-improved: fast, multi-source uploader for Immich
 
 <img src="https://raw.githubusercontent.com/sweepies/immich-go/refs/heads/main/logo.jpg" alt="logo" width="512"/>
 
-**immich-go** is an open-source tool designed to streamline uploading large photo collections to your Immich server.
+**immich-go-improved** is an open-source fork designed to streamline uploading large photo collections to your Immich server while still shipping the `immich-go` binary.
 
 > ℹ️ **This is a fork** of [simulot/immich-go](https://github.com/simulot/immich-go). See [Fork Differences](#-fork-differences) for details about this fork.
 
@@ -47,7 +47,7 @@ This fork of [simulot/immich-go](https://github.com/simulot/immich-go) includes 
 
 ### Release Versioning
 
-- Fork releases use a `-sweepy` version suffix (e.g., `v0.32.0-sweepy`)
+- Fork releases use a `-improved` version suffix (e.g., `v0.32.0-improved`)
 - See the [releases page](https://github.com/sweepies/immich-go/releases) for version history
 
 For the upstream project, see [simulot/immich-go](https://github.com/simulot/immich-go).

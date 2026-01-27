@@ -7,9 +7,9 @@ import (
 	"path"
 	"time"
 
-	"github.com/simulot/immich-go/internal/fshelper"
-	"github.com/simulot/immich-go/internal/fshelper/cachereader"
-	"github.com/simulot/immich-go/internal/fshelper/hash"
+	"github.com/sweepies/immich-go/internal/fshelper"
+	"github.com/sweepies/immich-go/internal/fshelper/cachereader"
+	"github.com/sweepies/immich-go/internal/fshelper/hash"
 )
 
 /*

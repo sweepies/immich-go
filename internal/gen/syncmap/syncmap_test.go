@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/simulot/immich-go/internal/gen/syncmap"
+	"github.com/sweepies/immich-go/internal/gen/syncmap"
 )
 
 func TestStoreAndLoad(t *testing.T) {

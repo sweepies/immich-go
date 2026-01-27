@@ -5,7 +5,7 @@ package stack
 import (
 	"time"
 
-	"github.com/simulot/immich-go/internal/filters"
+	"github.com/sweepies/immich-go/internal/filters"
 	"github.com/spf13/pflag"
 )
 

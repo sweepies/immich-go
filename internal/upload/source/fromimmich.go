@@ -6,14 +6,14 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/simulot/immich-go/immich"
-	"github.com/simulot/immich-go/internal/adapters"
-	"github.com/simulot/immich-go/internal/assets"
-	"github.com/simulot/immich-go/internal/fileevent"
-	"github.com/simulot/immich-go/internal/filenames"
-	"github.com/simulot/immich-go/internal/fshelper"
-	"github.com/simulot/immich-go/internal/gen"
-	"github.com/simulot/immich-go/internal/immichfs"
+	"github.com/sweepies/immich-go/immich"
+	"github.com/sweepies/immich-go/internal/adapters"
+	"github.com/sweepies/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/filenames"
+	"github.com/sweepies/immich-go/internal/fshelper"
+	"github.com/sweepies/immich-go/internal/gen"
+	"github.com/sweepies/immich-go/internal/immichfs"
 )
 
 // FromImmichSource implements adapters.Source for reading from another Immich server.

@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/simulot/immich-go/internal/filetypes"
+	"github.com/sweepies/immich-go/internal/filetypes"
 )
 
 type PingResponse struct {

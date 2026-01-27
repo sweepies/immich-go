@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/simulot/immich-go/app/root"
+	"github.com/sweepies/immich-go/app/root"
 	"github.com/spf13/pflag"
 )
 

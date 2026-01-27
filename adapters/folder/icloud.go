@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/simulot/immich-go/internal/assets"
-	"github.com/simulot/immich-go/internal/gen"
+	"github.com/sweepies/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/gen"
 )
 
 type iCloudMeta struct {
@@ -46,7 +46,7 @@ func useAlbum(m *gen.SyncMap[string, iCloudMeta], file fs.File, albumName string
 		return errors.Join(err, errors.New("failed to read all csv records"))
 	}
 	// icloud takeouts can have empty csv files
-	// https://github.com/simulot/immich-go/issues/924
+	// https://github.com/sweepies/immich-go/issues/924
 	if len(records) == 0 {
 		return nil // nothing to do
 	}
@@ -79,7 +79,7 @@ func UseICloudPhotoDetails(m *gen.SyncMap[string, iCloudMeta], fsys fs.FS, filen
 		return errors.Join(err, errors.New("failed to read all csv records"))
 	}
 	// icloud takeouts can have empty csv files
-	// https://github.com/simulot/immich-go/issues/924
+	// https://github.com/sweepies/immich-go/issues/924
 	if len(records) == 0 {
 		return nil // nothing to do
 	}

@@ -5,7 +5,7 @@ package archive
 import (
 	"errors"
 
-	"github.com/simulot/immich-go/internal/adapters"
+	"github.com/sweepies/immich-go/internal/adapters"
 	"github.com/spf13/pflag"
 )
 

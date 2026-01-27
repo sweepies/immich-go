@@ -3,7 +3,7 @@ package immich
 import (
 	"context"
 
-	"github.com/simulot/immich-go/internal/filetypes"
+	"github.com/sweepies/immich-go/internal/filetypes"
 )
 
 // ServerService provides server-level operations.

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/simulot/immich-go/internal/filenames"
-	"github.com/simulot/immich-go/internal/gen"
+	"github.com/sweepies/immich-go/internal/filenames"
+	"github.com/sweepies/immich-go/internal/gen"
 )
 
 /*

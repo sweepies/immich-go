@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/simulot/immich-go/app"
-	"github.com/simulot/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/app"
+	"github.com/sweepies/immich-go/internal/assets"
 )
 
 type meta struct {

@@ -5,9 +5,9 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/simulot/immich-go/internal/assets"
-	"github.com/simulot/immich-go/internal/fshelper"
-	iimmich "github.com/simulot/immich-go/internal/immich"
+	"github.com/sweepies/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/fshelper"
+	iimmich "github.com/sweepies/immich-go/internal/immich"
 )
 
 // mockFSAndName creates a mock FSAndName for testing

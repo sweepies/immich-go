@@ -12,9 +12,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/simulot/immich-go/internal/adapters"
-	"github.com/simulot/immich-go/internal/fileprocessor"
-	"github.com/simulot/immich-go/internal/filetypes"
+	"github.com/sweepies/immich-go/internal/adapters"
+	"github.com/sweepies/immich-go/internal/fileprocessor"
+	"github.com/sweepies/immich-go/internal/filetypes"
 )
 
 // Config holds immutable configuration for the upload pipeline.
