@@ -110,6 +110,9 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 		}
 		wg.SetLimit(concurrency)
 
+		var albumErr error
+		var albumErrMu sync.Mutex
+
 		// Consumer goroutine: updates index and cache
 		consumerDone := make(chan struct{})
 		go func() {
@@ -136,8 +139,14 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 			wg.Go(func() error {
 				r, err := pctx.Server.GetAlbumInfo(ctx, a.ID, false)
 				if err != nil {
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
 					pctx.Logger.Error("can't get the album info from the server", "album", a.AlbumName, "err", err)
-					return nil // Log and continue
+					albumErrMu.Lock()
+					albumErr = errors.Join(albumErr, fmt.Errorf("album %s: %w", a.AlbumName, err))
+					albumErrMu.Unlock()
+					return nil
 				}
 				ids := make([]string, 0, len(r.Assets))
 				for _, aa := range r.Assets {
@@ -157,7 +166,13 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 		err := wg.Wait()
 		close(updates)
 		<-consumerDone
-		return err
+		if err != nil {
+			return err
+		}
+		if albumErr != nil {
+			return fmt.Errorf("album discovery encountered errors: %w", albumErr)
+		}
+		return nil
 	}
 }
 
