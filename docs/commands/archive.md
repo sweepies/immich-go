@@ -1,9 +1,8 @@
-# Archive Command
+# archive
 
-The `archive` command exports photos and videos from various sources to a local folder structure organized by date. The destination folder isn't wiped out before the operation, so it's possible to add new photos to an existing archive.
+Export photos to a date-organized folder structure with metadata.
 
-
-## Syntax
+## Synopsis
 
 ```bash
 immich-go archive [source-flags] --write-to-folder=<destination> [options] <paths>...
@@ -11,62 +10,50 @@ immich-go archive [source-flags] --write-to-folder=<destination> [options] <path
 
 ## Output Structure
 
-Photos are organized chronologically:
+Photos are organized by year and month:
+
 ```
-destination-folder/
+destination/
 ├── 2022/
 │   ├── 2022-01/
-│   │   ├── photo01.jpg
-│   │   └── photo01.jpg.JSON    # Metadata file
+│   │   ├── photo.jpg
+│   │   └── photo.jpg.JSON
 │   └── 2022-02/
-│       ├── photo02.jpg
-│       └── photo02.jpg.JSON
 ├── 2023/
 │   ├── 2023-03/
 │   └── 2023-04/
 └── 2024/
-    ├── 2024-05/
-    └── 2024-06/
 ```
+
+Each photo gets a `.JSON` sidecar with metadata.
 
 ## Required Options
 
 | Option | Description |
 |--------|-------------|
-| `--write-to-folder` | Destination folder for archived photos |
+| `--write-to-folder` | Destination folder |
 
 ## Source Modes
 
-By default, `archive` processes local folders. Use source flags to change the source:
-
-| Flag           | Source           | Description                                |
-| -------------- | ---------------- | ------------------------------------------ |
-| *(default)*    | Local filesystem | Archive from local folders or ZIP archives |
-| `--google`     | Google Takeout   | Archive from Google Photos takeout         |
-| `--icloud`     | iCloud export    | Archive from iCloud takeout                |
-| `--picasa`     | Picasa           | Archive from Picasa collections            |
-| `--from-immich`| Immich server    | Archive from Immich server (no paths)      |
-
-**Note**: `--google`, `--icloud`, and `--from-immich` are mutually exclusive.
+| Flag | Source | Description |
+|------|--------|-------------|
+| *(default)* | Local filesystem | Archive from folders |
+| `--google` | Google Takeout | Archive from takeout |
+| `--icloud` | iCloud export | Archive from iCloud |
+| `--picasa` | Picasa | Parse Picasa metadata |
+| `--from-immich` | Immich server | Archive from server |
 
 ## Metadata Files
 
-Each photo gets a corresponding `.JSON` file containing:
-- Original filename and capture date
-- GPS coordinates (latitude/longitude)  
-- Album associations
-- Tags and descriptions
-- Rating and favorite status
-- Archive/trash status
+Each photo gets a `.JSON` file containing:
 
-### Example Metadata
 ```json
 {
   "fileName": "example.jpg",
   "latitude": 37.7749,
   "longitude": -122.4194,
   "dateTaken": "2023-10-01T12:34:56Z",
-  "description": "Golden Gate Bridge view",
+  "description": "Golden Gate Bridge",
   "albums": [
     {
       "title": "San Francisco Trip",
@@ -87,45 +74,42 @@ Each photo gets a corresponding `.JSON` file containing:
 ## Examples
 
 ### Archive from Immich Server
+
 ```bash
-# Archive all photos from server
+# Complete backup
 immich-go archive --from-immich \
   --from-server=http://localhost:2283 \
   --from-api-key=your-key \
   --write-to-folder=/backup/photos
 
-# Archive specific date range
+# Specific year
 immich-go archive --from-immich \
   --from-server=http://localhost:2283 \
   --from-api-key=your-key \
   --from-date-range=2023 \
-  --write-to-folder=/backup/2023-photos
+  --write-to-folder=/backup/2023
 
-# Archive specific album
+# Specific album
 immich-go archive --from-immich \
   --from-server=http://localhost:2283 \
   --from-api-key=your-key \
   --from-albums="Family" \
-  --write-to-folder=/backup/albums
+  --write-to-folder=/backup/family
 ```
 
 ### Archive Google Photos Takeout
+
 ```bash
-# Create organized archive from takeout
+# Reorganize takeout by date
 immich-go archive --google \
   --write-to-folder=/organized-photos \
   /path/to/takeout-*.zip
-
-# Archive a specific album
-immich-go archive --google \
-  --from-album-name="Summer Vacation" \
-  --write-to-folder=/vacations \
-  /path/to/takeout
 ```
 
-### Archive Local Folders
+### Reorganize Local Folders
+
 ```bash
-# Reorganize existing photos by date
+# Transform messy folders into date structure
 immich-go archive \
   --write-to-folder=/organized \
   /messy/photo/folders
@@ -134,16 +118,44 @@ immich-go archive \
 ## Use Cases
 
 ### 1. Server Backup
-Create a complete backup of your Immich server:
+
+Create a portable backup of your Immich library:
+
 ```bash
 immich-go archive --from-immich \
   --from-server=http://localhost:2283 \
   --from-api-key=your-key \
-  --write-to-folder=/complete-backup
+  --write-to-folder=/backup/immich-$(date +%Y-%m-%d)
 ```
 
-### 2. Migration Preparation  
-Prepare photos for migration to another system:
+### 2. Incremental Backup
+
+Backup recent photos (last 30 days):
+
+```bash
+immich-go archive --from-immich \
+  --from-server=http://localhost:2283 \
+  --from-api-key=your-key \
+  --from-date-range=$(date -d '30 days ago' '+%Y-%m-%d'),$(date '+%Y-%m-%d') \
+  --write-to-folder=/backup/recent
+```
+
+### 3. Yearly Archives
+
+```bash
+for year in 2020 2021 2022 2023 2024; do
+  immich-go archive --from-immich \
+    --from-server=http://localhost:2283 \
+    --from-api-key=your-key \
+    --from-date-range=$year \
+    --write-to-folder=/backup/immich-$year
+done
+```
+
+### 4. Migration Preparation
+
+Export for migration to another system:
+
 ```bash
 immich-go archive --from-immich \
   --from-server=http://localhost:2283 \
@@ -151,52 +163,22 @@ immich-go archive --from-immich \
   --write-to-folder=/migration-ready
 ```
 
-### 3. Photo Organization
-Transform messy folder structures into organized archives:
-```bash
-immich-go archive \
-  --write-to-folder=/organized \
-  /chaotic/photo/collection
-```
-
-### 4. Selective Archival
-Archive specific content based on criteria:
-```bash
-# Archive by year
-immich-go archive --from-immich \
-  --from-date-range=2022-01-01,2022-12-31 \
-  --write-to-folder=/archive-2022 \
-  --from-server=http://localhost:2283 \
-  --from-api-key=your-key
-
-# Archive by album
-immich-go archive --from-immich \
-  --from-albums="Professional Photos" \
-  --write-to-folder=/work-archive \
-  --from-server=http://localhost:2283 \
-  --from-api-key=your-key
-```
-
 ## Important Notes
 
-- **Incremental**: Archives can be updated - new photos are added without affecting existing ones
-- **Metadata Preservation**: JSON files ensure no metadata is lost
-- **Cross-Platform**: Archived photos can be imported to any compatible system
-- **Space Efficient**: No unnecessary duplication during incremental updates
+- **Incremental**: Running again adds new photos without duplicating
+- **Metadata preserved**: JSON files capture all metadata
+- **Cross-platform**: Archived photos work with any system
+- **No server changes**: Archive is read-only for the source
 
 ## Options Reference
 
 ### Connection Options (for `--from-immich`)
-Same as [upload command](upload.md#server-connection-options).
 
-### Filtering Options  
-Same filtering options as corresponding upload modes:
-- File type filtering (`--include-type`, `--include-extensions`)
-- Date range filtering (`--date-range`, `--from-date-range`)
-- Album filtering (`--from-albums`)
+Same as [upload command](/commands/upload#server-connection).
 
-## See Also
+### Filtering Options
 
-- [Upload Command](upload.md) - For option details
-- [Technical Details](../technical.md) - Metadata formats
-- [Examples](../examples.md) - More use cases
+Same filtering options as the corresponding upload modes:
+- `--date-range` / `--from-date-range`
+- `--from-albums`
+- `--include-type`, `--include-extensions`

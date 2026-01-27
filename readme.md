@@ -161,8 +161,6 @@ Key design principles:
 - **Testable stages**: Each pipeline stage can be tested independently with mock clients
 - **Explicit dependencies**: Configuration passed explicitly rather than via service locators
 
-For development details, see [AGENTS.md](AGENTS.md) and [OVERHAUL.md](OVERHAUL.md).
-
 ## 🤝 Contributing
 
 Contributions are welcome! Please see our [contributing guidelines](CONTRIBUTING.md) for details.

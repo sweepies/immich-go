@@ -1,8 +1,8 @@
-# Stack Command
+# stack
 
-The `stack` command organizes related photos into stacks on your Immich server without uploading new content.
+Organize existing photos on your Immich server into stacks.
 
-## Syntax
+## Synopsis
 
 ```bash
 immich-go stack [options]
@@ -10,207 +10,196 @@ immich-go stack [options]
 
 ## Purpose
 
-Stacking groups related photos together for better organization:
-- **Burst photos** from rapid shooting
-- **RAW + JPEG** pairs from cameras that shoot both formats
-- **HEIC + JPEG** pairs from iPhone/iPad Live Photos
-- **Epson FastFoto** scan groups (original, corrected, back side)
+Stacking groups related photos without deleting anything:
+
+- **Burst photos**: Rapid-fire shots
+- **RAW + JPEG**: Camera saved both
+- **HEIC + JPEG**: iPhone saved both
+- **Epson FastFoto**: Scanned photo sets
 
 ## Required Options
 
-| Option          | Required | Description       |
-| --------------- | :------: | ----------------- |
-| `-s, --server`  |    Y     | Immich server URL |
-| `-k, --api-key` |    Y     | Your API key      |
+| Option | Description |
+|--------|-------------|
+| `-s, --server` | Immich server URL |
+| `-k, --api-key` | API key |
 
 ## Connection Options
 
-| Option              | Default | Description                       |
-| ------------------- | ------- | --------------------------------- |
-| `--skip-verify-ssl` | `false` | Skip SSL certificate verification |
-| `--client-timeout`  | `20m`   | Server call timeout               |
-| `--api-trace`       | `false` | Enable API call tracing           |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--skip-verify-ssl` | false | Skip SSL verification |
+| `--client-timeout` | 20m | Request timeout |
+| `--api-trace` | false | Log API calls |
 
 ## Behavior Options
 
-| Option        | Default | Description                              |
-| ------------- | ------- | ---------------------------------------- |
-| `--dry-run`   | `false` | Simulate stacking without making changes |
-| `--time-zone` | System  | Override timezone for date operations    |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--dry-run` | false | Preview without changes |
+| `--time-zone` | System | Override timezone |
 
 ## Stacking Rules
 
 ### Burst Photos
 
-| Option           | Values                                              | Description                   |
-| ---------------- | --------------------------------------------------- | ----------------------------- |
-| `--manage-burst` | `NoStack`, `Stack`, `StackKeepRaw`, `StackKeepJPEG` | How to handle burst sequences |
+```bash
+immich-go stack --manage-burst=Stack --server=... --api-key=...
+```
 
-**Detection Methods:**
-- **Time-based**: Photos taken within 900ms of each other
-- **Filename patterns**: Device-specific naming conventions
+| Value | Behavior |
+|-------|----------|
+| `NoStack` | Keep separate (default) |
+| `Stack` | Stack all bursts |
+| `StackKeepRaw` | Stack, RAW as cover |
+| `StackKeepJPEG` | Stack, JPEG as cover |
 
-**Supported Devices:**
-- **Huawei**: `IMG_20231014_183246_BURST001_COVER.jpg`, `IMG_20231014_183246_BURST002.jpg`
-- **Google Pixel**: `PXL_20230330_184138390.MOTION-01.COVER.jpg`, `PXL_20230330_184138390.MOTION-02.ORIGINAL.jpg`
-- **Samsung**: `20231207_101605_001.jpg`, `20231207_101605_002.jpg`
-- **Sony Xperia**: `DSC_0001_BURST20230709220904977.JPG`, `DSC_0035_BURST20230709220904977_COVER.JPG`
-- **Nexus**: `00001IMG_00001_BURST20171111030039.jpg`, `00015IMG_00015_BURST20171111030039_COVER.jpg`
-- **Nothing**: `00001IMG_00001_BURST1723801037429_COVER.jpg`, `00002IMG_00002_BURST1723801037429.jpg`
+**Detected patterns:**
 
-### RAW + JPEG Management
+| Device | Pattern |
+|--------|---------|
+| Huawei | `IMG_*_BURST001_COVER.jpg` |
+| Google Pixel | `PXL_*_MOTION-01.COVER.jpg` |
+| Samsung | `20231207_101605_001.jpg` |
+| Sony Xperia | `DSC_*_BURST*.JPG` |
+| Nexus | `*_BURST*_COVER.jpg` |
+| Nothing | `*_BURST*` |
 
-| Option              | Values                                                            | Description           |
-| ------------------- | ----------------------------------------------------------------- | --------------------- |
-| `--manage-raw-jpeg` | `NoStack`, `KeepRaw`, `KeepJPG`, `StackCoverRaw`, `StackCoverJPG` | Handle RAW+JPEG pairs |
+Also detects photos taken within 900ms of each other.
 
-- **NoStack**: Leave files separate
-- **KeepRaw**: Delete JPEG, keep RAW only
-- **KeepJPG**: Delete RAW, keep JPEG only  
-- **StackCoverRaw**: Stack with RAW as cover image
-- **StackCoverJPG**: Stack with JPEG as cover image
+### RAW + JPEG
 
-### HEIC + JPEG Management
+```bash
+immich-go stack --manage-raw-jpeg=StackCoverRaw --server=... --api-key=...
+```
 
-| Option               | Values                                                              | Description            |
-| -------------------- | ------------------------------------------------------------------- | ---------------------- |
-| `--manage-heic-jpeg` | `NoStack`, `KeepHeic`, `KeepJPG`, `StackCoverHeic`, `StackCoverJPG` | Handle HEIC+JPEG pairs |
+| Value | Behavior |
+|-------|----------|
+| `NoStack` | Keep separate (default) |
+| `StackCoverRaw` | Stack, RAW as cover |
+| `StackCoverJPG` | Stack, JPEG as cover |
+| `KeepRaw` | Delete JPEG |
+| `KeepJPG` | Delete RAW |
 
-Same logic as RAW+JPEG but for HEIC format files.
+### HEIC + JPEG
+
+```bash
+immich-go stack --manage-heic-jpeg=StackCoverJPG --server=... --api-key=...
+```
+
+| Value | Behavior |
+|-------|----------|
+| `NoStack` | Keep separate (default) |
+| `StackCoverHeic` | Stack, HEIC as cover |
+| `StackCoverJPG` | Stack, JPEG as cover |
+| `KeepHeic` | Delete JPEG |
+| `KeepJPG` | Delete HEIC |
 
 ### Epson FastFoto
 
-| Option                    | Default | Description                      |
-| ------------------------- | ------- | -------------------------------- |
-| `--manage-epson-fastfoto` | `false` | Stack Epson FastFoto scan groups |
+```bash
+immich-go stack --manage-epson-fastfoto=true --server=... --api-key=...
+```
 
-**File Pattern:**
-- `image-name.jpg` (Original scan)
-- `image-name_a.jpg` (Corrected scan) 
-- `image-name_b.jpg` (Back of photo)
-
-When enabled, stacks all three with corrected scan as cover.
+Stacks scanner output:
+- `image.jpg` (original)
+- `image_a.jpg` (corrected) - becomes cover
+- `image_b.jpg` (back of photo)
 
 ## Examples
 
-### Basic Stacking
+### Preview Changes
+
 ```bash
-# Stack burst photos automatically
+immich-go stack \
+  --server=http://localhost:2283 \
+  --api-key=your-key \
+  --manage-burst=Stack \
+  --dry-run
+```
+
+### Stack Bursts
+
+```bash
 immich-go stack \
   --server=http://localhost:2283 \
   --api-key=your-key \
   --manage-burst=Stack
-
-# Preview stacking without changes
-immich-go stack \
-  --server=http://localhost:2283 \
-  --api-key=your-key \
-  --manage-burst=Stack \
-  --dry-run
 ```
 
-### RAW + JPEG Management
-```bash  
-# Stack with RAW as cover
+### Stack RAW+JPEG with RAW Cover
+
+```bash
 immich-go stack \
   --server=http://localhost:2283 \
   --api-key=your-key \
   --manage-raw-jpeg=StackCoverRaw
-
-# Keep only JPEG files
-immich-go stack \
-  --server=http://localhost:2283 \
-  --api-key=your-key \
-  --manage-raw-jpeg=KeepJPG
 ```
 
-### Comprehensive Organization
+### Full Organization
+
 ```bash
-# Handle all photo types
 immich-go stack \
   --server=http://localhost:2283 \
   --api-key=your-key \
   --manage-burst=Stack \
   --manage-raw-jpeg=StackCoverRaw \
-  --manage-heic-jpeg=StackCoverJPG \
-  --manage-epson-fastfoto=true
+  --manage-heic-jpeg=StackCoverJPG
 ```
-
-### Safe Testing
-```bash
-# Test stacking rules without changes
-immich-go stack \
-  --server=http://localhost:2283 \
-  --api-key=your-key \
-  --manage-burst=Stack \
-  --manage-raw-jpeg=StackCoverRaw \
-  --dry-run
-```
-
-## Detection Logic
-
-### Burst Detection Priority
-1. **Filename patterns** (device-specific)
-2. **Time-based detection** (900ms threshold)
-
-### File Pairing Logic
-1. **Exact name matching** (different extensions)
-2. **Same directory location**
-3. **Similar timestamps** (within reasonable range)
 
 ## Best Practices
 
-### 1. Test First
-Always use `--dry-run` to preview changes:
+### 1. Always Preview First
+
 ```bash
-immich-go stack --dry-run --manage-burst=Stack --server=... --api-key=...
+immich-go stack --dry-run ...
 ```
 
-### 2. Incremental Approach
-Handle one type at a time:
-```bash
-# First, handle bursts
-immich-go stack --manage-burst=Stack --server=... --api-key=...
+### 2. One Type at a Time
 
-# Then, handle RAW+JPEG
-immich-go stack --manage-raw-jpeg=StackCoverRaw --server=... --api-key=...
+```bash
+# First bursts
+immich-go stack --manage-burst=Stack ...
+
+# Then RAW+JPEG
+immich-go stack --manage-raw-jpeg=StackCoverRaw ...
 ```
 
-### 3. Backup Consideration
-Consider using the [archive command](archive.md) before major organization:
+### 3. Backup Before Destructive Operations
+
+Before using `KeepRaw` or `KeepJPG`:
+
 ```bash
-immich-go archive --from-immich --write-to-folder=/backup --from-server=... --from-api-key=...
+immich-go archive --from-immich \
+  --from-server=... --from-api-key=... \
+  --write-to-folder=/backup
 ```
 
-### 4. Monitor Progress
-Use logging to track operations:
+### 4. Use Debug Logging
+
 ```bash
 immich-go stack \
   --log-level=DEBUG \
   --manage-burst=Stack \
   --server=... --api-key=... \
-  > /tmp/stacking.log 2>&1
+  2>&1 | tee stacking.log
 ```
 
 ## Troubleshooting
 
 ### Nothing Gets Stacked
-- Check photo timestamps and filenames
-- Verify photos are from supported devices
+
+- Check that photos have expected timestamps
+- Verify filenames match device patterns
 - Use `--api-trace` to see server communication
 - Try `--dry-run` with `--log-level=DEBUG`
 
 ### Unexpected Stacking
-- Review detection logic for your device type
-- Check if time-based detection is too aggressive
-- Use filename patterns for specific device types
+
+- Review detection patterns for your devices
+- Time-based detection (900ms) may be too aggressive for some workflows
 
 ### Performance Issues
+
 - Increase `--client-timeout` for large libraries
-- Process in smaller batches by date range (using archive/upload workflow)
-
-## See Also
-
-- [Upload Command](upload.md) - Stacking during upload
-- [Technical Details](../technical.md) - Detection algorithms
-- [Best Practices](../best-practices.md) - Organization strategies
+- Process incrementally using archive/upload workflow with date ranges
