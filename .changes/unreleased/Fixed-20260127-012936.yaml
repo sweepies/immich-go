@@ -1,3 +1,0 @@
-kind: Fixed
-body: 'fix: set goreleaser Commit/Date ldflags'
-time: 2026-01-27T01:29:36.42564-05:00
