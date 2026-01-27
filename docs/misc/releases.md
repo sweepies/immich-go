@@ -10,16 +10,7 @@
 Thanks for using immich-go! This release adds more control over Immich background jobs during uploads.
 
 ### ✨ New Features
-- Keep Immich background jobs paused after uploads with the new `--no-resume-jobs` flag (useful with `--pause-immich-jobs`).
-
-### 🚀 Improvements
-- None.
-
-### 🐛 Bug Fixes
-- None.
-
-### 💥 Breaking Changes
-- None.
+- Adds `--no-resume-jobs` flag to keep Immich background jobs paused after uploads complete (use with `--pause-immich-jobs` to prevent automatic job resumption).
 
 ## Release v0.23.0-alpha6 🏗️ Work in progress 🏗️ 
 
