@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/sweepies/immich-go/app"
 	"github.com/sweepies/immich-go/internal/adapters"
 	"github.com/sweepies/immich-go/internal/assets"
@@ -17,13 +18,13 @@ import (
 	uploadcfg "github.com/sweepies/immich-go/internal/upload"
 	"github.com/sweepies/immich-go/internal/upload/pipeline"
 	"github.com/sweepies/immich-go/internal/upload/source"
-	"github.com/spf13/cobra"
 )
 
 type UpLoadMode int
 
 const (
 	UpModeGoogleTakeout UpLoadMode = iota
+	UpModeFromImmich
 	UpModeFolder
 	UpModeICloud
 	UpModePicasa
@@ -33,6 +34,8 @@ func (m UpLoadMode) String() string {
 	switch m {
 	case UpModeGoogleTakeout:
 		return "Google Takeout"
+	case UpModeFromImmich:
+		return "Immich"
 	case UpModeFolder:
 		return "Folder"
 	case UpModeICloud:
@@ -115,7 +118,7 @@ func (uc *UpCmd) run(cmd *cobra.Command, args []string) error {
 	// Set mode for display purposes
 	switch uc.config.SourceMode {
 	case uploadcfg.SourceModeFromImmich:
-		uc.Mode = UpModeFolder
+		uc.Mode = UpModeFromImmich
 	case uploadcfg.SourceModeGoogle:
 		uc.Mode = UpModeGoogleTakeout
 	case uploadcfg.SourceModeICloud:
