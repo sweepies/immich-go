@@ -53,6 +53,12 @@ func NewVirtualGlobFS(pattern string) (fs.FS, error) {
 			return err
 		}
 
+		if d.IsDir() {
+			if _, ok := vfs.dirs[p]; !ok {
+				vfs.dirs[p] = []string{}
+			}
+		}
+
 		// directories should always be added
 		parentDir := path.Dir(p)
 		if parentDir != p {
