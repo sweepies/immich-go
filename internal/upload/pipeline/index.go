@@ -189,18 +189,6 @@ func (idx *Index) IsAlreadyProcessed(checksum string) bool {
 // ShouldUpload determines whether an asset should be uploaded.
 // It considers checksums, filenames, dates, and sizes to make the decision.
 func (idx *Index) ShouldUpload(la *assets.Asset, overwrite bool) (*Advice, error) {
-	checksum, err := la.GetChecksum()
-	if err != nil {
-		return nil, err
-	}
-
-	if sa, ok := idx.byChecksum.Load(checksum); ok {
-		if idx.IsAlreadyProcessed(checksum) {
-			return idx.adviceAlreadyProcessed(sa), nil
-		}
-		return idx.adviceSameOnServer(sa), nil
-	}
-
 	filename := path.Base(la.File.Name())
 
 	// check all files with the same name
@@ -234,6 +222,19 @@ func (idx *Index) ShouldUpload(la *assets.Asset, overwrite bool) (*Advice, error
 			}
 		}
 	}
+
+	checksum, err := la.GetChecksum()
+	if err != nil {
+		return nil, err
+	}
+
+	if sa, ok := idx.byChecksum.Load(checksum); ok {
+		if idx.IsAlreadyProcessed(checksum) {
+			return idx.adviceAlreadyProcessed(sa), nil
+		}
+		return idx.adviceSameOnServer(sa), nil
+	}
+
 	return idx.adviceNotOnServer(), nil
 }
 

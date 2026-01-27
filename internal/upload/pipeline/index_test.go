@@ -299,3 +299,46 @@ func TestFormatBytes(t *testing.T) {
 		})
 	}
 }
+
+func TestOptimization_ShouldUpload_SkipsChecksum(t *testing.T) {
+	idx := NewIndex()
+
+	captureDate := time.Date(2023, 10, 27, 10, 0, 0, 0, time.UTC)
+
+	// Add an asset to the server
+	ia := &iimmich.Asset{
+		ID:               "server-asset-1",
+		Checksum:         "checksum-same",
+		OriginalFileName: "photo.jpg",
+		ExifInfo: iimmich.ExifInfo{
+			DateTimeOriginal: iimmich.ImmichExifTime{Time: captureDate},
+			FileSizeInByte:   1024,
+		},
+	}
+	idx.AddImmichAsset(ia)
+
+	// Create a local asset with the same name, size, and date
+	// Crucially, Checksum is empty
+	la := &assets.Asset{
+		File:             mockFSAndName("photo.jpg"),
+		OriginalFileName: "photo.jpg",
+		FileSize:         1024,
+		CaptureDate:      captureDate,
+		Checksum:         "",
+	}
+
+	advice, err := idx.ShouldUpload(la, false)
+	if err != nil {
+		t.Fatalf("ShouldUpload failed: %v", err)
+	}
+
+	if advice.Advice != SameOnServer {
+		t.Errorf("expected SameOnServer, got %v", advice.Advice)
+	}
+
+	// In the UNOPTIMIZED version, Checksum will be populated because GetChecksum is called first.
+	// After OPTIMIZATION, Checksum should remain empty because we found a match by metadata.
+	if la.Checksum != "" {
+		t.Errorf("Optimization failed: Checksum WAS computed: %s. Expected empty checksum.", la.Checksum)
+	}
+}
