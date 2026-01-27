@@ -223,15 +223,16 @@ func (uc *UpCmd) Run(ctx context.Context, cmd *cobra.Command) error {
 
 	// Create and run the pipeline runner
 	runner := pipeline.NewRunner(pipeline.RunnerConfig{
-		Source:      adapterSource,
-		Server:      serverClient,
-		PipelineCtx: pctx,
-		Groupers:    groupers,
-		Filters:     filterList,
-		PauseJobs:   uc.client.PauseImmichBackgroundJobs,
-		OnError:     uc.app.ProcessError,
-		SaveAlbum:   saveAlbum,
-		SaveTag:     saveTag,
+		Source:       adapterSource,
+		Server:       serverClient,
+		PipelineCtx:  pctx,
+		Groupers:     groupers,
+		Filters:      filterList,
+		PauseJobs:    uc.client.PauseImmichBackgroundJobs,
+		NoResumeJobs: uc.config.Server.NoResumeJobs,
+		OnError:      uc.app.ProcessError,
+		SaveAlbum:    saveAlbum,
+		SaveTag:      saveTag,
 	})
 
 	return runner.Run(ctx)

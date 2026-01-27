@@ -41,6 +41,7 @@ All upload sub-commands require these connection parameters:
 | `--concurrent-tasks`  | CPU cores | Number of parallel tasks (1-20)                                     |
 | `--overwrite`         | `false`   | Replace existing files on server                                    |
 | `--pause-immich-jobs` | `true`    | Pause server jobs during upload                                     |
+| `--no-resume-jobs`    | `false`   | Do not resume server jobs after upload (testing)                    |
 | `--on-errors`         | `stop`    | Action on errors: `stop`, `continue`, or tolerated number of errors |
 
 ## Tagging and Organization

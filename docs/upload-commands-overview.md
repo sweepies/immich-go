@@ -72,7 +72,7 @@ The final stage is the upload itself and the integration with Immich’s feature
 `immich-go` is more than just an uploader; it intelligently uses Immich’s server-side features:
 
 *   **Stacking**: If you use the `--stack` flag, `immich-go` identifies related files (like RAW+JPEG pairs) and, after uploading them, sends a command to Immich to "stack" them, linking them in the UI.
-*   **Background Jobs**: With the `--pause-immich-jobs` flag (which requires an admin API key), `immich-go` can temporarily pause Immich’s background tasks (like thumbnailing and transcoding). This can improve upload performance. The jobs are automatically resumed when the upload is complete.
+*   **Background Jobs**: With the `--pause-immich-jobs` flag (which requires an admin API key), `immich-go` can temporarily pause Immich’s background tasks (like thumbnailing and transcoding). This can improve upload performance. By default, jobs are resumed when the upload is complete, but you can keep them paused for testing with `--no-resume-jobs`.
 *   **Asset Replacement**: When `--overwrite` is used, `immich-go` performs a safe replacement. It uploads the new file, copies all metadata (tags, albums, descriptions) from the old asset to the new one, and then deletes the old asset.
 
 #### Error Handling
