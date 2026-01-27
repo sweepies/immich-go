@@ -27,6 +27,8 @@ import (
 	"github.com/simulot/immich-go/internal/groups/series"
 )
 
+var takeoutPartRegex = regexp.MustCompile(`-\d{3}$`)
+
 // GoogleSource implements adapters.Source for Google Photos takeout imports.
 type GoogleSource struct {
 	deps   adapters.SourceDependencies
@@ -124,13 +126,10 @@ func (s *GoogleSource) initialize() {
 				break
 			}
 		}
-		if filepath.Ext(s.takeoutName) == ".zip" {
-			s.takeoutName = strings.TrimSuffix(s.takeoutName, filepath.Base(s.takeoutName))
-		}
+		s.takeoutName = normalizeTakeoutName(s.takeoutName)
 		if s.takeoutName == "" {
 			s.config.TakeoutTag = false
 		}
-		s.takeoutName = regexp.MustCompile(`-\d{3}$`).ReplaceAllString(s.takeoutName, "")
 	}
 
 	// Set up groupers
@@ -420,6 +419,13 @@ func (s *GoogleSource) handleDir(ctx context.Context, dir string, gOut chan *ass
 		}
 	}
 	return nil
+}
+
+func normalizeTakeoutName(name string) string {
+	if filepath.Ext(name) == ".zip" {
+		name = strings.TrimSuffix(name, ".zip")
+	}
+	return takeoutPartRegex.ReplaceAllString(name, "")
 }
 
 // makeAsset creates an asset from a file and optional metadata.
