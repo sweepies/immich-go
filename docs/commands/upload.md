@@ -1,8 +1,8 @@
-# Upload Command
+# upload
 
-The `upload` command transfers photos and videos from various sources to your Immich server.
+Upload photos and videos to your Immich server from various sources.
 
-## Syntax
+## Synopsis
 
 ```bash
 immich-go upload [source-flags] [options] <paths>...
@@ -10,298 +10,286 @@ immich-go upload [source-flags] [options] <paths>...
 
 ## Source Modes
 
-By default, `upload` processes local folders. Use source flags to change the source:
+| Flag | Source | Description |
+|------|--------|-------------|
+| *(default)* | Local filesystem | Upload from folders or ZIP archives |
+| `--google` | Google Takeout | Import Google Photos takeout |
+| `--icloud` | iCloud export | Import iCloud takeout |
+| `--picasa` | Picasa | Parse `.picasa.ini` files for albums |
+| `--from-immich` | Immich server | Transfer from another Immich instance |
 
-| Flag           | Source           | Description                                |
-| -------------- | ---------------- | ------------------------------------------ |
-| *(default)*    | Local filesystem | Upload from local folders or ZIP archives  |
-| `--google`     | Google Takeout   | Upload from Google Photos takeout archives |
-| `--icloud`     | iCloud export    | Upload from iCloud takeout                 |
-| `--picasa`     | Picasa           | Enable Picasa album parsing                |
-| `--from-immich`| Immich server    | Transfer between Immich servers (no paths) |
+::: info Mutually Exclusive
+`--google`, `--icloud`, and `--from-immich` cannot be combined. `--picasa` can be used with folder mode.
+:::
 
-**Note**: `--google`, `--icloud`, and `--from-immich` are mutually exclusive. `--picasa` can be combined with folder mode.
+## Server Connection
 
-## Server Connection Options
+| Option | Required | Default | Description |
+|--------|:--------:|---------|-------------|
+| `-s, --server` | Yes | - | Immich server URL |
+| `-k, --api-key` | Yes | - | API key |
+| `--admin-api-key` | No | - | Admin API key (for job control) |
+| `--skip-verify-ssl` | No | false | Skip SSL certificate verification |
+| `--client-timeout` | No | 20m | Request timeout |
 
-All upload sub-commands require these connection parameters:
+## Behavior
 
-| Option              | Required | Description                                       |
-| ------------------- | :------: | ------------------------------------------------- |
-| `-s, --server`      |    Y     | Immich server URL (e.g., `http://localhost:2283`) |
-| `-k, --api-key`     |    Y     | Your API key                                      |
-| `--skip-verify-ssl` |          | Skip SSL certificate verification                 |
-| `--client-timeout`  |          | Server call timeout (default: `20m`)              |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--dry-run` | false | Simulate without uploading |
+| `--concurrent-tasks` | CPU cores | Parallel uploads (1-20) |
+| `--overwrite` | false | Replace existing files |
+| `--pause-immich-jobs` | true | Pause server background jobs |
+| `--on-errors` | stop | `stop`, `continue`, or error count |
 
-## Upload Behavior Options
+## Output
 
-| Option                | Default   | Description                                                         |
-| --------------------- | --------- | ------------------------------------------------------------------- |
-| `--dry-run`           | `false`   | Simulate upload without actual transfers                            |
-| `--concurrent-tasks`  | CPU cores | Number of parallel tasks (1-20)                                     |
-| `--overwrite`         | `false`   | Replace existing files on server                                    |
-| `--pause-immich-jobs` | `true`    | Pause server jobs during upload                                     |
-| `--no-resume-jobs`    | `false`   | Do not resume server jobs after upload (testing)                    |
-| `--on-errors`         | `stop`    | Action on errors: `stop`, `continue`, or tolerated number of errors |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--output` | text | `text` or `json` |
+| `--api-trace` | false | Log API calls |
 
-## Tagging and Organization
+## Tagging
 
-| Option          | Default      | Description                                  |
-| --------------- | ------------ | -------------------------------------------- |
-| `--session-tag` | `false`      | Tag with upload session timestamp            |
-| `--tag`         | -            | Add custom tags (can be used multiple times) |
-| `--device-uuid` | `$LOCALHOST` | Set device identifier                        |
-
-## Output Options
-
-| Option              | Default | Description                                     |
-| ------------------- | ------- | ----------------------------------------------- |
-| `--output`          | `text`  | Output format: `text` or `json`                  |
-| `--api-trace`       | `false` | Enable API call tracing                          |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--session-tag` | false | Tag with upload timestamp |
+| `--tag` | - | Custom tags (repeatable) |
+| `--device-uuid` | $LOCALHOST | Device identifier |
 
 ---
 
 ## Folder Mode (Default)
 
-Upload photos from local folders, including ZIP archives.
+Upload from local folders or ZIP archives.
 
-### Usage
-```bash
-immich-go upload [options] <folder-path>
-```
+### Options
 
-### Folder Options
-
-| Option                   | Default | Description                                             |
-| ------------------------ | ------- | ------------------------------------------------------- |
-| `--recursive`            | `true`  | Process subfolders                                      |
-| `--date-from-name`       | `true`  | Extract date from filename if no metadata               |
-| `--ignore-sidecar-files` | `false` | Skip XMP sidecar files                                  |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--recursive` | true | Process subfolders |
+| `--date-from-name` | true | Extract date from filename |
+| `--ignore-sidecar-files` | false | Skip XMP sidecars |
 
 ### File Filtering
 
-| Option                 | Default                                  | Description                                                     |
-| ---------------------- | ---------------------------------------- | --------------------------------------------------------------- |
-| `--include-extensions` | `all`                                    | Comma-separated extensions to include                           |
-| `--exclude-extensions` | -                                        | Comma-separated extensions to exclude                           |
-| `--include-type`       | `all`                                    | File type filter: `IMAGE`, `VIDEO`, or `all`                    |
-| `--ban-file`           | [See list](../technical.md#banned-files) | Exclude files by pattern                                        |
-| `--date-range`         | -                                        | Date range filter (see [formats](../technical.md#date-formats)) |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--include-extensions` | all | Only these extensions |
+| `--exclude-extensions` | - | Skip these extensions |
+| `--include-type` | all | `IMAGE`, `VIDEO`, or `all` |
+| `--ban-file` | [defaults](#banned-files) | Exclude by pattern |
+| `--date-range` | - | Filter by date |
 
-### Album Management
+### Albums
 
-| Option                | Default | Description                                             |
-| --------------------- | ------- | ------------------------------------------------------- |
-| `--folder-as-album`   | `NONE`  | Create albums from folders: `FOLDER`, `PATH`, or `NONE` |
-| `--folder-as-tags`    | `false` | Use folder structure as tags                            |
-| `--album-path-joiner` | `" / "` | String for joining folder names in album titles         |
-| `--album-picasa`      | `false` | Use Picasa album names from `.picasa.ini` files         |
-| `--into-album`        | -       | Put all photos into specified album                     |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--folder-as-album` | NONE | `FOLDER`, `PATH`, or `NONE` |
+| `--folder-as-tags` | false | Use folders as tags |
+| `--into-album` | - | Put all in this album |
+| `--album-path-joiner` | " / " | Separator for PATH mode |
 
-### File Management
+### Stacking
 
-| Option                    | Values                                                              | Description                                                |
-| ------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `--manage-burst`          | `NoStack`, `Stack`, `StackKeepRaw`, `StackKeepJPEG`                 | [Burst photo handling](../technical.md#burst-detection)    |
-| `--manage-raw-jpeg`       | `NoStack`, `KeepRaw`, `KeepJPG`, `StackCoverRaw`, `StackCoverJPG`   | [RAW+JPEG handling](../technical.md#raw-jpeg-management)   |
-| `--manage-heic-jpeg`      | `NoStack`, `KeepHeic`, `KeepJPG`, `StackCoverHeic`, `StackCoverJPG` | [HEIC+JPEG handling](../technical.md#heic-jpeg-management) |
-| `--manage-epson-fastfoto` | `false`                                                             | Handle Epson FastFoto scanned photos                       |
+| Option | Values | Description |
+|--------|--------|-------------|
+| `--manage-raw-jpeg` | NoStack, KeepRaw, KeepJPG, StackCoverRaw, StackCoverJPG | RAW+JPEG handling |
+| `--manage-heic-jpeg` | NoStack, KeepHeic, KeepJPG, StackCoverHeic, StackCoverJPG | HEIC+JPEG handling |
+| `--manage-burst` | NoStack, Stack, StackKeepRaw, StackKeepJPEG | Burst handling |
+| `--manage-epson-fastfoto` | false | Epson FastFoto scans |
 
 ### Examples
+
 ```bash
-# Basic folder upload
-immich-go upload --server=http://localhost:2283 --api-key=your-key /path/to/photos
+# Basic upload
+immich-go upload --server=http://localhost:2283 --api-key=key /photos
 
-# Create albums from folder structure
-immich-go upload --folder-as-album=FOLDER --server=http://localhost:2283 --api-key=your-key /photos
+# Create albums from folders
+immich-go upload --folder-as-album=FOLDER --server=... --api-key=... /photos
 
-# Stack RAW+JPEG files
-immich-go upload --manage-raw-jpeg=StackCoverRaw --server=http://localhost:2283 --api-key=your-key /photos
+# Stack RAW+JPEG
+immich-go upload --manage-raw-jpeg=StackCoverRaw --server=... --api-key=... /photos
 
-# Filter by date and file type
-immich-go upload --date-range=2023 --include-type=IMAGE --server=http://localhost:2283 --api-key=your-key /photos
+# Filter by date and type
+immich-go upload --date-range=2023 --include-type=IMAGE --server=... --api-key=... /photos
 
-# JSON output for automation
-immich-go upload --output=json --server=http://localhost:2283 --api-key=your-key /photos
-
-# Pipe output for filtering
-immich-go upload --server=http://localhost:2283 --api-key=your-key /photos 2>&1 | grep "error"
+# JSON output
+immich-go upload --output=json --server=... --api-key=... /photos
 ```
 
 ---
 
-## Google Photos Mode (`--google`)
+## Google Photos Mode
 
 Upload from Google Photos Takeout archives.
 
-### Usage
 ```bash
 immich-go upload --google [options] <takeout-path>
 ```
 
-`<takeout-path>` can be:
+The path can be:
 - One or more `takeout-*.zip` files
-- A decompressed Takeout folder
-- A directory containing `takeout-*.zip` parts (the `.zip` files are added automatically)
+- A decompressed takeout folder
+- A directory containing takeout zip files (auto-detected)
 
-### Takeout Handling
+### Options
 
-| Option                    | Default | Description                        |
-| ------------------------- | ------- | ---------------------------------- |
-| `-u, --include-unmatched` | `false` | Import files without JSON metadata |
-| `-a, --include-archived`  | `true`  | Import archived photos             |
-| `-t, --include-trashed`   | `false` | Import trashed photos              |
-| `-p, --include-partner`   | `true`  | Import partner's photos            |
-
-### Album Options
-
-| Option                      | Default | Description                          |
-| --------------------------- | ------- | ------------------------------------ |
-| `--sync-albums`             | `true`  | Create albums matching Google Photos |
-| `--include-untitled-albums` | `false` | Include photos from untitled albums  |
-| `--from-album-name`         | -       | Import only from specified album     |
-| `--partner-shared-album`    | -       | Album name for partner photos        |
-
-### Tagging
-
-| Option          | Default | Description                     |
-| --------------- | ------- | ------------------------------- |
-| `--takeout-tag` | `true`  | Tag with takeout timestamp      |
-| `--people-tag`  | `true`  | Tag with people names from JSON |
-
-### File Management
-Same options as folder mode for burst, RAW/JPEG, and HEIC/JPEG management.
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--include-unmatched` | false | Import files without JSON metadata |
+| `--include-archived` | true | Import archived photos |
+| `--include-trashed` | false | Import trashed photos |
+| `--include-partner` | true | Import partner's photos |
+| `--sync-albums` | true | Create matching albums |
+| `--include-untitled-albums` | false | Include untitled albums |
+| `--from-album-name` | - | Import only this album |
+| `--partner-shared-album` | - | Album for partner photos |
+| `--takeout-tag` | true | Tag with takeout timestamp |
+| `--people-tag` | true | Tag with people names |
 
 ### Examples
+
 ```bash
-# Basic Google Photos import
-immich-go upload --google --server=http://localhost:2283 --api-key=your-key /path/to/takeout-*.zip
+# Basic import
+immich-go upload --google --server=... --api-key=... /path/to/takeout-*.zip
 
-# Folder of takeout parts (auto-expands .zip files)
-immich-go upload --google --server=http://localhost:2283 --api-key=your-key /path/to/takeout
+# Import from folder of zips
+immich-go upload --google --server=... --api-key=... /path/to/takeout-folder
 
-# Import including unmatched files
-immich-go upload --google --include-unmatched --server=http://localhost:2283 --api-key=your-key /takeout
-
-# Import from specific album only
-immich-go upload --google --from-album-name="Vacation 2023" --server=http://localhost:2283 --api-key=your-key /takeout
+# Specific album only
+immich-go upload --google --from-album-name="Vacation" --server=... --api-key=... /takeout
 ```
 
 ---
 
-## iCloud Mode (`--icloud`)
+## iCloud Mode
 
-Upload from iCloud takeout archives.
+Upload from iCloud exports.
 
-### Usage
 ```bash
 immich-go upload --icloud [options] <icloud-path>
 ```
 
-### Specific Options
+### Options
 
-| Option       | Default | Description                      |
-| ------------ | ------- | -------------------------------- |
-| `--memories` | `false` | Import iCloud memories as albums |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--memories` | false | Import memories as albums |
 
-### Examples
+### Example
+
 ```bash
-# Basic iCloud import
-immich-go upload --icloud --server=http://localhost:2283 --api-key=your-key /path/to/icloud-export
-
-# Include memories as albums  
-immich-go upload --icloud --memories --server=http://localhost:2283 --api-key=your-key /path/to/icloud-export
+immich-go upload --icloud --memories --server=... --api-key=... /icloud-export
 ```
 
 ---
 
-## Picasa Mode (`--picasa`)
+## Immich-to-Immich Mode
 
-Upload from Picasa photo collections with automatic `.picasa.ini` parsing.
+Transfer between Immich servers.
 
-### Usage
-```bash
-immich-go upload --picasa [options] <picasa-path>
-```
-
-Uses same options as folder mode with automatic Picasa metadata detection.
-
----
-
-## Immich-to-Immich Mode (`--from-immich`)
-
-Transfer photos between Immich servers.
-
-### Usage
 ```bash
 immich-go upload --from-immich [source-options] [destination-options]
 ```
 
-**Note**: This mode does not accept path arguments.
+::: info No Path Argument
+This mode doesn't accept paths. The source is `--from-server`.
+:::
 
-### Source Server Options
+### Source Connection
 
-  | Option                   | Description                      |
-  | ------------------------ | -------------------------------- |
-  | `--from-server`          | Source Immich server URL         |
-  | `--from-api-key`         | Source server API key            |
-  | `--from-client-timeout`  | Source server timeout            |
-  | `--from-skip-verify-ssl` | Skip SSL verification for source |
+| Option | Description |
+|--------|-------------|
+| `--from-server` | Source server URL |
+| `--from-api-key` | Source API key |
+| `--from-client-timeout` | Source timeout |
+| `--from-skip-verify-ssl` | Skip source SSL check |
 
 ### Source Filtering
 
+| Option | Description |
+|--------|-------------|
+| `--from-date-range` | Date range filter |
+| `--from-albums` | Filter by album (repeatable) |
+| `--from-tags` | Filter by tag |
+| `--from-people` | Filter by person |
+| `--from-archived` | Include archived |
+| `--from-favorite` | Include favorites only |
+| `--from-trash` | Include trashed |
+| `--from-no-album` | Assets not in albums |
+| `--from-minimal-rating` | Minimum rating (1-5) |
+| `--from-partners` | Include partner's assets |
+| `--from-make` | Filter by camera make |
+| `--from-model` | Filter by camera model |
+| `--from-country` | Filter by country |
+| `--from-state` | Filter by state |
+| `--from-city` | Filter by city |
 
-  | Option                  | Description                  |
-  | ----------------------- | ---------------------------- |
-  | `--from-date-range`     | Date range filter for source |
-  | `--from-archived`       | Include archived assets      |
-  | `--from-trash`          | Include trashed assets       |
-  | `--from-favorite`       | Include only favorite assets |
-  | `--from-minimal-rating` | Minimum rating filter        |
+### Example
 
-
-### Examples
 ```bash
-# Transfer all photos between servers
 immich-go upload --from-immich \
-  --from-server=http://old-server:2283 --from-api-key=old-key \
-  --server=http://new-server:2283 --api-key=new-key
-
-# Transfer images with a rating of 3 or above
-immich-go upload --from-immich \
-  --from-server=http://old-server:2283 --from-api-key=old-key --from-minimal-rating=3 \
-  --server=http://new-server:2283 --api-key=new-key
-
-# Transfer photos from a specific date range
-immich-go upload --from-immich \
-  --from-server=http://old-server:2283 --from-api-key=old-key --from-date-range=2023-01-01,2023-06-30 \
-  --server=http://new-server:2283 --api-key=new-key
+  --from-server=http://old:2283 --from-api-key=old-key \
+  --server=http://new:2283 --api-key=new-key
 ```
 
+---
 
+---
 
-## Performance Tips
+## How It Works
 
-- **Concurrent Tasks**: Start with default (CPU cores), adjust based on network/server capacity
-- **Large Files**: Increase `--client-timeout` for large video files
-- **Network Issues**: Use lower `--concurrent-tasks` for unstable connections
-- **Server Load**: Enable `--pause-immich-jobs` during large uploads
+`immich-go upload` follows a robust process to ensure your media is imported correctly:
 
-## Output Modes
+1.  **Discovery**: Scans your source (folder, zip, or server) for supported images and videos.
+2.  **Puzzle Solving**: Especially for Google Takeouts, it uses intelligent matching to pair media files with their correct JSON metadata, even when filenames have been altered by Google.
+3.  **Deduplication**: Calculates a checksum for each local file and compares it against an index of assets already on your Immich server. Identical files are skipped.
+4.  **Grouping**: Identifies bursts and RAW+JPEG pairs for stacking.
+5.  **Metadata Acquisition**: Collects metadata from sidecar files (JSON, XMP), embedded EXIF data, or as a last resort, the filename.
+6.  **Immich Integration**:
+    - **Pause Jobs**: Can pause background processing (thumbnailing, etc.) to maximize upload speed.
+    - **Album/Tag Creation**: Automatically creates any missing albums or tags on the server.
+    - **Concurrent Upload**: Transfers files in parallel.
+    - **Post-Upload Stacking**: Sends commands to Immich to link related photos (bursts/pairs).
 
-### Text Mode (Default)
-- Shows line-by-line progress updates
-- Logs are written to stderr following Unix conventions
+## Specialized Modes
 
-### JSON Mode (`--output=json`)
-- Outputs structured JSON Lines (JSONL) to stdout
-- Progress updates and final summary are separate JSON objects
-- Uses line-by-line progress output (no interactive TUI)
-- Ideal for automation and integration with other tools
+### Picasa Mode (`--picasa`)
+Optimized for folders managed by Google's legacy Picasa software. It automatically parses `.picasa.ini` files to associate photos with their original Picasa albums.
 
-#### JSON Output Format
+### iCloud Mode (`--icloud`)
+Tailored for Apple iCloud Photos Takeouts. It uses a two-pass process: first scanning `.csv` files for metadata and album info, then processing media files with corrected dates and associations.
 
-**Progress Update:**
+## Banned Files
+
+By default, these patterns are excluded:
+
+- `.DS_Store`, `/._*` - macOS system files
+- `.Spotlight-V100/` - Spotlight index
+- `@eaDir/`, `@__thumb/` - Synology thumbnails
+- `SYNOFILE_THUMB_*.*` - Synology thumbs
+- `thumbnails/` - Generic thumbnails
+- `Lightroom Catalog/` - Lightroom data
+- `.photostructure/` - PhotoStructure data
+- `Recently Deleted/` - Trash folders
+
+Add more with `--ban-file`:
+
+```bash
+immich-go upload --ban-file="*.tmp" --ban-file="cache/" ...
+```
+
+Patterns ending with `/` match directories.
+
+---
+
+## JSON Output
+
+With `--output=json`, output is JSON Lines (JSONL) to stdout, logs to stderr.
+
+### Progress
+
 ```json
 {
   "type": "progress",
@@ -313,7 +301,8 @@ immich-go upload --from-immich \
 }
 ```
 
-**Final Summary:**
+### Summary
+
 ```json
 {
   "type": "summary",
@@ -325,32 +314,19 @@ immich-go upload --from-immich \
     "uploaded": 225,
     "errors": 2
   },
-  "events": {
-    "ErrorUploadFailed": {"count": 2, "size": 1048576}
-  },
-  "duration_seconds": 120.5,
-  "timestamp": "2024-01-15T10:32:00Z"
+  "duration_seconds": 120.5
 }
 ```
 
-### Shell Integration Examples
+### Shell Integration
 
 ```bash
-# Save JSON output to file
-immich-go upload --output=json --server=... --api-key=... /photos > upload.jsonl
+# Save to file
+immich-go upload --output=json ... > upload.jsonl
 
-# Process JSON output with jq
-immich-go upload --output=json --server=... --api-key=... /photos | jq '.type'
+# Process with jq
+immich-go upload --output=json ... | jq 'select(.type == "summary")'
 
-# Extract only errors from JSON output
-immich-go upload --output=json --server=... --api-key=... /photos | jq 'select(.type == "summary" and .exit_code != 0)'
-
-# Save logs separately from JSON data
-immich-go upload --output=json --server=... --api-key=... /photos > data.jsonl 2> errors.log
+# Separate logs from data
+immich-go upload --output=json ... > data.jsonl 2> errors.log
 ```
-
-## See Also
-
-- [Configuration Options](../configuration.md)
-- [Technical Details](../technical.md)
-- [Best Practices](../best-practices.md)
