@@ -9,4 +9,6 @@ run = """
     changie merge
     git add CHANGELOG.md .changes/
     git commit -m "build(release): bump version to $(changie latest)"
+    git tag $(changie latest)
+    git push origin $(changie latest)
 """
