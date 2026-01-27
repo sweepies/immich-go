@@ -5,6 +5,22 @@
 - [Github Sponsor page](https://github.com/sponsors/simulot)
 - [paypal donor page](https://www.paypal.com/donate/?hosted_button_id=VGU2SQE88T2T4)
 
+## Release v1.1.0-sweepy
+
+Thanks for using immich-go! This release adds more control over Immich background jobs during uploads.
+
+### ✨ New Features
+- Keep Immich background jobs paused after uploads with the new `--no-resume-jobs` flag (useful with `--pause-immich-jobs`).
+
+### 🚀 Improvements
+- None.
+
+### 🐛 Bug Fixes
+- None.
+
+### 💥 Breaking Changes
+- None.
+
 ## Release v0.23.0-alpha6 🏗️ Work in progress 🏗️ 
 
 ### New features
