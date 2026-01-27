@@ -62,10 +62,6 @@ func ParsePaths(paths []string) ([]fs.FS, error) {
 	if len(paths) == 0 {
 		return nil, errors.New("no paths provided")
 	}
-	paths, err := expandTakeoutArgs(paths)
-	if err != nil {
-		return nil, err
-	}
 	fsyss, err := fshelper.ParsePath(paths)
 	if err != nil {
 		return nil, err
@@ -144,7 +140,12 @@ func (f *Factory) CreateFolderSource(_ context.Context, cfg *adapters.FolderConf
 
 // CreateGoogleSource creates a Google Photos takeout source.
 func (f *Factory) CreateGoogleSource(_ context.Context, cfg *adapters.GoogleConfig) (adapters.Source, error) {
-	fsyss, err := ParsePaths(cfg.Paths)
+	paths, err := expandTakeoutArgs(cfg.Paths)
+	if err != nil {
+		return nil, err
+	}
+
+	fsyss, err := ParsePaths(paths)
 	if err != nil {
 		return nil, err
 	}
