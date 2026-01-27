@@ -77,26 +77,26 @@ immich-go upload --server=http://your-ip:2283 --api-key=your-api-key --output=js
 ### 3. Requirements
 
 - A running Immich server with API access
-- API key with appropriate permissions ([see full list](https://sweepies.github.io/immich-go-improved/guide/installation#api-permissions))
+- API key with appropriate permissions ([see full list](https://sweepies.github.io/immich-go/guide/installation#api-permissions))
 
 ## 🙈 Skip System Files
 
 - Use `--ban-file` to exclude junk artifacts. Patterns ending with `/` apply to directories (for example, `--ban-file .Spotlight-V100/`), while patterns without the trailing slash apply to individual files (for example, `--ban-file .DS_Store`).
 - immich-go ships with sensible defaults that already skip common clutter such as `@eaDir/`, `@__thumb/`, `SYNOFILE_THUMB_*.*`, `Lightroom Catalog/`, `thumbnails/`, `.DS_Store`, `/._*`, `.Spotlight-V100/`, `.photostructure/`, and `Recently Deleted/`.
-- Add additional patterns as needed to keep uploads focused on real photos. See the [banned files reference](https://sweepies.github.io/immich-go-improved/commands/upload#banned-files) for details.
+- Add additional patterns as needed to keep uploads focused on real photos. See the [banned files reference](https://sweepies.github.io/immich-go/commands/upload#banned-files) for details.
 
 ## 📚 Documentation
 
 | Topic | Description |
 |-------|-------------|
-| [Installation](https://sweepies.github.io/immich-go-improved/guide/installation) | Detailed installation instructions for all platforms |
-| [Commands](https://sweepies.github.io/immich-go-improved/commands/upload) | Complete command reference and options |
-| [Configuration](https://sweepies.github.io/immich-go-improved/reference/configuration) | Configuration options and environment variables |
-| [Examples](https://sweepies.github.io/immich-go-improved/guide/getting-started) | Common use cases and practical examples |
-| [Best Practices](https://sweepies.github.io/immich-go-improved/guide/best-practices) | Tips for optimal performance and reliability |
-| [Technical Details](https://sweepies.github.io/immich-go-improved/commands/upload#how-it-works) | File processing, metadata handling, and advanced features |
-| [Upload Commands Overview](https://sweepies.github.io/immich-go-improved/commands/upload#specialized-modes) | How `immich-go` processes files from different sources |
-| [Release Notes](https://sweepies.github.io/immich-go-improved/releases/) | Version history and release notes |
+| [Installation](https://sweepies.github.io/immich-go/guide/installation) | Detailed installation instructions for all platforms |
+| [Commands](https://sweepies.github.io/immich-go/commands/upload) | Complete command reference and options |
+| [Configuration](https://sweepies.github.io/immich-go/reference/configuration) | Configuration options and environment variables |
+| [Examples](https://sweepies.github.io/immich-go/guide/getting-started) | Common use cases and practical examples |
+| [Best Practices](https://sweepies.github.io/immich-go/guide/best-practices) | Tips for optimal performance and reliability |
+| [Technical Details](https://sweepies.github.io/immich-go/commands/upload#how-it-works) | File processing, metadata handling, and advanced features |
+| [Upload Commands Overview](https://sweepies.github.io/immich-go/commands/upload#specialized-modes) | How `immich-go` processes files from different sources |
+| [Release Notes](https://sweepies.github.io/immich-go/releases/) | Version history and release notes |
 
 ## ✨ How immich-go Works
 
@@ -119,14 +119,14 @@ Here's a brief overview of the main upload commands:
 - **Duplicate Detection**: Avoids re-uploading files that already exist on the server.
 - **Efficient Uploads**: Can pause Immich's background jobs (like thumbnailing) during an upload for better performance.
 
-For a detailed explanation of how each upload command works, please see the [Upload Commands Overview](https://sweepies.github.io/immich-go-improved/commands/upload#specialized-modes).
+For a detailed explanation of how each upload command works, please see the [Upload Commands Overview](https://sweepies.github.io/immich-go/commands/upload#specialized-modes).
 
 ## 🎯 Popular Use Cases
 
-- **Google Photos Migration**: [Complete guide](https://sweepies.github.io/immich-go-improved/guide/best-practices#google-photos-migration)
-- **iCloud Import**: [Step-by-step instructions](https://sweepies.github.io/immich-go-improved/guide/icloud#basic-import)
-- **Server Migration**: [Transfer between Immich instances](https://sweepies.github.io/immich-go-improved/guide/server-migration#basic-migration)
-- **Bulk Organization**: [Stacking and tagging strategies](https://sweepies.github.io/immich-go-improved/guide/best-practices#organization-strategies)
+- **Google Photos Migration**: [Complete guide](https://sweepies.github.io/immich-go/guide/best-practices#google-photos-migration)
+- **iCloud Import**: [Step-by-step instructions](https://sweepies.github.io/immich-go/guide/icloud#basic-import)
+- **Server Migration**: [Transfer between Immich instances](https://sweepies.github.io/immich-go/guide/server-migration#basic-migration)
+- **Bulk Organization**: [Stacking and tagging strategies](https://sweepies.github.io/immich-go/guide/best-practices#organization-strategies)
 
 ## 🏗️ Architecture
 
@@ -171,4 +171,4 @@ This project is licensed under the terms specified in the [LICENSE](LICENSE) fil
 
 ---
 
-**Need help?** Check our [documentation](https://sweepies.github.io/immich-go-improved/) or open an issue on GitHub.
+**Need help?** Check our [documentation](https://sweepies.github.io/immich-go/) or open an issue on GitHub.
