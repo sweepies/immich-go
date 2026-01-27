@@ -1,6 +1,7 @@
 # immich-go: fast, multi-source uploader for Immich
 
 <img src="https://raw.githubusercontent.com/sweepies/immich-go/refs/heads/main/logo.jpg" alt="logo" width="512"/>
+
 **immich-go** is an open-source tool designed to streamline uploading large photo collections to your Immich server.
 
 > ℹ️ **This is a fork** of [simulot/immich-go](https://github.com/simulot/immich-go). See [Fork Differences](#-fork-differences) for details about this fork.
