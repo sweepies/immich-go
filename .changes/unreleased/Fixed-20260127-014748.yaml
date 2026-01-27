@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(immichfs): preserve Exif timezone in ModTime'
+time: 2026-01-27T01:47:48.650357-05:00

@@ -101,7 +101,7 @@ func (ifs *ImmichFS) Stat(name string) (*fsFileInfo, error) {
 		name:    a.OriginalFileName,
 		size:    a.ExifInfo.FileSizeInByte,
 		mode:    fs.FileMode(0o444), // read-only mode
-		modTime: a.ExifInfo.DateTimeOriginal.Unix(),
+		modTime: a.ExifInfo.DateTimeOriginal.Time,
 		isDir:   false,
 	}, nil
 }
@@ -112,13 +112,13 @@ type fsFileInfo struct {
 	name    string
 	size    int64
 	mode    fs.FileMode
-	modTime int64
+	modTime time.Time
 	isDir   bool
 }
 
 func (fi *fsFileInfo) Name() string       { return fi.name }
 func (fi *fsFileInfo) Size() int64        { return fi.size }
 func (fi *fsFileInfo) Mode() fs.FileMode  { return fi.mode }
-func (fi *fsFileInfo) ModTime() time.Time { return time.Unix(fi.modTime, 0) }
+func (fi *fsFileInfo) ModTime() time.Time { return fi.modTime }
 func (fi *fsFileInfo) IsDir() bool        { return fi.isDir }
 func (fi *fsFileInfo) Sys() interface{}   { return nil }
