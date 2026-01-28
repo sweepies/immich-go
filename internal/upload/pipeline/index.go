@@ -189,6 +189,38 @@ func (idx *Index) IsAlreadyProcessed(checksum string) bool {
 // ShouldUpload determines whether an asset should be uploaded.
 // It considers checksums, filenames, dates, and sizes to make the decision.
 func (idx *Index) ShouldUpload(la *assets.Asset, overwrite bool) (*Advice, error) {
+	filename := path.Base(la.File.Name())
+
+	// check all files with the same name
+	ids, ok := idx.byName.Load(filename)
+
+	if ok && len(ids) > 0 {
+		dateTaken := la.CaptureDate
+		if dateTaken.IsZero() {
+			dateTaken = la.FileDate
+		}
+		size := int64(la.FileSize)
+
+		for _, id := range ids {
+			sa, ok := idx.immichAssets.Load(id)
+			if !ok {
+				continue
+			}
+
+			compareDate := compareDate(dateTaken, sa.CaptureDate)
+			compareSize := size - int64(sa.FileSize)
+
+			if !overwrite {
+				switch {
+				case compareDate == 0 && compareSize == 0:
+					return idx.adviceSameOnServer(sa), nil
+				case compareDate == 0 && compareSize < 0:
+					return idx.adviceBetterOnServer(sa), nil
+				}
+			}
+		}
+	}
+
 	checksum, err := la.GetChecksum()
 	if err != nil {
 		return nil, err
@@ -201,12 +233,7 @@ func (idx *Index) ShouldUpload(la *assets.Asset, overwrite bool) (*Advice, error
 		return idx.adviceSameOnServer(sa), nil
 	}
 
-	filename := path.Base(la.File.Name())
-
-	// check all files with the same name
-	ids, ok := idx.byName.Load(filename)
-
-	if ok && len(ids) > 0 {
+	if len(ids) > 0 {
 		dateTaken := la.CaptureDate
 		if dateTaken.IsZero() {
 			dateTaken = la.FileDate
