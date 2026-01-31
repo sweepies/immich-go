@@ -1,0 +1,3 @@
+kind: Changed
+body: Improved upload performance by including metadata in the initial upload request, eliminating N+1 API calls.
+time: 2026-01-31T01:33:04+0000

@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -139,6 +140,21 @@ func (ic *ImmichClient) prepareCallValues(la *assets.Asset, s fs.FileInfo, ext, 
 		callValues["visibility"] = "archive"
 	} else {
 		callValues["visibility"] = "timeline"
+	}
+	if la.Description != "" {
+		callValues["description"] = la.Description
+	}
+	if la.Rating > 0 {
+		callValues["rating"] = fmt.Sprintf("%d", la.Rating)
+	}
+	if la.Latitude != 0 {
+		callValues["latitude"] = strconv.FormatFloat(la.Latitude, 'f', -1, 64)
+	}
+	if la.Longitude != 0 {
+		callValues["longitude"] = strconv.FormatFloat(la.Longitude, 'f', -1, 64)
+	}
+	if !la.CaptureDate.IsZero() {
+		callValues["dateTimeOriginal"] = la.CaptureDate.Format(TimeFormat)
 	}
 	return callValues
 }

@@ -178,16 +178,16 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 
 // UploadStage handles uploading assets to the server.
 type UploadStage struct {
-	Source       Source
-	AlbumsCache  *cache.CollectionCache[assets.Album]
-	TagsCache    *cache.CollectionCache[assets.Tag]
-	Groupers     []groups.Grouper
-	Filters      []filters.Filter
-	Tags         []string
-	SessionTag   string
-	Overwrite    bool
-	Concurrency  int
-	OnError      func(err error) error // Called on each error, return non-nil to abort
+	Source      Source
+	AlbumsCache *cache.CollectionCache[assets.Album]
+	TagsCache   *cache.CollectionCache[assets.Tag]
+	Groupers    []groups.Grouper
+	Filters     []filters.Filter
+	Tags        []string
+	SessionTag  string
+	Overwrite   bool
+	Concurrency int
+	OnError     func(err error) error // Called on each error, return non-nil to abort
 }
 
 func (s *UploadStage) Name() string { return "upload" }
@@ -347,6 +347,10 @@ func (s *UploadStage) uploadAsset(ctx context.Context, pctx *Context, a *assets.
 		a.AddTag(tag)
 	}
 
+	if a.FromApplication != nil {
+		a.UseMetadata(a.FromApplication)
+	}
+
 	ar, err := pctx.Server.AssetUpload(ctx, a)
 	if err != nil {
 		pctx.Processor.RecordAssetError(ctx, a.File, int64(a.FileSize), fileevent.ErrorServerError, err)
@@ -370,18 +374,6 @@ func (s *UploadStage) uploadAsset(ctx context.Context, pctx *Context, a *assets.
 	a.ID = string(ar.ID)
 
 	if a.FromApplication != nil && ar.Status != iimmich.UploadDuplicate {
-		a.UseMetadata(a.FromApplication)
-		_, err := pctx.Server.UpdateAsset(ctx, ar.ID, iimmich.UpdateAssetRequest{
-			Description:      a.Description,
-			Latitude:         a.Latitude,
-			Longitude:        a.Longitude,
-			Rating:           a.Rating,
-			DateTimeOriginal: a.CaptureDate,
-		})
-		if err != nil {
-			pctx.Processor.RecordAssetError(ctx, a.File, int64(a.FileSize), fileevent.ErrorServerError, err)
-			return "", err
-		}
 		pctx.Processor.Logger().Record(ctx, fileevent.ProcessedMetadataUpdated, a.File)
 	}
 	pctx.Index.AddLocalAsset(a)
