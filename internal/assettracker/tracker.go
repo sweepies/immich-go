@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -337,7 +338,8 @@ func (at *AssetTracker) GenerateDetailedReport(ctx context.Context) string {
 	at.mu.RLock()
 	defer at.mu.RUnlock()
 
-	report := "FilePath,Size,State,EventCode,Reason,DiscoveredAt,FinalizedAt\n"
+	var sb strings.Builder
+	sb.WriteString("FilePath,Size,State,EventCode,Reason,DiscoveredAt,FinalizedAt\n")
 
 	for _, record := range at.assets {
 		finalizedAt := ""
@@ -345,7 +347,7 @@ func (at *AssetTracker) GenerateDetailedReport(ctx context.Context) string {
 			finalizedAt = record.FinalizedAt.Format(time.RFC3339)
 		}
 
-		report += fmt.Sprintf("%s,%d,%s,%s,%q,%s,%s\n",
+		fmt.Fprintf(&sb, "%s,%d,%s,%s,%q,%s,%s\n",
 			record.File.FullName(),
 			record.FileSize,
 			record.State,
@@ -356,7 +358,7 @@ func (at *AssetTracker) GenerateDetailedReport(ctx context.Context) string {
 		)
 	}
 
-	return report
+	return sb.String()
 }
 
 // GetPendingCount returns the count of pending assets

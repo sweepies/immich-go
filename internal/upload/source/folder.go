@@ -157,9 +157,11 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 		}
 	}
 
+	dirFiles := make(map[string]string, len(entries))
 	for _, entry := range entries {
 		base := entry.Name()
 		name := path.Join(dir, base)
+		dirFiles[strings.ToLower(base)] = base
 		ext := filepath.Ext(base)
 
 		if entry.IsDir() {
@@ -263,7 +265,7 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 		})
 
 		for _, a := range as {
-			s.processAssetMetadata(ctx, fsys, a, fsName, dir)
+			s.processAssetMetadata(ctx, fsys, a, fsName, dir, dirFiles)
 
 			if !s.config.InclusionFlags.DateRange.InRange(a.CaptureDate) {
 				a.Close()
@@ -314,14 +316,17 @@ func (s *FolderSource) assetFromFile(_ context.Context, fsys fs.FS, name string)
 	return a, nil
 }
 
-func (s *FolderSource) processAssetMetadata(ctx context.Context, fsys fs.FS, a *assets.Asset, fsName, dir string) {
+func (s *FolderSource) processAssetMetadata(ctx context.Context, fsys fs.FS, a *assets.Asset, fsName, dir string, dirFiles map[string]string) {
 	// Check for JSON sidecar
-	jsonName, err := checkExistSideCar(fsys, a.File.Name(), ".json")
-	if err == nil && jsonName != "" {
-		buf, err := fs.ReadFile(fsys, jsonName)
+	jsonName := findSidecar(dirFiles, a.OriginalFileName, ".json")
+	if jsonName != "" {
+		jsonPath := path.Join(dir, jsonName)
+		buf, err := fs.ReadFile(fsys, jsonPath)
 		if err != nil {
-			s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, jsonName), 0, fileevent.ErrorFileAccess, "error", err.Error())
+			s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, jsonPath), 0, fileevent.ErrorFileAccess, "error", err.Error())
 		} else {
+			// Update jsonName to include full path
+			jsonName = jsonPath
 			if bytes.Contains(buf, []byte("immich-go version")) {
 				md := &assets.Metadata{}
 				err = jsonsidecar.Read(bytes.NewReader(buf), md)
@@ -341,12 +346,15 @@ func (s *FolderSource) processAssetMetadata(ctx context.Context, fsys fs.FS, a *
 	}
 
 	// Check for XMP sidecar
-	xmpName, err := checkExistSideCar(fsys, a.File.Name(), ".xmp")
-	if err == nil && xmpName != "" {
-		buf, err := fs.ReadFile(fsys, xmpName)
+	xmpName := findSidecar(dirFiles, a.OriginalFileName, ".xmp")
+	if xmpName != "" {
+		xmpPath := path.Join(dir, xmpName)
+		buf, err := fs.ReadFile(fsys, xmpPath)
 		if err != nil {
-			s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, xmpName), 0, fileevent.ErrorFileAccess, "error", err.Error())
+			s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, xmpPath), 0, fileevent.ErrorFileAccess, "error", err.Error())
 		} else {
+			// Update xmpName to include full path
+			xmpName = xmpPath
 			md := &assets.Metadata{}
 			err = xmpsidecar.ReadXMP(bytes.NewReader(buf), md)
 			if err != nil {
@@ -427,37 +435,21 @@ func (s *FolderSource) assignAlbums(a *assets.Asset, fsys fs.FS, fsName, dir str
 	}
 }
 
-func checkExistSideCar(fsys fs.FS, name string, ext string) (string, error) {
-	ext2 := ""
-	for _, r := range ext {
-		if r == '.' {
-			ext2 += "."
-			continue
-		}
-		ext2 += "[" + strings.ToLower(string(r)) + strings.ToUpper(string(r)) + "]"
+func findSidecar(files map[string]string, baseName string, ext string) string {
+	// Check baseName + ext
+	name := baseName + ext
+	if realName, ok := files[strings.ToLower(name)]; ok {
+		return realName
 	}
 
-	base := name
-	l, err := fs.Glob(fsys, base+ext2)
-	if err != nil {
-		return "", err
+	fileExt := path.Ext(baseName)
+	if !filetypes.DefaultSupportedMedia.IsMedia(fileExt) {
+		return ""
 	}
-	if len(l) > 0 {
-		return l[0], nil
+	nameNoExt := strings.TrimSuffix(baseName, fileExt)
+	name = nameNoExt + ext
+	if realName, ok := files[strings.ToLower(name)]; ok {
+		return realName
 	}
-
-	ext = path.Ext(base)
-	if !filetypes.DefaultSupportedMedia.IsMedia(ext) {
-		return "", nil
-	}
-	base = strings.TrimSuffix(base, ext)
-
-	l, err = fs.Glob(fsys, base+ext2)
-	if err != nil {
-		return "", err
-	}
-	if len(l) > 0 {
-		return l[0], nil
-	}
-	return "", nil
+	return ""
 }
