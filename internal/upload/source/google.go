@@ -288,6 +288,17 @@ func (s *GoogleSource) passOneFsWalk(ctx context.Context, w fs.FS) error {
 	})
 }
 
+// matchFile attempts to match a JSON metadata to a file and updates the catalog.
+func (s *GoogleSource) matchFile(ctx context.Context, dir string, jsonName string, fileName string, md *assets.Metadata, matcherName string, cat *googleDirCatalog) {
+	if i, ok := cat.unMatchedFiles[fileName]; ok {
+		i.md = md
+		a := s.makeAsset(ctx, dir, i, md)
+		cat.matchedFiles[fileName] = a
+		s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(i.fsys, path.Join(dir, i.base)), 0, fileevent.ProcessedAssociatedMetadata, "json", jsonName, "matcher", matcherName)
+		delete(cat.unMatchedFiles, fileName)
+	}
+}
+
 // solvePuzzle matches JSON metadata to files using various matching strategies.
 func (s *GoogleSource) solvePuzzle(ctx context.Context) error {
 	dirs := gen.MapKeysSorted(s.catalogs)
@@ -295,7 +306,87 @@ func (s *GoogleSource) solvePuzzle(ctx context.Context) error {
 		cat := s.catalogs[dir]
 		jsons := gen.MapKeysSorted(cat.jsons)
 
+		// Build index for matchNormal optimization
+		// Map key: "base|index" -> list of filenames
+		type normalKey struct {
+			base  string
+			index string
+		}
+		normalIndex := make(map[normalKey][]string)
+
+		for f := range cat.unMatchedFiles {
+			base, index := getFileIndex(f)
+			// matchNormal compares fileName (with extension) to jsonName (stripped of .json).
+			// So we index by base (which includes extension if present).
+			key := normalKey{base: base, index: index}
+			normalIndex[key] = append(normalIndex[key], f)
+
+			// Handle truncation cases
+			// matchNormal truncation logic applies to the fileName (base)
+			if len(base) > 46 {
+				// 1. Unicode truncation
+				if utf8.RuneCountInString(base) > 46 {
+					truncBase := string([]rune(base)[:46])
+					truncKey := normalKey{base: truncBase, index: index}
+					normalIndex[truncKey] = append(normalIndex[truncKey], f)
+				} else {
+					// 2. Byte truncation (last rune removed)
+					// matchNormal logic checks if fileName == jsonName after removing last rune.
+					// It applies TrimSuffix(ext) THEN removes last rune.
+					cleanBase := strings.TrimSuffix(base, path.Ext(base))
+					_, size := utf8.DecodeLastRuneInString(cleanBase)
+					if size > 0 {
+						truncBase := cleanBase[:len(cleanBase)-size]
+						truncKey := normalKey{base: truncBase, index: index}
+						normalIndex[truncKey] = append(normalIndex[truncKey], f)
+					}
+				}
+			}
+		}
+
 		for _, matcher := range googleMatchers {
+			if matcher.name == "matchFastTrack" {
+				for _, jsonName := range jsons {
+					if _, ok := cat.jsons[jsonName]; !ok {
+						continue
+					}
+					// matchFastTrack: jsonName (no ext) == fileName
+					target := strings.TrimSuffix(jsonName, path.Ext(jsonName))
+					if _, ok := cat.unMatchedFiles[target]; ok {
+						s.matchFile(ctx, dir, jsonName, target, cat.jsons[jsonName], matcher.name, &cat)
+					}
+				}
+				continue
+			}
+
+			if matcher.name == "matchNormal" {
+				for _, jsonName := range jsons {
+					// Compute lookup key from JSON
+					base, index := getFileIndex(jsonName)
+					// Remove supplemental-metadata
+					p2 := strings.LastIndex(base, ".")
+					if p2 > 1 {
+						p1 := strings.LastIndex(base[:p2], ".")
+						if p1 > 1 {
+							if strings.HasPrefix("supplemental-metadata", base[p1+1:p2]) {
+								base = base[:p1] + base[p2:]
+							}
+						}
+					}
+					base = strings.TrimSuffix(base, path.Ext(base))
+
+					key := normalKey{base: base, index: index}
+					if candidates, ok := normalIndex[key]; ok {
+						for _, f := range candidates {
+							if _, exists := cat.unMatchedFiles[f]; exists {
+								s.matchFile(ctx, dir, jsonName, f, cat.jsons[jsonName], matcher.name, &cat)
+							}
+						}
+					}
+				}
+				continue
+			}
+
 			for _, jsonName := range jsons {
 				md := cat.jsons[jsonName]
 				for f := range cat.unMatchedFiles {
@@ -304,12 +395,7 @@ func (s *GoogleSource) solvePuzzle(ctx context.Context) error {
 						return ctx.Err()
 					default:
 						if matcher.fn(jsonName, f, s.deps.SupportedMedia) {
-							i := cat.unMatchedFiles[f]
-							i.md = md
-							a := s.makeAsset(ctx, dir, i, md)
-							cat.matchedFiles[f] = a
-							s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(i.fsys, path.Join(dir, i.base)), 0, fileevent.ProcessedAssociatedMetadata, "json", jsonName, "matcher", matcher.name)
-							delete(cat.unMatchedFiles, f)
+							s.matchFile(ctx, dir, jsonName, f, md, matcher.name, &cat)
 						}
 					}
 				}
