@@ -28,6 +28,10 @@ This fork of [simulot/immich-go](https://github.com/simulot/immich-go) includes 
 
 ### Improvements
 
+- **Performance enhancements** – Multiple algorithmic optimizations:
+  - Google Photos metadata matching: O(n²) → O(n) for large takeout imports
+  - Case-insensitive sidecar file lookup using efficient map-based indexing
+  - String builder optimization for CSV report generation
 - **Unix-style output** – Consistent stdout/stderr separation: reports to stdout, logs and progress to stderr
 - **Output validation** – Invalid `--output` values now show clear validation errors
 - **Streamlined interface** – Removed TUI, config files, and simplified command structure
