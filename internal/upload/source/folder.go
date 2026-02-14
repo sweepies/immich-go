@@ -127,14 +127,19 @@ func (s *FolderSource) initialize() {
 func (s *FolderSource) concurrentParseDir(ctx context.Context, fsys fs.FS, dir string, gOut chan *assets.Group) {
 	s.wg.Add(1)
 	ctx, cancel := context.WithCancelCause(ctx)
-	go s.pool.Submit(func() {
-		defer s.wg.Done()
-		err := s.parseDir(ctx, fsys, dir, gOut)
-		if err != nil {
-			s.deps.Logger.Error(err.Error())
-			cancel(err)
+	go func() {
+		submitted := s.pool.TrySubmit(func() {
+			defer s.wg.Done()
+			err := s.parseDir(ctx, fsys, dir, gOut)
+			if err != nil {
+				s.deps.Logger.Error(err.Error())
+				cancel(err)
+			}
+		})
+		if !submitted {
+			s.wg.Done()
 		}
-	})
+	}()
 }
 
 func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOut chan *assets.Group) error {
