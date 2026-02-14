@@ -141,3 +141,39 @@ func TestPoolStopUnblocksBlockedSubmit(t *testing.T) {
 		t.Fatal("blocked submit did not return")
 	}
 }
+
+func TestPoolStopDoesNotDeadlockWithBlockedSubmit(t *testing.T) {
+	pool := NewPool(1)
+
+	started := make(chan struct{})
+	if !pool.Submit(func() {
+		close(started)
+		<-pool.quit
+	}) {
+		t.Fatalf("expected first task to be accepted")
+	}
+	<-started
+
+	submitDone := make(chan bool, 1)
+	go func() {
+		submitDone <- pool.Submit(func() {})
+	}()
+
+	stopDone := make(chan struct{})
+	go func() {
+		pool.Stop()
+		close(stopDone)
+	}()
+
+	select {
+	case <-stopDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("stop deadlocked with blocked submit")
+	}
+
+	select {
+	case <-submitDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("blocked submit did not return")
+	}
+}

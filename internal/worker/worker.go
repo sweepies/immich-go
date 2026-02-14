@@ -15,7 +15,6 @@ type Pool struct {
 	quit     chan struct{}
 	stopOnce sync.Once
 	stopping atomic.Bool
-	submitMu sync.Mutex
 }
 
 // NewPool creates a new Pool with a specified number of workers.
@@ -63,13 +62,6 @@ func (p *Pool) TrySubmit(task Task) bool {
 		return false
 	}
 
-	p.submitMu.Lock()
-	defer p.submitMu.Unlock()
-
-	if p.stopping.Load() {
-		return false
-	}
-
 	select {
 	case <-p.quit:
 		return false
@@ -82,10 +74,7 @@ func (p *Pool) TrySubmit(task Task) bool {
 func (p *Pool) Stop() {
 	p.stopOnce.Do(func() {
 		p.stopping.Store(true)
-
-		p.submitMu.Lock()
 		close(p.quit)
-		p.submitMu.Unlock()
 
 		p.wg.Wait()
 	})
