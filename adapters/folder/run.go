@@ -48,14 +48,21 @@ func (ifc *ImportFolderCmd) Browse(ctx context.Context) chan *assets.Group {
 func (ifc *ImportFolderCmd) concurrentParseDir(ctx context.Context, fsys fs.FS, dir string, gOut chan *assets.Group) {
 	ifc.wg.Add(1)
 	ctx, cancel := context.WithCancelCause(ctx)
-	go ifc.pool.Submit(func() {
-		defer ifc.wg.Done()
-		err := ifc.parseDir(ctx, fsys, dir, gOut)
-		if err != nil {
-			ifc.app.Log().Error(err.Error())
-			cancel(err)
+	go func() {
+		submitted := ifc.pool.TrySubmit(func() {
+			defer ifc.wg.Done()
+			defer cancel(nil)
+			err := ifc.parseDir(ctx, fsys, dir, gOut)
+			if err != nil {
+				ifc.app.Log().Error(err.Error())
+				cancel(err)
+			}
+		})
+		if !submitted {
+			cancel(nil)
+			ifc.wg.Done()
 		}
-	})
+	}()
 }
 
 func (ifc *ImportFolderCmd) parseDir(ctx context.Context, fsys fs.FS, dir string, gOut chan *assets.Group) error {

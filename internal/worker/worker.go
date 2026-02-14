@@ -9,10 +9,10 @@ type Task func()
 
 // Pool manages a pool of worker goroutines.
 type Pool struct {
-	tasks  chan Task
-	wg     sync.WaitGroup
-	quit   chan struct{}
-	closed bool
+	tasks    chan Task
+	wg       sync.WaitGroup
+	quit     chan struct{}
+	stopOnce sync.Once
 }
 
 // NewPool creates a new Pool with a specified number of workers.
@@ -44,16 +44,26 @@ func (p *Pool) worker() {
 }
 
 // Submit adds a task to the worker pool.
-func (p *Pool) Submit(task Task) {
-	p.tasks <- task
+// It returns true when the task is accepted.
+func (p *Pool) Submit(task Task) bool {
+	return p.TrySubmit(task)
+}
+
+// TrySubmit adds a task to the worker pool.
+// It returns false if the pool has started shutting down.
+func (p *Pool) TrySubmit(task Task) bool {
+	select {
+	case <-p.quit:
+		return false
+	case p.tasks <- task:
+		return true
+	}
 }
 
 // Stop stops all the workers and waits for them to finish.
 func (p *Pool) Stop() {
-	if !p.closed {
+	p.stopOnce.Do(func() {
 		close(p.quit)
 		p.wg.Wait()
-		close(p.tasks)
-		p.closed = true
-	}
+	})
 }
