@@ -146,5 +146,5 @@ type UpdateAssetRequest struct {
 	Longitude        float64   `json:"longitude,omitempty"`
 	Description      string    `json:"description,omitempty"`
 	Rating           int       `json:"rating,omitempty"`
-	DateTimeOriginal time.Time `json:"dateTimeOriginal"`
+	DateTimeOriginal time.Time `json:"dateTimeOriginal,omitempty"`
 }
