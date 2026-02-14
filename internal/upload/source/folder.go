@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/sweepies/immich-go/internal/adapters"
 	"github.com/sweepies/immich-go/internal/assets"
@@ -27,6 +28,8 @@ import (
 	"github.com/sweepies/immich-go/internal/groups/series"
 	"github.com/sweepies/immich-go/internal/worker"
 )
+
+const icloudMetadataExt = ".csv"
 
 // FolderSource implements adapters.Source for folder-based imports.
 // It supports folder, iCloud, and Picasa modes.
@@ -54,7 +57,7 @@ type picasaAlbum struct {
 
 // icloudMeta holds parsed iCloud metadata.
 type icloudMeta struct {
-	originalCreationDate string
+	originalCreationDate time.Time
 	albums               []assets.Album
 }
 
@@ -169,6 +172,44 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 		ext := filepath.Ext(base)
 
 		if entry.IsDir() {
+			continue
+		}
+
+		if s.icloudMetaPass && ext == icloudMetadataExt {
+			if strings.HasSuffix(strings.ToLower(dir), "albums") {
+				album, err := useICloudAlbum(s.icloudMetas, fsys, name)
+				if err != nil {
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.ErrorFileAccess, "error", err.Error())
+				} else {
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredMetadata, "album", album)
+				}
+				continue
+			}
+			if s.config.ICloudMemoriesAsAlbums && strings.HasSuffix(strings.ToLower(dir), "memories") {
+				album, err := useICloudMemory(s.icloudMetas, fsys, name)
+				if err != nil {
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.ErrorFileAccess, "error", err.Error())
+				} else {
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredMetadata, "album", album)
+				}
+				continue
+			}
+			if strings.HasPrefix(strings.ToLower(base), "photo details") {
+				err := useICloudPhotoDetails(s.icloudMetas, fsys, name)
+				if err != nil {
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.ErrorFileAccess, "error", err.Error())
+				} else {
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredMetadata)
+				}
+				continue
+			}
+		}
+
+		if s.icloudMetaPass {
+			continue
+		}
+
+		if s.config.ICloudTakeout && !s.icloudMetaPass && ext == icloudMetadataExt {
 			continue
 		}
 
@@ -373,19 +414,28 @@ func (s *FolderSource) processAssetMetadata(ctx context.Context, fsys fs.FS, a *
 
 	// Read metadata from file if needed
 	if s.requiresDateInformation && a.CaptureDate.IsZero() {
-		f, err := a.OpenFile()
-		if err == nil {
-			md, err := exif.GetMetaData(f, a.Ext, s.deps.TimeZone)
-			if err == nil {
-				a.FromSourceFile = a.UseMetadata(md)
-			}
-			if (md == nil || md.DateTaken.IsZero()) && !a.Taken.IsZero() && s.config.TakeDateFromFilename {
-				a.FromApplication = &assets.Metadata{
-					DateTaken: a.Taken,
-				}
+		if s.config.ICloudTakeout {
+			if meta, ok := s.icloudMetas.Load(a.OriginalFileName); ok && !meta.originalCreationDate.IsZero() {
+				a.FromApplication = &assets.Metadata{DateTaken: meta.originalCreationDate}
 				a.CaptureDate = a.FromApplication.DateTaken
 			}
-			f.Close()
+		}
+
+		if a.CaptureDate.IsZero() {
+			f, err := a.OpenFile()
+			if err == nil {
+				md, err := exif.GetMetaData(f, a.Ext, s.deps.TimeZone)
+				if err == nil {
+					a.FromSourceFile = a.UseMetadata(md)
+				}
+				if (md == nil || md.DateTaken.IsZero()) && !a.Taken.IsZero() && s.config.TakeDateFromFilename {
+					a.FromApplication = &assets.Metadata{
+						DateTaken: a.Taken,
+					}
+					a.CaptureDate = a.FromApplication.DateTaken
+				}
+				f.Close()
+			}
 		}
 	}
 
@@ -410,6 +460,13 @@ func (s *FolderSource) assignAlbums(a *assets.Asset, fsys fs.FS, fsName, dir str
 	if s.config.PicasaAlbum {
 		if album, ok := s.picasaAlbums.Load(dir); ok {
 			a.Albums = []assets.Album{{Title: album.Name, Description: album.Description}}
+			return
+		}
+	}
+
+	if s.config.ICloudTakeout {
+		if meta, ok := s.icloudMetas.Load(a.OriginalFileName); ok && len(meta.albums) > 0 {
+			a.Albums = meta.albums
 			return
 		}
 	}
