@@ -56,7 +56,7 @@ immich-go --version
 
 ## Build from Source
 
-Requires Go 1.25 or higher.
+Requires Go 1.26 or higher.
 
 ```bash
 git clone https://github.com/sweepies/immich-go.git
