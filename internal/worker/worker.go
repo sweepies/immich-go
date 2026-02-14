@@ -2,6 +2,7 @@ package worker
 
 import (
 	"sync"
+	"sync/atomic"
 )
 
 // Task represents a unit of work to be processed by the worker pool.
@@ -13,10 +14,15 @@ type Pool struct {
 	wg       sync.WaitGroup
 	quit     chan struct{}
 	stopOnce sync.Once
+	stopping atomic.Bool
 }
 
 // NewPool creates a new Pool with a specified number of workers.
 func NewPool(numWorkers int) *Pool {
+	if numWorkers <= 0 {
+		numWorkers = 1
+	}
+
 	pool := &Pool{
 		tasks: make(chan Task),
 		quit:  make(chan struct{}),
@@ -52,6 +58,10 @@ func (p *Pool) Submit(task Task) bool {
 // TrySubmit adds a task to the worker pool.
 // It returns false if the pool has started shutting down.
 func (p *Pool) TrySubmit(task Task) bool {
+	if p.stopping.Load() {
+		return false
+	}
+
 	select {
 	case <-p.quit:
 		return false
@@ -63,7 +73,9 @@ func (p *Pool) TrySubmit(task Task) bool {
 // Stop stops all the workers and waits for them to finish.
 func (p *Pool) Stop() {
 	p.stopOnce.Do(func() {
+		p.stopping.Store(true)
 		close(p.quit)
+
 		p.wg.Wait()
 	})
 }

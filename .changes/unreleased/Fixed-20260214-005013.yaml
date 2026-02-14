@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix: prevent folder recursion from canceling child directory workers before they run'
+time: 2026-02-14T00:50:13.251157-05:00

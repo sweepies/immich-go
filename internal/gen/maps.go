@@ -55,6 +55,12 @@ func (m *SyncMap[K, V]) Delete(k K) {
 	delete(m.m, k)
 }
 
+func (m *SyncMap[K, V]) Update(k K, fn func(V) V) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.m[k] = fn(m.m[k])
+}
+
 func (m *SyncMap[K, V]) Keys() []K {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

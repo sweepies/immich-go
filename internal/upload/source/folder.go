@@ -1,14 +1,19 @@
 package source
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
+	"io"
 	"io/fs"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/sweepies/immich-go/internal/adapters"
 	"github.com/sweepies/immich-go/internal/assets"
@@ -27,6 +32,8 @@ import (
 	"github.com/sweepies/immich-go/internal/groups/series"
 	"github.com/sweepies/immich-go/internal/worker"
 )
+
+const icloudMetadataExt = ".csv"
 
 // FolderSource implements adapters.Source for folder-based imports.
 // It supports folder, iCloud, and Picasa modes.
@@ -54,7 +61,7 @@ type picasaAlbum struct {
 
 // icloudMeta holds parsed iCloud metadata.
 type icloudMeta struct {
-	originalCreationDate string
+	originalCreationDate time.Time
 	albums               []assets.Album
 }
 
@@ -127,23 +134,18 @@ func (s *FolderSource) initialize() {
 
 func (s *FolderSource) concurrentParseDir(ctx context.Context, fsys fs.FS, dir string, gOut chan *assets.Group) {
 	s.wg.Add(1)
-	ctx, cancel := context.WithCancelCause(ctx)
 	go func() {
 		submitted := s.pool.TrySubmit(func() {
 			defer s.wg.Done()
-			defer cancel(nil)
 			err := s.parseDir(ctx, fsys, dir, gOut)
 			if err != nil {
 				s.deps.Logger.Error(err.Error())
-				cancel(err)
 			}
 		})
 		if !submitted {
-			cancel(nil)
 			s.wg.Done()
 		}
 	}()
-
 }
 
 func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOut chan *assets.Group) error {
@@ -177,9 +179,58 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 			continue
 		}
 
+		if s.icloudMetaPass && ext == icloudMetadataExt {
+			if strings.HasSuffix(strings.ToLower(dir), "albums") {
+				album, err := useICloudAlbum(s.icloudMetas, fsys, name)
+				if err != nil {
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.ErrorFileAccess, "error", err.Error())
+				} else {
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredMetadata, "album", album)
+				}
+				continue
+			}
+			if s.config.ICloudMemoriesAsAlbums && strings.HasSuffix(strings.ToLower(dir), "memories") {
+				album, err := useICloudMemory(s.icloudMetas, fsys, name)
+				if err != nil {
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.ErrorFileAccess, "error", err.Error())
+				} else {
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredMetadata, "album", album)
+				}
+				continue
+			}
+			if strings.HasPrefix(strings.ToLower(base), "photo details") {
+				err := useICloudPhotoDetails(s.icloudMetas, fsys, name)
+				if err != nil {
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.ErrorFileAccess, "error", err.Error())
+				} else {
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredMetadata)
+				}
+				continue
+			}
+		}
+
+		if s.icloudMetaPass {
+			continue
+		}
+
+		if s.config.ICloudTakeout && !s.icloudMetaPass && ext == icloudMetadataExt {
+			continue
+		}
+
 		// Skip banned files
 		if s.config.BannedFiles.Match(name) {
 			s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, entry.Name()), 0, fileevent.DiscoveredBanned, "reason", "banned file")
+			continue
+		}
+
+		if s.config.PicasaAlbum && isPicasaIni(base) {
+			album, err := readPicasaIni(fsys, name)
+			if err != nil {
+				s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.ErrorFileAccess, "error", err.Error())
+			} else {
+				s.picasaAlbums.Store(dir, album)
+				s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredMetadata, "album", album.Name)
+			}
 			continue
 		}
 
@@ -378,19 +429,28 @@ func (s *FolderSource) processAssetMetadata(ctx context.Context, fsys fs.FS, a *
 
 	// Read metadata from file if needed
 	if s.requiresDateInformation && a.CaptureDate.IsZero() {
-		f, err := a.OpenFile()
-		if err == nil {
-			md, err := exif.GetMetaData(f, a.Ext, s.deps.TimeZone)
-			if err == nil {
-				a.FromSourceFile = a.UseMetadata(md)
-			}
-			if (md == nil || md.DateTaken.IsZero()) && !a.Taken.IsZero() && s.config.TakeDateFromFilename {
-				a.FromApplication = &assets.Metadata{
-					DateTaken: a.Taken,
-				}
+		if s.config.ICloudTakeout {
+			if meta, ok := s.icloudMetas.Load(a.OriginalFileName); ok && !meta.originalCreationDate.IsZero() {
+				a.FromApplication = &assets.Metadata{DateTaken: meta.originalCreationDate}
 				a.CaptureDate = a.FromApplication.DateTaken
 			}
-			f.Close()
+		}
+
+		if a.CaptureDate.IsZero() {
+			f, err := a.OpenFile()
+			if err == nil {
+				md, err := exif.GetMetaData(f, a.Ext, s.deps.TimeZone)
+				if err == nil {
+					a.FromSourceFile = a.UseMetadata(md)
+				}
+				if (md == nil || md.DateTaken.IsZero()) && !a.Taken.IsZero() && s.config.TakeDateFromFilename {
+					a.FromApplication = &assets.Metadata{
+						DateTaken: a.Taken,
+					}
+					a.CaptureDate = a.FromApplication.DateTaken
+				}
+				f.Close()
+			}
 		}
 	}
 
@@ -419,6 +479,13 @@ func (s *FolderSource) assignAlbums(a *assets.Asset, fsys fs.FS, fsName, dir str
 		}
 	}
 
+	if s.config.ICloudTakeout {
+		if meta, ok := s.icloudMetas.Load(a.OriginalFileName); ok && len(meta.albums) > 0 {
+			a.Albums = meta.albums
+			return
+		}
+	}
+
 	if s.config.UsePathAsAlbumName != adapters.FolderModeNone && s.config.UsePathAsAlbumName != "" {
 		var albumName string
 		switch s.config.UsePathAsAlbumName {
@@ -442,6 +509,66 @@ func (s *FolderSource) assignAlbums(a *assets.Asset, fsys fs.FS, fsName, dir str
 			a.Albums = []assets.Album{{Title: albumName}}
 		}
 	}
+}
+
+func isPicasaIni(name string) bool {
+	return strings.EqualFold(name, ".picasa.ini") || strings.EqualFold(name, "picasa.ini")
+}
+
+func readPicasaIni(fsys fs.FS, filename string) (picasaAlbum, error) {
+	file, err := fsys.Open(filename)
+	if err != nil {
+		return picasaAlbum{}, err
+	}
+	defer file.Close()
+
+	album, err := parsePicasaIni(file)
+	if err != nil {
+		return picasaAlbum{}, fmt.Errorf("error parsing picasa ini file: %w", err)
+	}
+	return album, nil
+}
+
+func parsePicasaIni(r io.Reader) (picasaAlbum, error) {
+	scanner := bufio.NewScanner(r)
+	var currentSection string
+	var album picasaAlbum
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, ";") || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			currentSection = line[1 : len(line)-1]
+			continue
+		}
+
+		if currentSection != "Picasa" {
+			continue
+		}
+
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			return picasaAlbum{}, errors.New("invalid line: " + line)
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		switch key {
+		case "name":
+			album.Name = value
+		case "description":
+			album.Description = value
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return picasaAlbum{}, err
+	}
+
+	return album, nil
 }
 
 func findSidecar(files map[string]string, baseName string, ext string) string {

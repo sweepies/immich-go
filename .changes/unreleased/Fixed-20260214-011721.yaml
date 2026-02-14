@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(upload): restore iCloud metadata parsing in folder source'
+time: 2026-02-14T01:17:21.358856-05:00

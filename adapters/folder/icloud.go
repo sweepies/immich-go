@@ -55,9 +55,10 @@ func useAlbum(m *gen.SyncMap[string, iCloudMeta], file fs.File, albumName string
 			return errors.Join(err, errors.New("invalid record"))
 		}
 		fileName := record[0]
-		meta, _ := m.Load(fileName)
-		meta.albums = append(meta.albums, assets.Album{Title: albumName})
-		m.Store(fileName, meta)
+		m.Update(fileName, func(meta iCloudMeta) iCloudMeta {
+			meta.albums = append(meta.albums, assets.Album{Title: albumName})
+			return meta
+		})
 	}
 
 	return nil
@@ -95,9 +96,10 @@ func UseICloudPhotoDetails(m *gen.SyncMap[string, iCloudMeta], fsys fs.FS, filen
 		if err != nil {
 			return errors.Join(err, errors.New("invalid original creation date"))
 		}
-		meta, _ := m.Load(fileName)
-		meta.originalCreationDate = t
-		m.Store(fileName, meta)
+		m.Update(fileName, func(meta iCloudMeta) iCloudMeta {
+			meta.originalCreationDate = t
+			return meta
+		})
 	}
 
 	return nil
