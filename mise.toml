@@ -6,6 +6,9 @@ changie = "latest"
 "github:Dicklesworthstone/beads_rust" = "latest"
 "github:Dicklesworthstone/beads_viewer" = "latest"
 
+[shell_alias]
+bd = "br"
+
 [tasks.release]
 run = """
     changie batch auto
