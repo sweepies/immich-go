@@ -2,6 +2,9 @@
 goreleaser = "latest"
 go = "latest"
 changie = "latest"
+"cargo:toon-format" = "latest"
+"github:Dicklesworthstone/beads_rust" = "latest"
+"github:Dicklesworthstone/beads_viewer" = "latest"
 
 [tasks.release]
 run = """
