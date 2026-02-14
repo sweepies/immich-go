@@ -79,6 +79,7 @@ func (s *FolderSource) Browse(ctx context.Context) <-chan *assets.Group {
 			s.concurrentParseDir(ctx, fsys, ".", gOut)
 		}
 		s.wg.Wait()
+		s.pool.Stop()
 	}()
 	return gOut
 }
