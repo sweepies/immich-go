@@ -51,6 +51,7 @@ func (ifc *ImportFolderCmd) concurrentParseDir(ctx context.Context, fsys fs.FS, 
 	go func() {
 		submitted := ifc.pool.TrySubmit(func() {
 			defer ifc.wg.Done()
+			defer cancel(nil)
 			err := ifc.parseDir(ctx, fsys, dir, gOut)
 			if err != nil {
 				ifc.app.Log().Error(err.Error())
@@ -58,6 +59,7 @@ func (ifc *ImportFolderCmd) concurrentParseDir(ctx context.Context, fsys fs.FS, 
 			}
 		})
 		if !submitted {
+			cancel(nil)
 			ifc.wg.Done()
 		}
 	}()
