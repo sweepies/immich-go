@@ -78,7 +78,7 @@ func Test_readFileLine(t *testing.T) {
 }
 
 func BenchmarkReadFileLine(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _, _ = readFileLine("   145804  2024-05-25 22:15   Takeout/Google Photos/🇵🇹 Lisbonne ❤️ en famille 👨‍👩‍👦‍👦/😀😃😄😁😆😅😂🤣🥲☺️😊😇🙂🙃😉😌😍🥰😘😗😙😚😋😛.jpg", "2006-01-02 15:04")
 	}
 }

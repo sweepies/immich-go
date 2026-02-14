@@ -145,7 +145,7 @@ func TestList_Match(t *testing.T) {
 }
 
 func BenchmarkPatternToRe(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = patternToRe("SYNOFILE_THUMB_*.*")
 	}
 }

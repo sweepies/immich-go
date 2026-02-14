@@ -115,7 +115,7 @@ func BenchmarkSolvePuzzle(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		b.StopTimer()
 		// Reset state
 		cat := s.catalogs["testdir"]
