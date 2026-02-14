@@ -2,9 +2,9 @@
 goreleaser = "latest"
 go = "latest"
 changie = "latest"
-"cargo:toon-format" = "latest"
 "github:Dicklesworthstone/beads_rust" = "latest"
 "github:Dicklesworthstone/beads_viewer" = "latest"
+"cargo:https://github.com/Dicklesworthstone/toon_rust" = "tag:v0.1.1"
 
 [shell_alias]
 bd = "br"
