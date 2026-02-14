@@ -108,6 +108,42 @@ func TestFolderSourceBrowseOrderingIsStable(t *testing.T) {
 	requireNoPipelineGoroutineLeaks(t)
 }
 
+func TestFolderSourceBrowseRecursesWithSingleWorker(t *testing.T) {
+	root := t.TempDir()
+	nested := filepath.Join(root, "nested")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatalf("creating nested directory %q: %v", nested, err)
+	}
+	file := filepath.Join(nested, "child.jpg")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatalf("creating test file %q: %v", file, err)
+	}
+
+	src := newTestFolderSource(root, true, 1)
+	t.Cleanup(func() {
+		_ = src.Close()
+	})
+
+	got := make([]string, 0, 1)
+	for g := range src.Browse(context.Background()) {
+		if g == nil || len(g.Assets) == 0 {
+			continue
+		}
+		got = append(got, g.Assets[0].OriginalFileName)
+	}
+
+	if err := src.Close(); err != nil {
+		t.Fatalf("closing source: %v", err)
+	}
+
+	want := []string{"child.jpg"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("unexpected recursive output: got %v, want %v", got, want)
+	}
+
+	requireNoPipelineGoroutineLeaks(t)
+}
+
 func TestFolderSourceBrowseStopsWorkerPoolWithoutClose(t *testing.T) {
 	root := t.TempDir()
 	for _, name := range []string{"one.jpg", "two.jpg"} {
