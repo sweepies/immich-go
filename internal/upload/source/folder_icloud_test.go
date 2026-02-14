@@ -2,12 +2,16 @@ package source
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/sweepies/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/gen"
 )
 
 func TestFolderSourceICloudTakeoutAssignsAlbumsFromMetadata(t *testing.T) {
@@ -80,6 +84,54 @@ func TestFolderSourceICloudTakeoutUsesPhotoDetailsForCaptureDate(t *testing.T) {
 
 	if !assetsOut[0].CaptureDate.Equal(wantDate) {
 		t.Fatalf("expected capture date %s, got %s", wantDate, assetsOut[0].CaptureDate)
+	}
+}
+
+func TestUseICloudAlbumCSVConcurrentUpdatesPreserveAllAlbums(t *testing.T) {
+	const (
+		assetName   = "IMG_0003.JPG"
+		albumCount  = 64
+		csvTemplate = "imgName\n%s\n"
+	)
+
+	fsys := fstest.MapFS{}
+	for i := range albumCount {
+		name := fmt.Sprintf("Albums/Album_%03d.csv", i)
+		fsys[name] = &fstest.MapFile{Data: []byte(fmt.Sprintf(csvTemplate, assetName))}
+	}
+
+	meta := gen.NewSyncMap[string, icloudMeta]()
+	start := make(chan struct{})
+	errCh := make(chan error, albumCount)
+
+	var wg sync.WaitGroup
+	for i := range albumCount {
+		filename := fmt.Sprintf("Albums/Album_%03d.csv", i)
+		albumName := fmt.Sprintf("Album_%03d", i)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			if err := useICloudAlbumCSV(meta, fsys, filename, albumName); err != nil {
+				errCh <- err
+			}
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Fatalf("useICloudAlbumCSV returned error: %v", err)
+	}
+
+	got, ok := meta.Load(assetName)
+	if !ok {
+		t.Fatalf("expected metadata for %s", assetName)
+	}
+	if len(got.albums) != albumCount {
+		t.Fatalf("expected %d albums, got %d", albumCount, len(got.albums))
 	}
 }
 
