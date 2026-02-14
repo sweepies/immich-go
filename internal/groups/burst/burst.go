@@ -6,7 +6,6 @@ import (
 
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/filetypes"
-	"golang.org/x/exp/constraints"
 )
 
 const frameInterval = 500 * time.Millisecond
@@ -43,7 +42,7 @@ func Group(ctx context.Context, in <-chan *assets.Asset, out chan<- *assets.Asse
 				a.CaptureDate.IsZero() ||
 				ni.Kind == assets.KindBurst ||
 				ni.Kind == assets.KindEdited ||
-				abs(a.CaptureDate.Sub(lastTaken)) > frameInterval
+				a.CaptureDate.Sub(lastTaken).Abs() > frameInterval
 
 			if dontGroupMe {
 				if len(currentGroup) > 0 {
@@ -57,14 +56,6 @@ func Group(ctx context.Context, in <-chan *assets.Asset, out chan<- *assets.Asse
 			}
 		}
 	}
-}
-
-// abs returns the absolute value of a given integer.
-func abs[T constraints.Integer](x T) T {
-	if x < 0 {
-		return -x
-	}
-	return x
 }
 
 func sendBurstGroup(ctx context.Context, out chan<- *assets.Asset, outg chan<- *assets.Group, as []*assets.Asset) {

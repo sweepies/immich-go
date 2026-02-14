@@ -2,34 +2,24 @@ package gen
 
 import (
 	"cmp"
+	"maps"
 	"slices"
 	"sync"
 )
 
 func MapKeys[K comparable, T any](m map[K]T) []K {
-	r := make([]K, len(m))
-	i := 0
-	for k := range m {
-		r[i] = k
-		i++
-	}
-	return r
+	return slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m))
 }
 
 func MapKeysSorted[K cmp.Ordered, T any](m map[K]T) []K {
-	r := make([]K, len(m))
-	i := 0
-	for k := range m {
-		r[i] = k
-		i++
-	}
+	r := slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m))
 	slices.Sort(r)
 	return r
 }
 
 func MapFilterKeys[K comparable, T any](m map[K]T, f func(i T) bool) []K {
 	r := make([]K, 0, len(m))
-	for k, v := range m {
+	for k, v := range maps.All(m) {
 		if f(v) {
 			r = append(r, k)
 		}
@@ -68,11 +58,5 @@ func (m *SyncMap[K, V]) Delete(k K) {
 func (m *SyncMap[K, V]) Keys() []K {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	r := make([]K, len(m.m))
-	i := 0
-	for k := range m.m {
-		r[i] = k
-		i++
-	}
-	return r
+	return slices.AppendSeq(make([]K, 0, len(m.m)), maps.Keys(m.m))
 }

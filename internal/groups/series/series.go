@@ -10,7 +10,6 @@ import (
 
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/filetypes"
-	"golang.org/x/exp/constraints"
 )
 
 const (
@@ -37,7 +36,7 @@ func Group(ctx context.Context, in <-chan *assets.Asset, out chan<- *assets.Asse
 			}
 			r := a.Radical
 			cd := getAssetCaptureDate(a)
-			if r != currentRadical || a.Type != filetypes.TypeImage || cd.IsZero() || abs(cd.Sub(currentCaptureDate)) > threshold {
+			if r != currentRadical || a.Type != filetypes.TypeImage || cd.IsZero() || cd.Sub(currentCaptureDate).Abs() > threshold {
 				if len(currentGroup) > 0 {
 					sendGroup(ctx, out, gOut, currentGroup)
 					currentGroup = []*assets.Asset{}
@@ -133,11 +132,4 @@ func sendAsset(ctx context.Context, out chan<- *assets.Asset, assets []*assets.A
 			return
 		}
 	}
-}
-
-func abs[T constraints.Integer](x T) T {
-	if x < 0 {
-		return -x
-	}
-	return x
 }
