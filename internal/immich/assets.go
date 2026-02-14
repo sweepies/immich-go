@@ -110,7 +110,7 @@ type ExifInfo struct {
 	ExifImageHeight  int            `json:"exifImageHeight"`
 	FileSizeInByte   int64          `json:"fileSizeInByte"`
 	Orientation      string         `json:"orientation"`
-	DateTimeOriginal ImmichExifTime `json:"dateTimeOriginal,omitempty"`
+	DateTimeOriginal ImmichExifTime `json:"dateTimeOriginal"`
 	TimeZone         string         `json:"timeZone"`
 	Latitude         float64        `json:"latitude,omitempty"`
 	Longitude        float64        `json:"longitude,omitempty"`
@@ -146,5 +146,5 @@ type UpdateAssetRequest struct {
 	Longitude        float64   `json:"longitude,omitempty"`
 	Description      string    `json:"description,omitempty"`
 	Rating           int       `json:"rating,omitempty"`
-	DateTimeOriginal time.Time `json:"dateTimeOriginal,omitempty"`
+	DateTimeOriginal time.Time `json:"dateTimeOriginal"`
 }

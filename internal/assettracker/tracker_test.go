@@ -337,7 +337,7 @@ func TestConcurrency(t *testing.T) {
 	done := make(chan bool)
 
 	// Concurrently add assets
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		go func(n int) {
 			file := fshelper.FSName(mockFS{}, "photo"+string(rune(n))+".jpg")
 			tracker.DiscoverAsset(file, 1024, fileevent.DiscoveredImage)
@@ -348,7 +348,7 @@ func TestConcurrency(t *testing.T) {
 	}
 
 	// Wait for all
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		<-done
 	}
 

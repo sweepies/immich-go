@@ -86,8 +86,8 @@ func ScanFileListReader(f io.Reader, dateFormat string) ([]fs.FS, error) {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		l := scanner.Text()
-		if strings.HasPrefix(l, "Part:") {
-			currentZip = strings.TrimSpace(strings.TrimPrefix(l, "Part:"))
+		if after, ok0 := strings.CutPrefix(l, "Part:"); ok0 {
+			currentZip = strings.TrimSpace(after)
 			fsys, ok = fsyss[currentZip]
 			if !ok {
 				fsys = &FakeFS{
@@ -99,8 +99,8 @@ func ScanFileListReader(f io.Reader, dateFormat string) ([]fs.FS, error) {
 			}
 			continue
 		}
-		if strings.HasPrefix(l, "Archive:") {
-			currentZip = strings.TrimSpace(strings.TrimPrefix(l, "Archive:"))
+		if after, ok0 := strings.CutPrefix(l, "Archive:"); ok0 {
+			currentZip = strings.TrimSpace(after)
 			fsys, ok = fsyss[currentZip]
 			if !ok {
 				fsys = &FakeFS{

@@ -18,7 +18,7 @@ type PersonResponseDto struct {
 	IsFavorite    bool       `json:"isFavorite,omitempty"` // Added in v1.126.0
 	IsHidden      bool       `json:"isHidden"`
 	ThumbnailPath string     `json:"thumbnailPath"`
-	UpdatedAt     ImmichTime `json:"updatedAt,omitempty"` // Added in v1.107.0
+	UpdatedAt     ImmichTime `json:"updatedAt"` // Added in v1.107.0
 }
 
 // PeopleResponseDto represents the response from the getAllPeople endpoint

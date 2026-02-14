@@ -9,7 +9,7 @@ import (
 
 func GenRandomBytes(size int) (blk []byte) {
 	blk = make([]byte, size)
-	for i := 0; i < size; i++ {
+	for i := range size {
 		blk[i] = byte(i & 0xff)
 	}
 	return blk

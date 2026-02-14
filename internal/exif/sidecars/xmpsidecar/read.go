@@ -24,13 +24,13 @@ func ReadXMP(r io.Reader, md *assets.Metadata) error {
 func walk(m mxj.Map, md *assets.Metadata, path string) {
 	for key, value := range m {
 		switch v := value.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			walk(v, md, path+"/"+key)
-		case []interface{}:
+		case []any:
 			path = path + "/" + key
 			for i, item := range v {
 				p := fmt.Sprintf("%s[%d]", path, i)
-				if itemMap, ok := item.(map[string]interface{}); ok {
+				if itemMap, ok := item.(map[string]any); ok {
 					walk(itemMap, md, p)
 				} else {
 					filter(md, p, item.(string))

@@ -50,12 +50,12 @@ func (m *AlbumFolderMode) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalYAML implements yaml.Marshaler
-func (m AlbumFolderMode) MarshalYAML() (interface{}, error) {
+func (m AlbumFolderMode) MarshalYAML() (any, error) {
 	return m.String(), nil
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler
-func (m *AlbumFolderMode) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (m *AlbumFolderMode) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err

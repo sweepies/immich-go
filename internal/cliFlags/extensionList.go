@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/sweepies/immich-go/internal/filetypes"
 	"github.com/spf13/pflag"
+	"github.com/sweepies/immich-go/internal/filetypes"
 )
 
 type InclusionFlags struct {
@@ -136,8 +136,8 @@ func (sl ExtensionList) Exclude(s string) bool {
 
 // Implements the flag interface
 func (sl *ExtensionList) Set(s string) error {
-	exts := strings.Split(s, ",")
-	for _, ext := range exts {
+	exts := strings.SplitSeq(s, ",")
+	for ext := range exts {
 		ext = strings.TrimSpace(ext)
 		if ext != "" {
 			*sl = append(*sl, ext)

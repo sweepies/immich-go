@@ -146,12 +146,12 @@ func (b *BurstFlag) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalYAML implements yaml.Marshaler
-func (b BurstFlag) MarshalYAML() (interface{}, error) {
+func (b BurstFlag) MarshalYAML() (any, error) {
 	return b.String(), nil
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler
-func (b *BurstFlag) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (b *BurstFlag) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err

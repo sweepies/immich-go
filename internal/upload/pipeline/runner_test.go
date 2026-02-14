@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"slices"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -263,13 +264,7 @@ func TestRunnerIntegration(t *testing.T) {
 		}
 
 		// Album save should have been called during cache close
-		foundNewAlbum := false
-		for _, name := range albumsSaved {
-			if name == "New Album" {
-				foundNewAlbum = true
-				break
-			}
-		}
+		foundNewAlbum := slices.Contains(albumsSaved, "New Album")
 		if !foundNewAlbum {
 			t.Errorf("expected 'New Album' to be in saved albums, got %v", albumsSaved)
 		}
@@ -281,7 +276,7 @@ func TestRunnerIntegration(t *testing.T) {
 
 		// Create many assets to upload
 		groups := make([]*assets.Group, 100)
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			asset := createTestAsset("photo"+string(rune(i))+".jpg", 1024, time.Now())
 			groups[i] = &assets.Group{Assets: []*assets.Asset{asset}}
 		}

@@ -213,8 +213,8 @@ func writeBody(contentType string, body *dumpReader) string {
 func writeJSONBody(sb *strings.Builder, data []byte) string {
 	sb.WriteString("  [JSON]\n")
 	// Add indentation to each line of JSON
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(string(data), "\n")
+	for line := range lines {
 		if strings.TrimSpace(line) != "" {
 			sb.WriteString("  ")
 			sb.WriteString(line)

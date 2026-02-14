@@ -13,7 +13,7 @@ func TestPool(t *testing.T) {
 	pool := NewPool(3)
 
 	// Submit some tasks to the pool.
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		taskNum := i
 		pool.Submit(func() {
 			mu.Lock()

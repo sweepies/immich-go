@@ -175,12 +175,12 @@ func (h *HeicJpgFlag) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalYAML implements yaml.Marshaler
-func (h HeicJpgFlag) MarshalYAML() (interface{}, error) {
+func (h HeicJpgFlag) MarshalYAML() (any, error) {
 	return h.String(), nil
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler
-func (h *HeicJpgFlag) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (h *HeicJpgFlag) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err

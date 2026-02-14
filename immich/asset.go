@@ -98,7 +98,7 @@ type ExifInfo struct {
 	ExifImageHeight  int            `json:"exifImageHeight"`
 	FileSizeInByte   int64          `json:"fileSizeInByte"`
 	Orientation      string         `json:"orientation"`
-	DateTimeOriginal ImmichExifTime `json:"dateTimeOriginal,omitempty"`
+	DateTimeOriginal ImmichExifTime `json:"dateTimeOriginal"`
 	// 	ModifyDate       time.Time `json:"modifyDate"`
 	TimeZone string `json:"timeZone"`
 	// LensModel        string    `json:"lensModel"`
@@ -239,7 +239,7 @@ type UpdAssetField struct {
 	Longitude        float64   `json:"longitude,omitempty"`
 	Description      string    `json:"description,omitempty"`
 	Rating           int       `json:"rating,omitempty"`
-	DateTimeOriginal time.Time `json:"dateTimeOriginal,omitempty"`
+	DateTimeOriginal time.Time `json:"dateTimeOriginal"`
 }
 
 // MarshalJSON customizes the JSON marshaling for the UpdAssetField struct.
@@ -254,7 +254,7 @@ func (u UpdAssetField) MarshalJSON() ([]byte, error) {
 		Longitude        float64   `json:"longitude"`
 		Description      string    `json:"description,omitempty"`
 		Rating           int       `json:"rating,omitempty"`
-		DateTimeOriginal time.Time `json:"dateTimeOriginal,omitempty"`
+		DateTimeOriginal time.Time `json:"dateTimeOriginal"`
 	}
 
 	// alias is used to omit Latitude and Longitude when they are zero.
