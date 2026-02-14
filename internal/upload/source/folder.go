@@ -131,6 +131,7 @@ func (s *FolderSource) concurrentParseDir(ctx context.Context, fsys fs.FS, dir s
 	go func() {
 		submitted := s.pool.TrySubmit(func() {
 			defer s.wg.Done()
+			defer cancel(nil)
 			err := s.parseDir(ctx, fsys, dir, gOut)
 			if err != nil {
 				s.deps.Logger.Error(err.Error())
@@ -138,9 +139,11 @@ func (s *FolderSource) concurrentParseDir(ctx context.Context, fsys fs.FS, dir s
 			}
 		})
 		if !submitted {
+			cancel(nil)
 			s.wg.Done()
 		}
 	}()
+
 }
 
 func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOut chan *assets.Group) error {
