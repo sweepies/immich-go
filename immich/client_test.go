@@ -33,7 +33,7 @@ ok  	github.com/sweepies/immich-go/immich	1.283s
 func Benchmark_IsExtensionPrefix(b *testing.B) {
 	sm := filetypes.DefaultSupportedMedia
 	sm.IsExtensionPrefix(".JP")
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		sm.IsExtensionPrefix(".JP")
 	}
 }

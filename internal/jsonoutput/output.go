@@ -87,7 +87,7 @@ func WriteSummary(
 
 // writeJSON marshals data and writes it to stdout as a JSON line
 // Uses a mutex to ensure atomic writes and prevent interleaved JSONL output
-func writeJSON(data interface{}) error {
+func writeJSON(data any) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)

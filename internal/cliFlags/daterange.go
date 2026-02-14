@@ -58,12 +58,12 @@ func (dr *DateRange) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalYAML implements yaml.Marshaler
-func (dr DateRange) MarshalYAML() (interface{}, error) {
+func (dr DateRange) MarshalYAML() (any, error) {
 	return dr.String(), nil
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler
-func (dr *DateRange) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (dr *DateRange) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err

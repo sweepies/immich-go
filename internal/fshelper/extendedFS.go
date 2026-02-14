@@ -64,7 +64,7 @@ func MkdirAll(fsys fs.FS, path string, perm fs.FileMode) error {
 		path = filepath.ToSlash(path)
 		parts := strings.Split(path, "/")
 		path = ""
-		for i := 0; i < len(parts); i++ {
+		for i := range parts {
 			path = filepath.Join(path, parts[i])
 			if err := fsys.Mkdir(path, perm); err != nil && !errors.Is(err, os.ErrExist) {
 				return err

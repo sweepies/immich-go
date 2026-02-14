@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"strings"
 	"testing"
 	"time"
@@ -13,8 +14,8 @@ import (
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/assettracker"
 	"github.com/sweepies/immich-go/internal/fileevent"
-	"github.com/sweepies/immich-go/internal/fileprocessor"
 	"github.com/sweepies/immich-go/internal/filenames"
+	"github.com/sweepies/immich-go/internal/fileprocessor"
 	"github.com/sweepies/immich-go/internal/filetypes"
 	"github.com/sweepies/immich-go/internal/gen"
 )
@@ -30,7 +31,7 @@ func BenchmarkSolvePuzzle(b *testing.B) {
 	unMatchedFiles := make(map[string]*googleAssetFile)
 
 	// Add FastTrack matches (50%)
-	for i := 0; i < numFiles/2; i++ {
+	for i := range numFiles / 2 {
 		base := fmt.Sprintf("IMG_%04d.jpg", i)
 		jsonName := base + ".json"
 
@@ -43,7 +44,7 @@ func BenchmarkSolvePuzzle(b *testing.B) {
 	}
 
 	// Add Normal matches with index (25%)
-	for i := numFiles/2; i < numFiles*3/4; i++ {
+	for i := numFiles / 2; i < numFiles*3/4; i++ {
 		base := fmt.Sprintf("IMG_%04d(1).jpg", i)
 		jsonName := fmt.Sprintf("IMG_%04d.jpg(1).json", i)
 
@@ -57,7 +58,7 @@ func BenchmarkSolvePuzzle(b *testing.B) {
 
 	// Add Truncated matches (10%)
 	longBase := strings.Repeat("A", 60) + ".jpg"
-	for i := numFiles*3/4; i < numFiles*0.85; i++ {
+	for i := numFiles * 3 / 4; i < numFiles*0.85; i++ {
 		// Unique-ify
 		base := fmt.Sprintf("%d%s", i, longBase)
 		// Truncate to 46 chars
@@ -76,7 +77,7 @@ func BenchmarkSolvePuzzle(b *testing.B) {
 	}
 
 	// Add some unmatched noise
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		base := fmt.Sprintf("NOISE_%04d.jpg", i)
 		unMatchedFiles[base] = &googleAssetFile{
 			base:   base,
@@ -109,25 +110,21 @@ func BenchmarkSolvePuzzle(b *testing.B) {
 				matchedFiles:   make(map[string]*assets.Asset),
 			},
 		},
-		fileTracker: gen.NewSyncMap[googleFileKey, googleTrackingInfo](),
+		fileTracker:   gen.NewSyncMap[googleFileKey, googleTrackingInfo](),
 		infoCollector: filenames.NewInfoCollector(time.UTC, supportedMedia),
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		b.StopTimer()
 		// Reset state
 		cat := s.catalogs["testdir"]
 		// Deep copy maps to reset
 		cat.jsons = make(map[string]*assets.Metadata)
-		for k, v := range jsons {
-			cat.jsons[k] = v
-		}
+		maps.Copy(cat.jsons, jsons)
 		cat.unMatchedFiles = make(map[string]*googleAssetFile)
 		for k, v := range unMatchedFiles {
-			// Copy struct
-			copyF := *v
-			cat.unMatchedFiles[k] = &copyF
+			cat.unMatchedFiles[k] = new(*v)
 		}
 		cat.matchedFiles = make(map[string]*assets.Asset)
 		s.catalogs["testdir"] = cat

@@ -90,7 +90,7 @@ func (m *SyncMap[K, V]) LoadOrStore(key K, value V) (V, bool) {
 // Range may be O(N) with the number of elements in the map even if f returns
 // false after a constant number of calls.
 func (m *SyncMap[K, V]) Range(f func(key K, value V) bool) {
-	m.m.Range(func(key, value interface{}) bool {
+	m.m.Range(func(key, value any) bool {
 		return f(key.(K), value.(V))
 	})
 }

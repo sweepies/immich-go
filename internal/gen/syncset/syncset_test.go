@@ -74,7 +74,7 @@ func TestSet(t *testing.T) {
 		s := New[int]()
 		var wg sync.WaitGroup
 		const total = 100
-		for i := 0; i < total; i++ {
+		for i := range total {
 			wg.Add(1)
 			go func(val int) {
 				defer wg.Done()
@@ -89,7 +89,7 @@ func TestSet(t *testing.T) {
 		}
 
 		// Concurrent remove
-		for i := 0; i < total; i++ {
+		for i := range total {
 			wg.Add(1)
 			go func(val int) {
 				defer wg.Done()

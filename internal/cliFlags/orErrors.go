@@ -70,12 +70,12 @@ func (f *OnErrorsFlag) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalYAML implements the yaml.Marshaler interface.
-func (f OnErrorsFlag) MarshalYAML() (interface{}, error) {
+func (f OnErrorsFlag) MarshalYAML() (any, error) {
 	return f.String(), nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (f *OnErrorsFlag) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (f *OnErrorsFlag) UnmarshalYAML(unmarshal func(any) error) error {
 	var value string
 	if err := unmarshal(&value); err != nil {
 		return err

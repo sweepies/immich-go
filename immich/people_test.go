@@ -132,11 +132,10 @@ func TestGetAllPeopleWithOptions(t *testing.T) {
 
 	// Test GetAllPeople with options
 	ctx := context.Background()
-	withHidden := true
 	options := GetAllPeopleOptions{
 		Page:           2,
 		Size:           100,
-		WithHidden:     &withHidden,
+		WithHidden:     new(true),
 		ClosestAssetId: "asset-123",
 	}
 

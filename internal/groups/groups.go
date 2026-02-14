@@ -93,13 +93,17 @@ func (p *GrouperPipeline) PipeGrouper(ctx context.Context, in chan *assets.Asset
 			select {
 			case <-ctx.Done():
 				return
-			default:
-				a, ok := <-out
+			case a, ok := <-out:
 				if !ok {
 					return
 				}
-				if a != nil {
-					gOut <- assets.NewGroup(assets.GroupByNone, a)
+				if a == nil {
+					continue
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case gOut <- assets.NewGroup(assets.GroupByNone, a):
 				}
 			}
 		}

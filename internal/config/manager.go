@@ -6,6 +6,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"strings"
 
@@ -89,9 +90,7 @@ func (cm *ConfigurationManager) processCommand(cmd *cobra.Command) error {
 	}
 
 	// Set origins
-	for k, v := range origins {
-		cm.origins[k] = v
-	}
+	maps.Copy(cm.origins, origins)
 
 	// Recurse for subcommands
 	for _, c := range cmd.Commands() {

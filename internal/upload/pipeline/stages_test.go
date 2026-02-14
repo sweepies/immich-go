@@ -422,7 +422,7 @@ func TestDiscoveryStage(t *testing.T) {
 		mock := newMockServerClient()
 		mock.assetStats = iimmich.AssetStatistics{Total: 100}
 		// Create many assets
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			mock.assets = append(mock.assets, &iimmich.Asset{
 				ID:       iimmich.AssetID("asset-" + string(rune(i))),
 				Checksum: "cs" + string(rune(i)),

@@ -121,4 +121,4 @@ func (fi *fsFileInfo) Size() int64        { return fi.size }
 func (fi *fsFileInfo) Mode() fs.FileMode  { return fi.mode }
 func (fi *fsFileInfo) ModTime() time.Time { return fi.modTime }
 func (fi *fsFileInfo) IsDir() bool        { return fi.isDir }
-func (fi *fsFileInfo) Sys() interface{}   { return nil }
+func (fi *fsFileInfo) Sys() any           { return nil }

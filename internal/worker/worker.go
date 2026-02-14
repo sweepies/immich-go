@@ -22,7 +22,7 @@ func NewPool(numWorkers int) *Pool {
 		quit:  make(chan struct{}),
 	}
 
-	for i := 0; i < numWorkers; i++ {
+	for range numWorkers {
 		pool.wg.Add(1)
 		go pool.worker()
 	}

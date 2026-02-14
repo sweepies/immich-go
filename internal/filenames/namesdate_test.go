@@ -126,13 +126,13 @@ func TestTakeTimeFromPath(t *testing.T) {
 }
 
 func BenchmarkTakeTimeFromPathPath(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		TakeTimeFromPath("2022/2022.11/2022.11.09/IMG_1234.HEIC", time.UTC)
 	}
 }
 
 func BenchmarkTakeTimeFromName(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		TakeTimeFromName("PXL_20220909_154515546.TS.mp4", time.UTC)
 	}
 }

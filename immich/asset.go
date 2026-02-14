@@ -98,7 +98,7 @@ type ExifInfo struct {
 	ExifImageHeight  int            `json:"exifImageHeight"`
 	FileSizeInByte   int64          `json:"fileSizeInByte"`
 	Orientation      string         `json:"orientation"`
-	DateTimeOriginal ImmichExifTime `json:"dateTimeOriginal,omitempty"`
+	DateTimeOriginal ImmichExifTime `json:"dateTimeOriginal"`
 	// 	ModifyDate       time.Time `json:"modifyDate"`
 	TimeZone string `json:"timeZone"`
 	// LensModel        string    `json:"lensModel"`

@@ -179,12 +179,12 @@ func (r *RawJPGFlag) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalYAML implements yaml.Marshaler
-func (r RawJPGFlag) MarshalYAML() (interface{}, error) {
+func (r RawJPGFlag) MarshalYAML() (any, error) {
 	return r.String(), nil
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler
-func (r *RawJPGFlag) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (r *RawJPGFlag) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err

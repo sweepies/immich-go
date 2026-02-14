@@ -60,7 +60,7 @@ func TestConcurrentAccess(t *testing.T) {
 	m := syncmap.New[string, int]()
 	var wg sync.WaitGroup
 	const goroutines = 50
-	for i := 0; i < goroutines; i++ {
+	for i := range goroutines {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -68,7 +68,7 @@ func TestConcurrentAccess(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	for i := 0; i < goroutines; i++ {
+	for i := range goroutines {
 		v, ok := m.Load(fmt.Sprintf("key%d", i))
 		if !ok {
 			t.Errorf("expected 'key%d' to be present", i)

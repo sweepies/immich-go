@@ -236,7 +236,7 @@ func (r *Recorder) GetCounts() []int64 {
 // GetEventCounts returns event counts as a map (Code -> count)
 func (r *Recorder) GetEventCounts() map[Code]int64 {
 	eventCounts := make(map[Code]int64)
-	for i := Code(0); i < MaxCode; i++ {
+	for i := range MaxCode {
 		count := atomic.LoadInt64(&r.counts[i])
 		if count > 0 {
 			eventCounts[i] = count
@@ -248,7 +248,7 @@ func (r *Recorder) GetEventCounts() map[Code]int64 {
 // GetEventSizes returns event sizes as a map (Code -> total bytes)
 func (r *Recorder) GetEventSizes() map[Code]int64 {
 	eventSizes := make(map[Code]int64)
-	for i := Code(0); i < MaxCode; i++ {
+	for i := range MaxCode {
 		size := atomic.LoadInt64(&r.sizes[i])
 		if size > 0 {
 			eventSizes[i] = size

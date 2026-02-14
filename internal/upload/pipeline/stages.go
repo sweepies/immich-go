@@ -135,7 +135,6 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 
 		// Producers: fetch album info
 		for _, a := range serverAlbums {
-			a := a
 			wg.Go(func() error {
 				r, err := pctx.Server.GetAlbumInfo(ctx, a.ID, false)
 				if err != nil {
@@ -178,16 +177,16 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 
 // UploadStage handles uploading assets to the server.
 type UploadStage struct {
-	Source       Source
-	AlbumsCache  *cache.CollectionCache[assets.Album]
-	TagsCache    *cache.CollectionCache[assets.Tag]
-	Groupers     []groups.Grouper
-	Filters      []filters.Filter
-	Tags         []string
-	SessionTag   string
-	Overwrite    bool
-	Concurrency  int
-	OnError      func(err error) error // Called on each error, return non-nil to abort
+	Source      Source
+	AlbumsCache *cache.CollectionCache[assets.Album]
+	TagsCache   *cache.CollectionCache[assets.Tag]
+	Groupers    []groups.Grouper
+	Filters     []filters.Filter
+	Tags        []string
+	SessionTag  string
+	Overwrite   bool
+	Concurrency int
+	OnError     func(err error) error // Called on each error, return non-nil to abort
 }
 
 func (s *UploadStage) Name() string { return "upload" }
@@ -199,9 +198,7 @@ func (s *UploadStage) Run(ctx context.Context, pctx *Context) error {
 	groupChan := s.Source.Browse(ctx)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		workers := worker.NewPool(s.Concurrency)
 		defer workers.Stop()
 
@@ -227,7 +224,7 @@ func (s *UploadStage) Run(ctx context.Context, pctx *Context) error {
 				})
 			}
 		}
-	}()
+	})
 
 	wg.Wait()
 	return context.Cause(ctx)
@@ -529,7 +526,6 @@ func (s *ParallelStage) Run(ctx context.Context, pctx *Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 
 	for _, stage := range s.Stages {
-		stage := stage
 		g.Go(func() error {
 			return stage.Run(ctx, pctx)
 		})

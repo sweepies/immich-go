@@ -3,13 +3,11 @@ package gen
 import "slices"
 
 func DeleteItem[T comparable](s []T, item T) []T {
-	r := make([]T, 0, len(s))
-	for i := range s {
-		if s[i] != item {
-			r = append(r, s[i])
-		}
+	r := slices.Clone(s)
+	if r == nil {
+		r = make([]T, 0)
 	}
-	return r
+	return slices.DeleteFunc(r, func(v T) bool { return v == item })
 }
 
 func Filter[T any](s []T, f func(i T) bool) []T {

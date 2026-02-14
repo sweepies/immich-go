@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix: prevent goroutine leaks when cancelling folder-source browse pipelines'
+time: 2026-02-13T21:09:03.238378-05:00

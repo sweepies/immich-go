@@ -82,6 +82,7 @@ immich-go upload --server=http://your-ip:2283 --api-key=your-api-key --output=js
 
 - A running Immich server with API access
 - API key with appropriate permissions ([see full list](https://sweepies.github.io/immich-go/guide/installation#api-permissions))
+- Go 1.26 or newer if you build from source
 
 ## 🙈 Skip System Files
 
@@ -100,6 +101,7 @@ immich-go upload --server=http://your-ip:2283 --api-key=your-api-key --output=js
 | [Best Practices](https://sweepies.github.io/immich-go/guide/best-practices) | Tips for optimal performance and reliability |
 | [Technical Details](https://sweepies.github.io/immich-go/commands/upload#how-it-works) | File processing, metadata handling, and advanced features |
 | [Upload Commands Overview](https://sweepies.github.io/immich-go/commands/upload#specialized-modes) | How `immich-go` processes files from different sources |
+| [Contributor Guide](CONTRIBUTING.md) | Development setup, Go version baseline, and release note workflow |
 | [Release Notes](https://sweepies.github.io/immich-go/releases/) | Version history and release notes |
 
 ## ✨ How immich-go Works
