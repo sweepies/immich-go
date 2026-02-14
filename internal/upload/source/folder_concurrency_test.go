@@ -108,6 +108,26 @@ func TestFolderSourceBrowseOrderingIsStable(t *testing.T) {
 	requireNoPipelineGoroutineLeaks(t)
 }
 
+func TestFolderSourceBrowseStopsWorkerPoolWithoutClose(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"one.jpg", "two.jpg"} {
+		file := filepath.Join(root, name)
+		if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+			t.Fatalf("creating test file %q: %v", file, err)
+		}
+	}
+
+	src := newTestFolderSource(root, false, 2)
+	t.Cleanup(func() {
+		_ = src.Close()
+	})
+
+	for range src.Browse(context.Background()) {
+	}
+
+	requireNoPipelineGoroutineLeaks(t)
+}
+
 func newTestFolderSource(root string, recursive bool, workers int) *FolderSource {
 	logger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 	processor := fileprocessor.New(assettracker.New(), fileevent.NewRecorder(nil))
