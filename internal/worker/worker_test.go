@@ -42,6 +42,67 @@ func TestPoolRejectsSubmitAfterStop(t *testing.T) {
 	}
 }
 
+func TestPoolUsesAtLeastOneWorker(t *testing.T) {
+	pool := NewPool(0)
+	defer pool.Stop()
+
+	done := make(chan struct{})
+	if !pool.Submit(func() {
+		close(done)
+	}) {
+		t.Fatalf("expected submit to be accepted")
+	}
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("task was not executed")
+	}
+}
+
+func TestPoolRejectsSubmitAfterStopStarts(t *testing.T) {
+	pool := NewPool(1)
+
+	start := make(chan struct{})
+	release := make(chan struct{})
+	if !pool.Submit(func() {
+		close(start)
+		<-release
+	}) {
+		t.Fatalf("expected first task to be accepted")
+	}
+	<-start
+
+	stopDone := make(chan struct{})
+	go func() {
+		pool.Stop()
+		close(stopDone)
+	}()
+
+	deadline := time.After(2 * time.Second)
+	for !pool.stopping.Load() {
+		select {
+		case <-deadline:
+			t.Fatal("stop did not start")
+		default:
+			time.Sleep(time.Millisecond)
+		}
+	}
+
+	accepted := pool.Submit(func() {})
+	if accepted {
+		t.Fatalf("expected submit to be rejected once stop starts")
+	}
+
+	close(release)
+
+	select {
+	case <-stopDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("stop did not complete")
+	}
+}
+
 func TestPoolStopUnblocksBlockedSubmit(t *testing.T) {
 	pool := NewPool(1)
 
