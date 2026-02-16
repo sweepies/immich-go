@@ -9,6 +9,8 @@
 > ⚠️ This is an early version, not yet extensively tested<br>
 > ⚠️ Keep a backup copy of your files for safety<br>
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/sweepies/immich-go)
+
 ## 🌟 Key Features
 
 - **Simple Installation**: Single binary executable
