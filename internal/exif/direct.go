@@ -11,6 +11,7 @@ import (
 	"io"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rwcarlsen/goexif/exif"
@@ -45,13 +46,18 @@ func MetadataFromDirectRead(f io.Reader, name string, localTZ *time.Location) (*
 // readExifMetadata locate the Exif part and return the date of capture
 func readExifMetadata(r io.Reader, localTZ *time.Location) (*assets.Metadata, error) {
 	// try to read the Exif data directly
-	readBuffer := bytes.NewBuffer(make([]byte, searchBufferSize))
+	readBuffer := bufferPool.Get().(*bytes.Buffer)
+	readBuffer.Reset()
+	defer bufferPool.Put(readBuffer)
+
 	r2 := io.TeeReader(r, readBuffer)
 	x, err := exif.Decode(r2)
 	if err == nil || !exif.IsCriticalError(err) {
 		return getExifMetadata(x, localTZ)
 	}
-	b := make([]byte, searchBufferSize)
+
+	b := slicePool.Get().([]byte)
+	defer slicePool.Put(b)
 
 	// search for the Exif header
 	r, err = searchPattern(io.MultiReader(readBuffer, r), []byte("Exif\x00\x00"), b)
@@ -66,9 +72,25 @@ func readExifMetadata(r io.Reader, localTZ *time.Location) (*assets.Metadata, er
 
 const searchBufferSize = 32 * 1024
 
+var (
+	slicePool = sync.Pool{
+		New: func() any {
+			return make([]byte, searchBufferSize)
+		},
+	}
+
+	bufferPool = sync.Pool{
+		New: func() any {
+			return bytes.NewBuffer(make([]byte, 0, searchBufferSize))
+		},
+	}
+)
+
 // readHEIFMetadata locate the Exif part and return the date of capture
 func readHEIFMetadata(r io.Reader, localTZ *time.Location) (*assets.Metadata, error) {
-	b := make([]byte, searchBufferSize)
+	b := slicePool.Get().([]byte)
+	defer slicePool.Put(b)
+
 	r, err := searchPattern(r, []byte{0x45, 0x78, 0x69, 0x66, 0, 0, 0x4d, 0x4d}, b)
 	if err != nil {
 		return nil, err
@@ -88,7 +110,8 @@ func readHEIFMetadata(r io.Reader, localTZ *time.Location) (*assets.Metadata, er
 
 // readMP4Metadata locate the mvhd atom and decode the date of capture
 func readMP4Metadata(r io.Reader) (*assets.Metadata, error) {
-	b := make([]byte, searchBufferSize)
+	b := slicePool.Get().([]byte)
+	defer slicePool.Put(b)
 
 	r, err := searchPattern(r, []byte{'m', 'v', 'h', 'd'}, b)
 	if err != nil {
@@ -110,7 +133,8 @@ func readMP4Metadata(r io.Reader) (*assets.Metadata, error) {
 
 // readCR3Metadata locate the CMT1 atom and decode the date of capture
 func readCR3Metadata(r io.Reader, localTZ *time.Location) (*assets.Metadata, error) {
-	b := make([]byte, searchBufferSize)
+	b := slicePool.Get().([]byte)
+	defer slicePool.Put(b)
 
 	r, err := searchPattern(r, []byte("CMT1"), b)
 	if err != nil {
