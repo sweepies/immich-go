@@ -192,11 +192,11 @@ func (ic *ImmichClient) buildSearchQueries(so *searchOptions) []SearchMetadataQu
 		Order:        so.withOrder,
 	}
 
-	if !so.takenRange.Before.IsZero() {
-		base.TakenBefore = so.takenRange.Before.AddDate(0, 0, 1).Add(-time.Millisecond).Format(TimeFormat)
+	if !so.takenRange.Before().IsZero() {
+		base.TakenBefore = so.takenRange.Before().AddDate(0, 0, 1).Add(-time.Millisecond).Format(TimeFormat)
 	}
-	if !so.takenRange.After.IsZero() {
-		base.TakenAfter = so.takenRange.After.Format(TimeFormat)
+	if !so.takenRange.After().IsZero() {
+		base.TakenAfter = so.takenRange.After().Format(TimeFormat)
 	}
 
 	base.Make = so.withOnlyMake
