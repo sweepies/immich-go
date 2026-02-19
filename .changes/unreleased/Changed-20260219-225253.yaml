@@ -1,0 +1,3 @@
+kind: Changed
+body: 'perf: optimize Google Photos metadata matching using binary search, significantly improving performance for large directories'
+time: 2026-02-19T22:52:53+00:00

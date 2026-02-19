@@ -124,8 +124,7 @@ func BenchmarkSolvePuzzle(b *testing.B) {
 		maps.Copy(cat.jsons, jsons)
 		cat.unMatchedFiles = make(map[string]*googleAssetFile)
 		for k, v := range unMatchedFiles {
-			copy := *v
-			cat.unMatchedFiles[k] = &copy
+			cat.unMatchedFiles[k] = new(*v)
 		}
 		cat.matchedFiles = make(map[string]*assets.Asset)
 		s.catalogs["testdir"] = cat
