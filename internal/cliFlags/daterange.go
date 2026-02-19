@@ -8,11 +8,17 @@ import (
 // DateRange represent the date range for capture date
 
 type DateRange struct {
-	After, Before         time.Time // todo: make After and Before private
+	after, before         time.Time
 	day, month, year, set bool
 	tz                    *time.Location
 	s                     string
 }
+
+// After returns the start of the date range
+func (dr DateRange) After() time.Time { return dr.after }
+
+// Before returns the end of the date range
+func (dr DateRange) Before() time.Time { return dr.before }
 
 // InitDateRange initialize a DateRange with a string (for tests)
 func InitDateRange(tz *time.Location, s string) DateRange {
@@ -30,13 +36,13 @@ func (dr DateRange) String() string {
 	if dr.set {
 		switch {
 		case dr.day:
-			return dr.After.Format("2006-01-02")
+			return dr.after.Format("2006-01-02")
 		case dr.month:
-			return dr.After.Format("2006-01")
+			return dr.after.Format("2006-01")
 		case dr.year:
-			return dr.After.Format("2006")
+			return dr.after.Format("2006")
 		default:
-			return dr.After.Format("2006-01-02") + "," + dr.Before.AddDate(0, 0, -1).Format("2006-01-02")
+			return dr.after.Format("2006-01-02") + "," + dr.before.AddDate(0, 0, -1).Format("2006-01-02")
 		}
 	} else {
 		return "unset"
@@ -94,47 +100,48 @@ func (dr *DateRange) SetTZ(tz *time.Location) {
 // A year:   2022
 // A range:  2022-01-01,2022-12-31
 func (dr *DateRange) Set(s string) (err error) {
+	dr.day, dr.month, dr.year = false, false, false
 	if dr.tz == nil {
 		dr.tz = time.Local
 	}
 	switch len(s) {
 	case 4:
 		dr.year = true
-		dr.After, err = time.ParseInLocation("2006", s, dr.tz)
+		dr.after, err = time.ParseInLocation("2006", s, dr.tz)
 		if err != nil {
 			return fmt.Errorf("invalid date range:%w", err)
 		}
-		dr.Before = dr.After.AddDate(1, 0, 0)
+		dr.before = dr.after.AddDate(1, 0, 0)
 	case 7:
 		dr.month = true
-		dr.After, err = time.ParseInLocation("2006-01", s, dr.tz)
+		dr.after, err = time.ParseInLocation("2006-01", s, dr.tz)
 		if err != nil {
 			return fmt.Errorf("invalid date range:%w", err)
 		}
-		dr.Before = dr.After.AddDate(0, 1, 0)
+		dr.before = dr.after.AddDate(0, 1, 0)
 	case 10:
 		dr.day = true
-		dr.After, err = time.ParseInLocation("2006-01-02", s, dr.tz)
+		dr.after, err = time.ParseInLocation("2006-01-02", s, dr.tz)
 		if err != nil {
 			return fmt.Errorf("invalid date range:%w", err)
 		}
-		dr.Before = dr.After.AddDate(0, 0, 1)
+		dr.before = dr.after.AddDate(0, 0, 1)
 	case 21:
-		dr.After, err = time.ParseInLocation("2006-01-02", s[:10], dr.tz)
+		dr.after, err = time.ParseInLocation("2006-01-02", s[:10], dr.tz)
 		if err != nil {
 			return fmt.Errorf("invalid date range:%w", err)
 		}
-		dr.Before, err = time.ParseInLocation("2006-01-02", s[11:], dr.tz)
+		dr.before, err = time.ParseInLocation("2006-01-02", s[11:], dr.tz)
 		if err != nil {
 			return fmt.Errorf("invalid date range:%w", err)
 		}
-		dr.Before = dr.Before.AddDate(0, 0, 1)
+		dr.before = dr.before.AddDate(0, 0, 1)
 	default:
 		dr.set = false
 		return fmt.Errorf("invalid date range:%s", s)
 	}
 
-	if dr.Before.Before(dr.After) {
+	if dr.before.Before(dr.after) {
 		dr.set = false
 		return fmt.Errorf("invalid date range:%s", s)
 	}
@@ -149,7 +156,7 @@ func (dr DateRange) InRange(d time.Time) bool {
 		return true
 	}
 	//	--------------After----------d------------Before
-	return (d.Compare(dr.After) >= 0 && dr.Before.Compare(d) > 0)
+	return (d.Compare(dr.after) >= 0 && dr.before.Compare(d) > 0)
 }
 
 func (dr DateRange) Type() string {
