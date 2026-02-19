@@ -27,7 +27,10 @@ import (
 	"github.com/sweepies/immich-go/internal/groups/series"
 )
 
-var takeoutPartRegex = regexp.MustCompile(`-\d{3}$`)
+var (
+	takeoutPartRegex  = regexp.MustCompile(`-\d{3}$`)
+	invalidCharsRegex = regexp.MustCompile(`[\r\n\\/:*?"<>|]`)
+)
 
 // GoogleSource implements adapters.Source for Google Photos takeout imports.
 type GoogleSource struct {
@@ -737,7 +740,7 @@ func unmarshalGoogleJSON(data []byte) (*googleMetaData, error) {
 }
 
 func sanitizeTitle(title string) string {
-	return regexp.MustCompile(`[\r\n\\/:*?"<>|]`).ReplaceAllString(title, "_")
+	return invalidCharsRegex.ReplaceAllString(title, "_")
 }
 
 // ============================================================================
