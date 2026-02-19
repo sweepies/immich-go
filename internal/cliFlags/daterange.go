@@ -100,6 +100,7 @@ func (dr *DateRange) SetTZ(tz *time.Location) {
 // A year:   2022
 // A range:  2022-01-01,2022-12-31
 func (dr *DateRange) Set(s string) (err error) {
+	dr.day, dr.month, dr.year = false, false, false
 	if dr.tz == nil {
 		dr.tz = time.Local
 	}
