@@ -339,7 +339,7 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 
 	if s.icloudMetaPass {
 		if len(as) > 0 {
-			s.icloudDiscoveredAssets.Store(fsName+":"+dir, &icloudDirDiscovery{
+			s.icloudDiscoveredAssets.Store(fmt.Sprintf("%p:%s", fsys, dir), &icloudDirDiscovery{
 				fsys:     fsys,
 				fsName:   fsName,
 				dir:      dir,
