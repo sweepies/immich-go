@@ -390,6 +390,151 @@ func (s *GoogleSource) solvePuzzle(ctx context.Context) error {
 				continue
 			}
 
+			if matcher.name == "matchForgottenDuplicates" {
+				type entry struct {
+					baseNoExt string
+					full      string
+				}
+				var entries []entry
+				for f := range cat.unMatchedFiles {
+					entries = append(entries, entry{
+						baseNoExt: strings.TrimSuffix(f, path.Ext(f)),
+						full:      f,
+					})
+				}
+				sort.Slice(entries, func(i, j int) bool {
+					return entries[i].baseNoExt < entries[j].baseNoExt
+				})
+
+				for _, jsonName := range jsons {
+					md, ok := cat.jsons[jsonName]
+					if !ok {
+						continue
+					}
+					jsonNoExt := strings.TrimSuffix(jsonName, path.Ext(jsonName))
+
+					idx := sort.Search(len(entries), func(i int) bool {
+						return entries[i].baseNoExt >= jsonNoExt
+					})
+
+					for i := idx; i < len(entries); i++ {
+						if !strings.HasPrefix(entries[i].baseNoExt, jsonNoExt) {
+							break
+						}
+						f := entries[i].full
+						if _, exists := cat.unMatchedFiles[f]; !exists {
+							continue
+						}
+
+						select {
+						case <-ctx.Done():
+							return ctx.Err()
+						default:
+							if matcher.fn(jsonName, f, s.deps.SupportedMedia) {
+								s.matchFile(ctx, dir, jsonName, f, md, matcher.name, &cat)
+							}
+						}
+					}
+				}
+				continue
+			}
+
+			if matcher.name == "matchEditedName" {
+				type entry struct {
+					base      string
+					baseNoExt string
+					full      string
+				}
+				var entries []entry
+				for f := range cat.unMatchedFiles {
+					if _, index := getFileIndex(f); index != "" {
+						continue
+					}
+					entries = append(entries, entry{
+						base:      f,
+						baseNoExt: strings.TrimSuffix(f, path.Ext(f)),
+						full:      f,
+					})
+				}
+				// We need two sorted versions or just search twice.
+				// Given we want to optimize, let's have two.
+				entriesByBase := make([]entry, len(entries))
+				copy(entriesByBase, entries)
+				sort.Slice(entriesByBase, func(i, j int) bool {
+					return entriesByBase[i].base < entriesByBase[j].base
+				})
+
+				entriesByBaseNoExt := make([]entry, len(entries))
+				copy(entriesByBaseNoExt, entries)
+				sort.Slice(entriesByBaseNoExt, func(i, j int) bool {
+					return entriesByBaseNoExt[i].baseNoExt < entriesByBaseNoExt[j].baseNoExt
+				})
+
+				for _, jsonName := range jsons {
+					md, ok := cat.jsons[jsonName]
+					if !ok {
+						continue
+					}
+
+					base := strings.TrimSuffix(jsonName, path.Ext(jsonName))
+					p1 := strings.LastIndex(base, ".")
+					if p1 > 1 {
+						if strings.HasPrefix("supplemental-metadata", base[p1+1:]) {
+							base = jsonName[:p1]
+						}
+					}
+
+					ext := path.Ext(base)
+					if ext != "" && s.deps.SupportedMedia.IsMedia(ext) {
+						base = strings.TrimSuffix(base, ext)
+						// Search in entriesByBaseNoExt
+						idx := sort.Search(len(entriesByBaseNoExt), func(i int) bool {
+							return entriesByBaseNoExt[i].baseNoExt >= base
+						})
+						for i := idx; i < len(entriesByBaseNoExt); i++ {
+							if !strings.HasPrefix(entriesByBaseNoExt[i].baseNoExt, base) {
+								break
+							}
+							f := entriesByBaseNoExt[i].full
+							if _, exists := cat.unMatchedFiles[f]; !exists {
+								continue
+							}
+							select {
+							case <-ctx.Done():
+								return ctx.Err()
+							default:
+								if matcher.fn(jsonName, f, s.deps.SupportedMedia) {
+									s.matchFile(ctx, dir, jsonName, f, md, matcher.name, &cat)
+								}
+							}
+						}
+					} else {
+						// Search in entriesByBase
+						idx := sort.Search(len(entriesByBase), func(i int) bool {
+							return entriesByBase[i].base >= base
+						})
+						for i := idx; i < len(entriesByBase); i++ {
+							if !strings.HasPrefix(entriesByBase[i].base, base) {
+								break
+							}
+							f := entriesByBase[i].full
+							if _, exists := cat.unMatchedFiles[f]; !exists {
+								continue
+							}
+							select {
+							case <-ctx.Done():
+								return ctx.Err()
+							default:
+								if matcher.fn(jsonName, f, s.deps.SupportedMedia) {
+									s.matchFile(ctx, dir, jsonName, f, md, matcher.name, &cat)
+								}
+							}
+						}
+					}
+				}
+				continue
+			}
+
 			for _, jsonName := range jsons {
 				md := cat.jsons[jsonName]
 				for f := range cat.unMatchedFiles {
