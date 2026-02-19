@@ -1,0 +1,3 @@
+kind: Changed
+body: 'perf(exif): use sync.Pool for metadata reading buffers to reduce memory allocations'
+time: 2026-02-19T22:50:01.641584411+00:00
