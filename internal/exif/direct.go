@@ -24,7 +24,7 @@ func MetadataFromDirectRead(f io.Reader, name string, localTZ *time.Location) (*
 	var err error
 	ext := strings.ToLower(path.Ext(name))
 
-	switch strings.ToLower(ext) {
+	switch ext {
 	case ".heic", ".heif":
 		md, err = readHEIFMetadata(f, localTZ)
 	case ".jpg", ".jpeg", ".dng", ".cr2", ".arw", ".raf", ".nef":
@@ -203,8 +203,17 @@ func readDateTime(x *exif.Exif, dateTag exif.FieldName, subSecTag exif.FieldName
 func parseExifTime(date string, local *time.Location) (time.Time, error) {
 	date = strings.TrimSpace(date)
 	var year, month, day, hour, minutes, sec, milli int
-	date = strings.ReplaceAll(date, "-", ":")
-	date = strings.ReplaceAll(date, "/", ":")
+	// Normalize date separators only in the date portion (YYYY-MM-DD or YYYY/MM/DD → YYYY:MM:DD).
+	// Avoid replacing '-' in the time/offset portion (e.g. timezone offset "-05:00").
+	if len(date) >= 10 {
+		prefix := strings.Map(func(r rune) rune {
+			if r == '-' || r == '/' {
+				return ':'
+			}
+			return r
+		}, date[:10])
+		date = prefix + date[10:]
+	}
 	_, err := fmt.Sscanf(date, "%d:%d:%d %d:%d:%d.%d", &year, &month, &day, &hour, &minutes, &sec, &milli)
 	if (err != nil && err.Error() != "unexpected EOF") || year < 1900 || month == 0 || day == 0 {
 		return time.Time{}, fmt.Errorf("invalid date format")

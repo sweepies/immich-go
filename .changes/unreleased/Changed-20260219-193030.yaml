@@ -1,0 +1,3 @@
+kind: Changed
+body: 'perf(exif): reduce string passes in direct metadata parsing'
+time: 2026-02-19T19:30:30.131539-05:00
