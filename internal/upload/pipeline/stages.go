@@ -135,6 +135,7 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 		}()
 
 		// Producers: fetch album info
+	discoveryLoop:
 		for _, a := range serverAlbums {
 			a := a
 
@@ -143,7 +144,7 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 				album := assets.NewAlbum(string(a.ID), a.AlbumName, a.Description)
 				select {
 				case <-ctx.Done():
-					return ctx.Err()
+					break discoveryLoop
 				case updates <- albumInfo{album: album, ids: a.AssetIds}:
 				}
 				continue
