@@ -103,22 +103,31 @@ func (s *FolderSource) Browse(ctx context.Context) <-chan *assets.Group {
 }
 
 func (s *FolderSource) processICloudDiscoveredAssets(ctx context.Context, gOut chan *assets.Group) {
-	s.icloudDiscoveredAssets.Range(func(_ string, d *icloudDirDiscovery) bool {
-		s.wg.Add(1)
-		go func() {
-			submitted := s.pool.Submit(func() {
-				defer s.wg.Done()
-				err := s.processAssets(ctx, d.fsys, d.fsName, d.dir, d.dirFiles, d.assets, gOut)
-				if err != nil {
-					s.deps.Logger.Error(err.Error())
-				}
-			})
-			if !submitted {
-				s.wg.Done()
-			}
-		}()
+	var keys []string
+	s.icloudDiscoveredAssets.Range(func(key string, _ *icloudDirDiscovery) bool {
+		keys = append(keys, key)
 		return true
 	})
+
+	for _, key := range keys {
+		d, ok := s.icloudDiscoveredAssets.Load(key)
+		if !ok {
+			continue
+		}
+		s.icloudDiscoveredAssets.Delete(key)
+
+		s.wg.Add(1)
+		submitted := s.pool.Submit(func() {
+			defer s.wg.Done()
+			err := s.processAssets(ctx, d.fsys, d.fsName, d.dir, d.dirFiles, d.assets, gOut)
+			if err != nil {
+				s.deps.Logger.Error(err.Error())
+			}
+		})
+		if !submitted {
+			s.wg.Done()
+		}
+	}
 }
 
 // Close implements adapters.Source.
