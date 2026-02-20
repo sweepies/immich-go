@@ -135,22 +135,8 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 		}()
 
 		// Producers: fetch album info
-	discoveryLoop:
 		for _, a := range serverAlbums {
 			a := a
-
-			// Optimization: if GetAllAlbums already returned AssetIds, use them
-			if len(a.AssetIds) > 0 {
-				album := assets.NewAlbum(string(a.ID), a.AlbumName, a.Description)
-				select {
-				case <-ctx.Done():
-				break discoveryLoop
-				// fall through to wg.Wait() / close(updates) below
-
-				case updates <- albumInfo{album: album, ids: a.AssetIds}:
-				}
-				continue
-			}
 
 			wg.Go(func() error {
 				r, err := pctx.Server.GetAlbumInfo(ctx, a.ID, false)
