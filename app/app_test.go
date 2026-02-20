@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/sweepies/immich-go/internal/assettracker"
-	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/fileprocessor"
 	"github.com/spf13/cobra"
 )
@@ -25,7 +25,7 @@ func TestApplicationFileProcessor(t *testing.T) {
 	// Create and set a file processor
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tracker := assettracker.New()
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	processor := fileprocessor.New(tracker, recorder)
 
 	app.SetFileProcessor(processor)

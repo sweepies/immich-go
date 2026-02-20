@@ -17,7 +17,7 @@ import (
 
 	"github.com/sweepies/immich-go/internal/adapters"
 	"github.com/sweepies/immich-go/internal/assettracker"
-	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/fileprocessor"
 	"github.com/sweepies/immich-go/internal/filetypes"
 	"github.com/sweepies/immich-go/internal/namematcher"
@@ -167,7 +167,7 @@ func TestFolderSourceBrowseStopsWorkerPoolWithoutClose(t *testing.T) {
 
 func newTestFolderSource(root string, recursive bool, workers int) *FolderSource {
 	logger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
-	processor := fileprocessor.New(assettracker.New(), fileevent.NewRecorder(nil))
+	processor := fileprocessor.New(assettracker.New(), journal.NewRecorder(nil))
 
 	return &FolderSource{
 		deps: adapters.SourceDependencies{

@@ -5,19 +5,18 @@ import (
 	"fmt"
 
 	"github.com/sweepies/immich-go/internal/assettracker"
-	"github.com/sweepies/immich-go/internal/fileevent"
-	"github.com/sweepies/immich-go/internal/fshelper"
+	"github.com/sweepies/immich-go/internal/journal"
 )
 
 // FileProcessor coordinates AssetTracker and EventLogger to provide
 // a unified interface for tracking file processing lifecycle.
 type FileProcessor struct {
 	tracker *assettracker.AssetTracker
-	logger  *fileevent.Recorder
+	logger  *journal.Recorder
 }
 
 // New creates a new FileProcessor with the given tracker and logger
-func New(tracker *assettracker.AssetTracker, logger *fileevent.Recorder) *FileProcessor {
+func New(tracker *assettracker.AssetTracker, logger *journal.Recorder) *FileProcessor {
 	return &FileProcessor{
 		tracker: tracker,
 		logger:  logger,
@@ -30,13 +29,13 @@ func (fp *FileProcessor) Tracker() *assettracker.AssetTracker {
 }
 
 // Logger returns the underlying EventLogger
-func (fp *FileProcessor) Logger() *fileevent.Recorder {
+func (fp *FileProcessor) Logger() *journal.Recorder {
 	return fp.logger
 }
 
 // RecordAssetDiscovered records an asset (image/video) entering the pipeline.
 // The asset is tracked and the discovery event is logged.
-func (fp *FileProcessor) RecordAssetDiscovered(ctx context.Context, file fshelper.FSAndName, size int64, code fileevent.Code) {
+func (fp *FileProcessor) RecordAssetDiscovered(ctx context.Context, file journal.Filename, size int64, code journal.Code) {
 	fp.tracker.DiscoverAsset(file, size, code)
 	fp.logger.RecordWithSize(ctx, code, file, size)
 }
@@ -44,35 +43,35 @@ func (fp *FileProcessor) RecordAssetDiscovered(ctx context.Context, file fshelpe
 // RecordAssetDiscardedImmediately records an asset that is immediately discarded
 // upon discovery (e.g., banned filename that's still an image type).
 // The asset is tracked in DISCARDED state and the event is logged.
-func (fp *FileProcessor) RecordAssetDiscardedImmediately(ctx context.Context, file fshelper.FSAndName, size int64, code fileevent.Code, reason string) {
+func (fp *FileProcessor) RecordAssetDiscardedImmediately(ctx context.Context, file journal.Filename, size int64, code journal.Code, reason string) {
 	fp.tracker.DiscoverAndDiscard(file, size, code, reason)
 	fp.logger.RecordWithSize(ctx, code, file, size, "reason", reason)
 }
 
 // RecordAssetProcessed transitions an asset to PROCESSED state.
 // The state change is tracked and the event is logged.
-func (fp *FileProcessor) RecordAssetProcessed(ctx context.Context, file fshelper.FSAndName, size int64, code fileevent.Code) {
+func (fp *FileProcessor) RecordAssetProcessed(ctx context.Context, file journal.Filename, size int64, code journal.Code) {
 	fp.tracker.SetProcessed(file, code)
 	fp.logger.RecordWithSize(ctx, code, file, size)
 }
 
 // RecordAssetDiscarded transitions an asset to DISCARDED state.
 // The state change is tracked and the event is logged with the reason.
-func (fp *FileProcessor) RecordAssetDiscarded(ctx context.Context, file fshelper.FSAndName, size int64, code fileevent.Code, reason string) {
+func (fp *FileProcessor) RecordAssetDiscarded(ctx context.Context, file journal.Filename, size int64, code journal.Code, reason string) {
 	fp.tracker.SetDiscarded(file, code, reason)
 	fp.logger.RecordWithSize(ctx, code, file, size, "reason", reason)
 }
 
 // RecordAssetError transitions an asset to ERROR state.
 // The state change is tracked and the error event is logged.
-func (fp *FileProcessor) RecordAssetError(ctx context.Context, file fshelper.FSAndName, size int64, code fileevent.Code, err error) {
+func (fp *FileProcessor) RecordAssetError(ctx context.Context, file journal.Filename, size int64, code journal.Code, err error) {
 	fp.tracker.SetError(file, code, err)
 	fp.logger.RecordWithSize(ctx, code, file, size, "error", err.Error())
 }
 
 // RecordNonAsset records a non-asset file (sidecar, metadata, etc.).
 // Only logged, not tracked in AssetTracker.
-func (fp *FileProcessor) RecordNonAsset(ctx context.Context, file fshelper.FSAndName, size int64, code fileevent.Code, args ...any) {
+func (fp *FileProcessor) RecordNonAsset(ctx context.Context, file journal.Filename, size int64, code journal.Code, args ...any) {
 	fp.logger.RecordWithSize(ctx, code, file, size, args...)
 }
 
@@ -84,7 +83,7 @@ func (fp *FileProcessor) Finalize(ctx context.Context) error {
 		// Log any incomplete assets
 		pending := fp.tracker.GetPending()
 		for _, asset := range pending {
-			fp.logger.Record(ctx, fileevent.ErrorIncomplete, asset.File,
+			fp.logger.Record(ctx, journal.ErrorIncomplete, asset.File,
 				"error", "asset never reached final state",
 				"discovered_at", asset.DiscoveredAt,
 			)
@@ -120,12 +119,12 @@ func (fp *FileProcessor) GetAssetCounters() assettracker.AssetCounters {
 }
 
 // GetEventCounts returns event counts from the logger
-func (fp *FileProcessor) GetEventCounts() map[fileevent.Code]int64 {
+func (fp *FileProcessor) GetEventCounts() map[journal.Code]int64 {
 	return fp.logger.GetEventCounts()
 }
 
 // GetEventSizes returns event sizes from the logger
-func (fp *FileProcessor) GetEventSizes() map[fileevent.Code]int64 {
+func (fp *FileProcessor) GetEventSizes() map[journal.Code]int64 {
 	return fp.logger.GetEventSizes()
 }
 

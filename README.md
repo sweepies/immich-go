@@ -152,7 +152,7 @@ internal/              Core business logic
   ├── appcontext/      Application context and dependency injection
   ├── assets/          Asset domain model and caching
   ├── cli/             CLI flag handling and configuration
-  ├── fileevent/       Event logging and tracking
+  ├── journal/       Event logging and tracking
   ├── fileprocessor/   File processing coordination
   ├── immich/          Immich API client (domain-specific interfaces)
   ├── upload/          Upload pipeline and orchestration

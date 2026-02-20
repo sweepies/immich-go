@@ -1,24 +1,24 @@
 package pipeline
 
 import (
+	"github.com/sweepies/immich-go/internal/journal"
 	"testing"
 	"testing/fstest"
 	"time"
 
 	"github.com/sweepies/immich-go/internal/assets"
-	"github.com/sweepies/immich-go/internal/fshelper"
 	iimmich "github.com/sweepies/immich-go/internal/immich"
 )
 
-// mockFSAndName creates a mock FSAndName for testing
-func mockFSAndName(name string) fshelper.FSAndName {
+// mockFilename creates a mock Filename for testing
+func mockFilename(name string) journal.Filename {
 	fsys := fstest.MapFS{
 		name: &fstest.MapFile{
 			Data:    []byte("test content"),
 			ModTime: time.Now(),
 		},
 	}
-	return fshelper.FSName(fsys, name)
+	return journal.NewFilename(fsys, name)
 }
 
 func TestNewIndex(t *testing.T) {
@@ -99,7 +99,7 @@ func TestIndex_ShouldUpload_NotOnServer(t *testing.T) {
 
 	// Create a local asset with a unique checksum
 	la := &assets.Asset{
-		File:             mockFSAndName("new_photo.jpg"),
+		File:             mockFilename("new_photo.jpg"),
 		OriginalFileName: "new_photo.jpg",
 		FileSize:         2048,
 		CaptureDate:      time.Now(),
@@ -134,7 +134,7 @@ func TestIndex_ShouldUpload_SameOnServer(t *testing.T) {
 
 	// Create a local asset with the same checksum
 	la := &assets.Asset{
-		File:             mockFSAndName("photo.jpg"),
+		File:             mockFilename("photo.jpg"),
 		OriginalFileName: "photo.jpg",
 		FileSize:         1024,
 		CaptureDate:      captureDate,
@@ -169,7 +169,7 @@ func TestIndex_ShouldUpload_SmallerOnServer(t *testing.T) {
 
 	// Create a local asset that's larger with same name and date
 	la := &assets.Asset{
-		File:             mockFSAndName("photo.jpg"),
+		File:             mockFilename("photo.jpg"),
 		OriginalFileName: "photo.jpg",
 		FileSize:         1024, // Larger
 		CaptureDate:      captureDate,
@@ -204,7 +204,7 @@ func TestIndex_ShouldUpload_BetterOnServer(t *testing.T) {
 
 	// Create a local asset that's smaller with same name and date
 	la := &assets.Asset{
-		File:             mockFSAndName("photo.jpg"),
+		File:             mockFilename("photo.jpg"),
 		OriginalFileName: "photo.jpg",
 		FileSize:         1024, // Smaller
 		CaptureDate:      captureDate,
@@ -239,7 +239,7 @@ func TestIndex_ShouldUpload_ForceUpload(t *testing.T) {
 
 	// Create a local asset with same name and date, overwrite=true
 	la := &assets.Asset{
-		File:             mockFSAndName("photo.jpg"),
+		File:             mockFilename("photo.jpg"),
 		OriginalFileName: "photo.jpg",
 		FileSize:         1024,
 		CaptureDate:      captureDate,

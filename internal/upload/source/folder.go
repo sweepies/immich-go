@@ -20,16 +20,15 @@ import (
 	"github.com/sweepies/immich-go/internal/exif"
 	"github.com/sweepies/immich-go/internal/exif/sidecars/jsonsidecar"
 	"github.com/sweepies/immich-go/internal/exif/sidecars/xmpsidecar"
-	"github.com/sweepies/immich-go/internal/fileevent"
 	"github.com/sweepies/immich-go/internal/filenames"
 	"github.com/sweepies/immich-go/internal/filetypes"
 	"github.com/sweepies/immich-go/internal/filters"
-	"github.com/sweepies/immich-go/internal/fshelper"
 	"github.com/sweepies/immich-go/internal/gen"
 	"github.com/sweepies/immich-go/internal/groups"
 	"github.com/sweepies/immich-go/internal/groups/burst"
 	"github.com/sweepies/immich-go/internal/groups/epsonfastfoto"
 	"github.com/sweepies/immich-go/internal/groups/series"
+	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/worker"
 )
 
@@ -223,27 +222,27 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 			if strings.HasSuffix(strings.ToLower(dir), "albums") {
 				album, err := useICloudAlbum(s.icloudMetas, fsys, name)
 				if err != nil {
-					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.ErrorFileAccess, "error", err.Error())
+					s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.ErrorFileAccess, "error", err.Error())
 				} else {
-					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredMetadata, "album", album)
+					s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredMetadata, "album", album)
 				}
 				continue
 			}
 			if s.config.ICloudMemoriesAsAlbums && strings.HasSuffix(strings.ToLower(dir), "memories") {
 				album, err := useICloudMemory(s.icloudMetas, fsys, name)
 				if err != nil {
-					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.ErrorFileAccess, "error", err.Error())
+					s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.ErrorFileAccess, "error", err.Error())
 				} else {
-					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredMetadata, "album", album)
+					s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredMetadata, "album", album)
 				}
 				continue
 			}
 			if strings.HasPrefix(strings.ToLower(base), "photo details") {
 				err := useICloudPhotoDetails(s.icloudMetas, fsys, name)
 				if err != nil {
-					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.ErrorFileAccess, "error", err.Error())
+					s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.ErrorFileAccess, "error", err.Error())
 				} else {
-					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredMetadata)
+					s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredMetadata)
 				}
 				continue
 			}
@@ -255,58 +254,58 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 
 		// Skip banned files
 		if s.config.BannedFiles.Match(name) {
-			s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, entry.Name()), 0, fileevent.DiscoveredBanned, "reason", "banned file")
+			s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, entry.Name()), 0, journal.DiscoveredBanned, "reason", "banned file")
 			continue
 		}
 
 		if s.config.PicasaAlbum && isPicasaIni(base) {
 			album, err := readPicasaIni(fsys, name)
 			if err != nil {
-				s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.ErrorFileAccess, "error", err.Error())
+				s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.ErrorFileAccess, "error", err.Error())
 			} else {
 				s.picasaAlbums.Store(dir, album)
-				s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredMetadata, "album", album.Name)
+				s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredMetadata, "album", album.Name)
 			}
 			continue
 		}
 
 		if s.deps.SupportedMedia.IsUseLess(name) {
-			s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, entry.Name()), 0, fileevent.DiscoveredUnknown, "reason", "useless file")
+			s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, entry.Name()), 0, journal.DiscoveredUnknown, "reason", "useless file")
 			continue
 		}
 
 		mediaType := s.deps.SupportedMedia.TypeFromExt(ext)
 
 		if mediaType == filetypes.TypeUnknown {
-			s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredUnsupported, "reason", "unsupported file type")
+			s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredUnsupported, "reason", "unsupported file type")
 			continue
 		}
 
 		switch mediaType {
 		case filetypes.TypeUseless:
-			s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredUnknown)
+			s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredUnknown)
 			continue
 		case filetypes.TypeImage, filetypes.TypeVideo:
 			// Will be recorded as discovered asset after assetFromFile creates it
 		case filetypes.TypeSidecar:
 			if s.config.IgnoreSideCarFiles {
-				s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredSidecar, "reason", "sidecar file ignored")
+				s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredSidecar, "reason", "sidecar file ignored")
 				continue
 			}
-			s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredSidecar)
+			s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredSidecar)
 			continue
 		}
 
 		if !s.config.InclusionFlags.IncludedExtensions.Include(ext) {
 			if info, err := fs.Stat(fsys, name); err == nil {
-				s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.FSName(fsys, name), info.Size(), fileevent.DiscardedFiltered, "extension not included")
+				s.deps.Processor.RecordAssetDiscardedImmediately(ctx, journal.NewFilename(fsys, name), info.Size(), journal.DiscardedFiltered, "extension not included")
 			}
 			continue
 		}
 
 		if s.config.InclusionFlags.ExcludedExtensions.Exclude(ext) {
 			if info, err := fs.Stat(fsys, name); err == nil {
-				s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.FSName(fsys, name), info.Size(), fileevent.DiscardedFiltered, "extension excluded")
+				s.deps.Processor.RecordAssetDiscardedImmediately(ctx, journal.NewFilename(fsys, name), info.Size(), journal.DiscardedFiltered, "extension excluded")
 			}
 			continue
 		}
@@ -317,13 +316,13 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 		default:
 			a, err := s.assetFromFile(ctx, fsys, name)
 			if err != nil {
-				s.deps.Processor.RecordAssetError(ctx, fshelper.FSName(fsys, name), 0, fileevent.ErrorFileAccess, err)
+				s.deps.Processor.RecordAssetError(ctx, journal.NewFilename(fsys, name), 0, journal.ErrorFileAccess, err)
 				continue
 			}
 			if a != nil {
-				code := fileevent.DiscoveredImage
+				code := journal.DiscoveredImage
 				if mediaType == filetypes.TypeVideo {
-					code = fileevent.DiscoveredVideo
+					code = journal.DiscoveredVideo
 				}
 				s.deps.Processor.RecordAssetDiscovered(ctx, a.File, int64(a.FileSize), code)
 				as = append(as, a)
@@ -337,7 +336,7 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 		name := path.Join(dir, base)
 		if entry.IsDir() {
 			if s.config.BannedFiles.MatchDir(name) {
-				s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, name), 0, fileevent.DiscoveredBanned, "reason", "banned folder")
+				s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredBanned, "reason", "banned folder")
 				continue
 			}
 			if s.config.Recursive && entry.Name() != "." {
@@ -382,7 +381,7 @@ func (s *FolderSource) processAssets(ctx context.Context, fsys fs.FS, fsName, di
 
 			if !s.config.InclusionFlags.DateRange.InRange(a.CaptureDate) {
 				a.Close()
-				s.deps.Processor.RecordAssetDiscardedImmediately(ctx, a.File, int64(a.FileSize), fileevent.DiscardedFiltered, "asset outside date range")
+				s.deps.Processor.RecordAssetDiscardedImmediately(ctx, a.File, int64(a.FileSize), journal.DiscardedFiltered, "asset outside date range")
 				continue
 			}
 
@@ -409,7 +408,7 @@ func (s *FolderSource) processAssets(ctx context.Context, fsys fs.FS, fsName, di
 
 func (s *FolderSource) assetFromFile(_ context.Context, fsys fs.FS, name string) (*assets.Asset, error) {
 	a := &assets.Asset{
-		File:             fshelper.FSName(fsys, name),
+		File:             journal.NewFilename(fsys, name),
 		OriginalFileName: filepath.Base(name),
 	}
 	i, err := fs.Stat(fsys, name)
@@ -436,7 +435,7 @@ func (s *FolderSource) processAssetMetadata(ctx context.Context, fsys fs.FS, a *
 		jsonPath := path.Join(dir, jsonName)
 		buf, err := fs.ReadFile(fsys, jsonPath)
 		if err != nil {
-			s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, jsonPath), 0, fileevent.ErrorFileAccess, "error", err.Error())
+			s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, jsonPath), 0, journal.ErrorFileAccess, "error", err.Error())
 		} else {
 			// Update jsonName to include full path
 			jsonName = jsonPath
@@ -444,16 +443,16 @@ func (s *FolderSource) processAssetMetadata(ctx context.Context, fsys fs.FS, a *
 				md := &assets.Metadata{}
 				err = jsonsidecar.Read(bytes.NewReader(buf), md)
 				if err != nil {
-					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, jsonName), 0, fileevent.ErrorFileAccess, "error", err.Error())
+					s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, jsonName), 0, journal.ErrorFileAccess, "error", err.Error())
 				} else {
-					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, jsonName), 0, fileevent.DiscoveredSidecar)
-					md.File = fshelper.FSName(fsys, jsonName)
+					s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, jsonName), 0, journal.DiscoveredSidecar)
+					md.File = journal.NewFilename(fsys, jsonName)
 					a.FromApplication = a.UseMetadata(md)
 					a.OriginalFileName = md.FileName
 				}
 			} else {
-				s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, jsonName), 0, fileevent.DiscoveredSidecar)
-				s.deps.Logger.Warn("JSON file detected but not from immich-go", "file", fshelper.FSName(fsys, jsonName))
+				s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, jsonName), 0, journal.DiscoveredSidecar)
+				s.deps.Logger.Warn("JSON file detected but not from immich-go", "file", journal.NewFilename(fsys, jsonName))
 			}
 		}
 	}
@@ -464,17 +463,17 @@ func (s *FolderSource) processAssetMetadata(ctx context.Context, fsys fs.FS, a *
 		xmpPath := path.Join(dir, xmpName)
 		buf, err := fs.ReadFile(fsys, xmpPath)
 		if err != nil {
-			s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, xmpPath), 0, fileevent.ErrorFileAccess, "error", err.Error())
+			s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, xmpPath), 0, journal.ErrorFileAccess, "error", err.Error())
 		} else {
 			// Update xmpName to include full path
 			xmpName = xmpPath
 			md := &assets.Metadata{}
 			err = xmpsidecar.ReadXMP(bytes.NewReader(buf), md)
 			if err != nil {
-				s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, xmpName), 0, fileevent.ErrorFileAccess, "error", err.Error())
+				s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, xmpName), 0, journal.ErrorFileAccess, "error", err.Error())
 			} else {
-				s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(fsys, xmpName), 0, fileevent.DiscoveredSidecar)
-				md.File = fshelper.FSName(fsys, xmpName)
+				s.deps.Processor.RecordNonAsset(ctx, journal.NewFilename(fsys, xmpName), 0, journal.DiscoveredSidecar)
+				md.File = journal.NewFilename(fsys, xmpName)
 				a.FromSideCar = a.UseMetadata(md)
 			}
 		}

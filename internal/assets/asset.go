@@ -1,13 +1,13 @@
 package assets
 
 import (
+	"github.com/sweepies/immich-go/internal/journal"
 	"errors"
 	"fmt"
 	"log/slog"
 	"path"
 	"time"
 
-	"github.com/sweepies/immich-go/internal/fshelper"
 	"github.com/sweepies/immich-go/internal/fshelper/cachereader"
 	"github.com/sweepies/immich-go/internal/fshelper/hash"
 )
@@ -38,7 +38,7 @@ const (
 
 type Asset struct {
 	// File system and file name
-	File     fshelper.FSAndName
+	File     journal.Filename
 	FileDate time.Time // File creation date
 	ID       string    // Immich ID after upload
 	Checksum string    // Hash of the file as delivered by Immich

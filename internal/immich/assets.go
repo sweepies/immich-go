@@ -1,12 +1,12 @@
 package immich
 
 import (
+	"github.com/sweepies/immich-go/internal/journal"
 	"context"
 	"io"
 	"time"
 
 	"github.com/sweepies/immich-go/internal/assets"
-	"github.com/sweepies/immich-go/internal/fshelper"
 )
 
 // AssetsService provides asset-related server operations.
@@ -86,7 +86,7 @@ func (ia Asset) AsAsset() *assets.Asset {
 		Rating:           ia.Rating,
 		Latitude:         ia.ExifInfo.Latitude,
 		Longitude:        ia.ExifInfo.Longitude,
-		File:             fshelper.FSName(nil, ia.OriginalFileName),
+		File:             journal.NewFilename(nil, ia.OriginalFileName),
 		FileSize:         int(ia.ExifInfo.FileSizeInByte),
 		Checksum:         ia.Checksum,
 	}

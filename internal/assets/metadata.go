@@ -1,17 +1,17 @@
 package assets
 
 import (
+	"github.com/sweepies/immich-go/internal/journal"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"path"
 	"time"
 
-	"github.com/sweepies/immich-go/internal/fshelper"
 )
 
 type Metadata struct {
-	File        fshelper.FSAndName `json:"-"`                     // File name and file system that holds the metadata. Could be empty
+	File        journal.Filename `json:"-"`                     // File name and file system that holds the metadata. Could be empty
 	FileName    string             `json:"fileName,omitempty"`    // File name as presented to users
 	Latitude    float64            `json:"latitude,omitempty"`    // GPS
 	Longitude   float64            `json:"longitude,omitempty"`   // GPS

@@ -4,7 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/sweepies/immich-go/internal/assettracker"
-	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/fileprocessor"
 )
 
@@ -12,7 +12,7 @@ import (
 // This centralizes the creation of FileProcessor instances that was previously scattered
 // across command handlers (upload, archive, etc.).
 func NewFileProcessor(log *slog.Logger, dryRun bool) *fileprocessor.FileProcessor {
-	recorder := fileevent.NewRecorder(log)
+	recorder := journal.NewRecorder(log)
 	tracker := assettracker.NewWithLogger(log, dryRun)
 	return fileprocessor.New(tracker, recorder)
 }

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/sweepies/immich-go/internal/assettracker"
-	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/journal"
 )
 
 // outputMutex serializes writes to stdout to prevent interleaved JSONL output
@@ -59,8 +59,8 @@ func WriteSummary(
 	status string,
 	exitCode int,
 	counters assettracker.AssetCounters,
-	eventCounts map[fileevent.Code]int64,
-	eventSizes map[fileevent.Code]int64,
+	eventCounts map[journal.Code]int64,
+	eventSizes map[journal.Code]int64,
 	duration float64,
 ) error {
 	// Convert event codes to human-readable names

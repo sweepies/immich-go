@@ -6,7 +6,7 @@ import (
 
 	"github.com/sweepies/immich-go/adapters/folder"
 	"github.com/sweepies/immich-go/internal/adapters"
-	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/fshelper/osfs"
 	"github.com/spf13/cobra"
 )
@@ -56,7 +56,7 @@ func (ac *ArchiveCmd) Run(cmd *cobra.Command, source adapters.Source) error {
 					err = a.Close()
 				}
 				if err != nil {
-					ac.app.FileProcessor().RecordAssetError(ctx, a.File, int64(a.FileSize), fileevent.ErrorFileAccess, err)
+					ac.app.FileProcessor().RecordAssetError(ctx, a.File, int64(a.FileSize), journal.ErrorFileAccess, err)
 					errCount++
 					if errCount > 5 {
 						err := errors.New("too many errors, aborting")
@@ -65,7 +65,7 @@ func (ac *ArchiveCmd) Run(cmd *cobra.Command, source adapters.Source) error {
 					}
 				} else {
 					// Asset successfully archived
-					ac.app.FileProcessor().RecordAssetProcessed(ctx, a.File, int64(a.FileSize), fileevent.ProcessedFileArchived)
+					ac.app.FileProcessor().RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedFileArchived)
 				}
 			}
 		}

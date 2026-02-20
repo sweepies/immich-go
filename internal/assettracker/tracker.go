@@ -8,8 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sweepies/immich-go/internal/fileevent"
-	"github.com/sweepies/immich-go/internal/fshelper"
+	"github.com/sweepies/immich-go/internal/journal"
 )
 
 // AssetTracker tracks the complete lifecycle of assets (images/videos) from
@@ -55,7 +54,7 @@ func NewWithLogger(log *slog.Logger, debugMode bool) *AssetTracker {
 }
 
 // DiscoverAsset registers an asset (image/video) entering the pipeline
-func (at *AssetTracker) DiscoverAsset(file fshelper.FSAndName, fileSize int64, eventCode fileevent.Code) {
+func (at *AssetTracker) DiscoverAsset(file journal.Filename, fileSize int64, eventCode journal.Code) {
 	at.mu.Lock()
 	defer at.mu.Unlock()
 
@@ -93,7 +92,7 @@ func (at *AssetTracker) DiscoverAsset(file fshelper.FSAndName, fileSize int64, e
 
 // DiscoverAndDiscard registers an asset that is immediately discarded
 // (e.g., banned filename that's still an image type)
-func (at *AssetTracker) DiscoverAndDiscard(file fshelper.FSAndName, fileSize int64, eventCode fileevent.Code, reason string) {
+func (at *AssetTracker) DiscoverAndDiscard(file journal.Filename, fileSize int64, eventCode journal.Code, reason string) {
 	at.mu.Lock()
 	defer at.mu.Unlock()
 
@@ -135,7 +134,7 @@ func (at *AssetTracker) DiscoverAndDiscard(file fshelper.FSAndName, fileSize int
 }
 
 // SetProcessed transitions an asset to the PROCESSED state
-func (at *AssetTracker) SetProcessed(file fshelper.FSAndName, eventCode fileevent.Code) {
+func (at *AssetTracker) SetProcessed(file journal.Filename, eventCode journal.Code) {
 	at.mu.Lock()
 	defer at.mu.Unlock()
 
@@ -173,7 +172,7 @@ func (at *AssetTracker) SetProcessed(file fshelper.FSAndName, eventCode fileeven
 }
 
 // SetDiscarded transitions an asset to the DISCARDED state
-func (at *AssetTracker) SetDiscarded(file fshelper.FSAndName, eventCode fileevent.Code, reason string) {
+func (at *AssetTracker) SetDiscarded(file journal.Filename, eventCode journal.Code, reason string) {
 	at.mu.Lock()
 	defer at.mu.Unlock()
 
@@ -213,7 +212,7 @@ func (at *AssetTracker) SetDiscarded(file fshelper.FSAndName, eventCode fileeven
 }
 
 // SetError transitions an asset to the ERROR state
-func (at *AssetTracker) SetError(file fshelper.FSAndName, eventCode fileevent.Code, err error) {
+func (at *AssetTracker) SetError(file journal.Filename, eventCode journal.Code, err error) {
 	at.mu.Lock()
 	defer at.mu.Unlock()
 

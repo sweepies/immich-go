@@ -12,9 +12,8 @@ import (
 
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/assettracker"
-	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/fileprocessor"
-	"github.com/sweepies/immich-go/internal/fshelper"
 	iimmich "github.com/sweepies/immich-go/internal/immich"
 )
 
@@ -350,7 +349,7 @@ func TestRunnerIntegration(t *testing.T) {
 func TestNewContext(t *testing.T) {
 	t.Run("creates context with session tag", func(t *testing.T) {
 		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-		recorder := fileevent.NewRecorder(logger)
+		recorder := journal.NewRecorder(logger)
 		processor := fileprocessor.New(nil, recorder)
 		mock := newMockServerClient()
 
@@ -371,7 +370,7 @@ func TestNewContext(t *testing.T) {
 
 	t.Run("creates context without session tag", func(t *testing.T) {
 		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-		recorder := fileevent.NewRecorder(logger)
+		recorder := journal.NewRecorder(logger)
 		processor := fileprocessor.New(nil, recorder)
 		mock := newMockServerClient()
 
@@ -390,7 +389,7 @@ func TestNewContext(t *testing.T) {
 // Helper to create test context for runner tests.
 func createRunnerTestContext(server ServerClient) *Context {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	tracker := assettracker.New()
 	processor := fileprocessor.New(tracker, recorder)
 	return &Context{
@@ -420,7 +419,7 @@ func createTestAsset(name string, size int, captureDate time.Time) *assets.Asset
 		},
 	}
 	return &assets.Asset{
-		File:             fshelper.FSName(fsys, name),
+		File:             journal.NewFilename(fsys, name),
 		OriginalFileName: name,
 		FileSize:         size,
 		CaptureDate:      captureDate,
@@ -439,7 +438,7 @@ func createTestAssetWithChecksum(name string, size int, captureDate time.Time, c
 		},
 	}
 	return &assets.Asset{
-		File:             fshelper.FSName(fsys, name),
+		File:             journal.NewFilename(fsys, name),
 		OriginalFileName: name,
 		FileSize:         size,
 		CaptureDate:      captureDate,

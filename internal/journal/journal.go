@@ -1,20 +1,65 @@
-// Package fileevent provides a mechanism to record and report events related to file processing.
+// Package journal provides a mechanism to record and report events related to file processing.
 
-package fileevent
+package journal
 
-/*
-	TODO:
-	- rename the package as journal
-	- use a filenemame type that keeps the fsys and the name in that fsys
-
-*/
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"strings"
 	"sync/atomic"
 )
+
+type Filename struct {
+	fsys fs.FS
+	name string
+}
+
+func NewFilename(fsys fs.FS, name string) Filename {
+	return Filename{fsys: fsys, name: name}
+}
+
+func (fn Filename) LogValue() slog.Value {
+	if fn.IsEmpty() {
+		return slog.Value{}
+	}
+	return slog.StringValue(fn.FullName())
+}
+
+func (fn Filename) FS() fs.FS {
+	return fn.fsys
+}
+
+func (fn Filename) Name() string {
+	return fn.name
+}
+
+func (fn Filename) FullName() string {
+	fsys := fn.fsys
+	if fsys, ok := fsys.(interface{ Name() string }); ok {
+		return fsys.Name() + ":" + fn.name
+	}
+	return fn.name
+}
+
+func (fn Filename) Open() (fs.File, error) {
+	if fn.fsys == nil {
+		return nil, fs.ErrNotExist
+	}
+	return fn.fsys.Open(fn.name)
+}
+
+func (fn Filename) Stat() (fs.FileInfo, error) {
+	if fn.fsys == nil {
+		return nil, fs.ErrNotExist
+	}
+	return fs.Stat(fn.fsys, fn.name)
+}
+
+func (fn Filename) IsEmpty() bool {
+	return fn.fsys == nil && fn.name == ""
+}
 
 /*
 	Collect all actions done on a given file
@@ -192,18 +237,18 @@ func (r *Recorder) Log() *slog.Logger {
 	return r.log
 }
 
-func (r *Recorder) Record(ctx context.Context, code Code, file slog.LogValuer, args ...any) {
+func (r *Recorder) Record(ctx context.Context, code Code, file Filename, args ...any) {
 	r.RecordWithSize(ctx, code, file, 0, args...)
 }
 
-func (r *Recorder) RecordWithSize(ctx context.Context, code Code, file slog.LogValuer, fileSize int64, args ...any) {
+func (r *Recorder) RecordWithSize(ctx context.Context, code Code, file Filename, fileSize int64, args ...any) {
 	atomic.AddInt64(&r.counts[code], 1)
 	if fileSize > 0 {
 		atomic.AddInt64(&r.sizes[code], fileSize)
 	}
 	if r.log != nil {
 		level := _logLevels[code]
-		if file != nil {
+		if !file.IsEmpty() {
 			args = append([]any{"file", file.LogValue()}, args...)
 		}
 
@@ -236,7 +281,7 @@ func (r *Recorder) GetCounts() []int64 {
 // GetEventCounts returns event counts as a map (Code -> count)
 func (r *Recorder) GetEventCounts() map[Code]int64 {
 	eventCounts := make(map[Code]int64)
-	for i := range MaxCode {
+	for i := range Code(MaxCode) {
 		count := atomic.LoadInt64(&r.counts[i])
 		if count > 0 {
 			eventCounts[i] = count
@@ -248,7 +293,7 @@ func (r *Recorder) GetEventCounts() map[Code]int64 {
 // GetEventSizes returns event sizes as a map (Code -> total bytes)
 func (r *Recorder) GetEventSizes() map[Code]int64 {
 	eventSizes := make(map[Code]int64)
-	for i := range MaxCode {
+	for i := range Code(MaxCode) {
 		size := atomic.LoadInt64(&r.sizes[i])
 		if size > 0 {
 			eventSizes[i] = size
@@ -442,7 +487,7 @@ func IsEqualCounts(a, b []int64) bool {
 // Used for tests only
 
 func NewCounts() *counts {
-	c := counts(make([]int64, MaxCode))
+	c := counts(make([]int64, int(MaxCode)))
 	return &c
 }
 

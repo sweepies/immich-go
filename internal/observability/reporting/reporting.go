@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/sweepies/immich-go/internal/assettracker"
-	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/fileprocessor"
 	"github.com/sweepies/immich-go/internal/jsonoutput"
 )
@@ -81,8 +81,8 @@ func (r *Reporter) GetProgressData() ProgressData {
 	counts := r.processor.Logger().GetCounts()
 	return ProgressData{
 		TotalAssets:  r.processor.Logger().TotalAssets(),
-		UploadErrors: counts[fileevent.ErrorServerError],
-		Uploaded:     counts[fileevent.ProcessedUploadSuccess],
+		UploadErrors: counts[journal.ErrorServerError],
+		Uploaded:     counts[journal.ProcessedUploadSuccess],
 	}
 }
 
@@ -103,8 +103,8 @@ func (r *Reporter) WriteJSONProgress(immichPct int) error {
 	return jsonoutput.WriteProgress(
 		immichPct,
 		r.processor.Logger().TotalAssets(),
-		counts[fileevent.ErrorServerError],
-		counts[fileevent.ProcessedUploadSuccess],
+		counts[journal.ErrorServerError],
+		counts[journal.ProcessedUploadSuccess],
 	)
 }
 
@@ -117,7 +117,7 @@ func (r *Reporter) GetAssetCounters() assettracker.AssetCounters {
 }
 
 // GetEventCounts returns the current event counts.
-func (r *Reporter) GetEventCounts() map[fileevent.Code]int64 {
+func (r *Reporter) GetEventCounts() map[journal.Code]int64 {
 	if r.processor == nil {
 		return nil
 	}
@@ -130,8 +130,8 @@ func (r *Reporter) HasErrors() bool {
 		return false
 	}
 	counts := r.processor.Logger().GetCounts()
-	return counts[fileevent.ErrorUploadFailed]+
-		counts[fileevent.ErrorServerError]+
-		counts[fileevent.ErrorFileAccess]+
-		counts[fileevent.ErrorIncomplete] > 0
+	return counts[journal.ErrorUploadFailed]+
+		counts[journal.ErrorServerError]+
+		counts[journal.ErrorFileAccess]+
+		counts[journal.ErrorIncomplete] > 0
 }

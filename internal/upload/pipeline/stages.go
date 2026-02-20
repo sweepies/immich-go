@@ -9,9 +9,8 @@ import (
 
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/assets/cache"
-	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/filters"
-	"github.com/sweepies/immich-go/internal/fshelper"
 	"github.com/sweepies/immich-go/internal/groups"
 	iimmich "github.com/sweepies/immich-go/internal/immich"
 	"github.com/sweepies/immich-go/internal/worker"
@@ -239,7 +238,7 @@ func (s *UploadStage) handleGroup(ctx context.Context, pctx *Context, g *assets.
 	// discard rejected assets
 	for _, a := range g.Removed {
 		a.Asset.Close()
-		pctx.Processor.RecordAssetDiscarded(ctx, a.Asset.File, int64(a.Asset.FileSize), fileevent.DiscardedNotSelected, a.Reason)
+		pctx.Processor.RecordAssetDiscarded(ctx, a.Asset.File, int64(a.Asset.FileSize), journal.DiscardedNotSelected, a.Reason)
 	}
 
 	// Upload assets from the group
@@ -252,7 +251,7 @@ func (s *UploadStage) handleGroup(ctx context.Context, pctx *Context, g *assets.
 	if len(g.Assets) > 1 && g.Grouping != assets.GroupByNone {
 		ids := []iimmich.AssetID{iimmich.AssetID(g.Assets[g.CoverIndex].ID)}
 		for i, a := range g.Assets {
-			pctx.Processor.RecordNonAsset(ctx, g.Assets[i].File, 0, fileevent.ProcessedStacked)
+			pctx.Processor.RecordNonAsset(ctx, g.Assets[i].File, 0, journal.ProcessedStacked)
 			if i != g.CoverIndex && a.ID != "" {
 				ids = append(ids, iimmich.AssetID(a.ID))
 			}
@@ -294,25 +293,25 @@ func (s *UploadStage) handleAsset(ctx context.Context, pctx *Context, a *assets.
 			return err
 		}
 		s.processUploadedAsset(ctx, pctx, a, serverStatus)
-		pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), fileevent.ProcessedUploadUpgraded)
+		pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedUploadUpgraded)
 		return nil
 
 	case AlreadyProcessed:
-		pctx.Processor.RecordNonAsset(ctx, a.File, int64(a.FileSize), fileevent.DiscardedLocalDuplicate)
-		pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), fileevent.ProcessedMetadataUpdated)
+		pctx.Processor.RecordNonAsset(ctx, a.File, int64(a.FileSize), journal.DiscardedLocalDuplicate)
+		pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedMetadataUpdated)
 		s.manageAssetAlbums(ctx, pctx, a.File, a.ID, a.Albums)
 		return nil
 
 	case SameOnServer:
 		a.ID = advice.ServerAsset.ID
 		a.Albums = append(a.Albums, advice.ServerAsset.Albums...)
-		pctx.Processor.RecordNonAsset(ctx, a.File, int64(a.FileSize), fileevent.DiscardedServerDuplicate)
-		pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), fileevent.ProcessedMetadataUpdated)
+		pctx.Processor.RecordNonAsset(ctx, a.File, int64(a.FileSize), journal.DiscardedServerDuplicate)
+		pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedMetadataUpdated)
 		s.manageAssetAlbums(ctx, pctx, a.File, a.ID, a.Albums)
 
 	case BetterOnServer:
 		a.ID = advice.ServerAsset.ID
-		pctx.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), fileevent.ProcessedMetadataUpdated, advice.Message)
+		pctx.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.ProcessedMetadataUpdated, advice.Message)
 		s.manageAssetAlbums(ctx, pctx, a.File, a.ID, a.Albums)
 
 	case ForceUpload:
@@ -347,7 +346,7 @@ func (s *UploadStage) uploadAsset(ctx context.Context, pctx *Context, a *assets.
 
 	ar, err := pctx.Server.AssetUpload(ctx, a)
 	if err != nil {
-		pctx.Processor.RecordAssetError(ctx, a.File, int64(a.FileSize), fileevent.ErrorServerError, err)
+		pctx.Processor.RecordAssetError(ctx, a.File, int64(a.FileSize), journal.ErrorServerError, err)
 		return "", err
 	}
 	if ar.Status == iimmich.UploadDuplicate {
@@ -357,13 +356,13 @@ func (s *UploadStage) uploadAsset(ctx context.Context, pctx *Context, a *assets.
 			originalName = original.OriginalFileName
 		}
 		if a.ID == "" {
-			pctx.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), fileevent.DiscardedLocalDuplicate,
+			pctx.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedLocalDuplicate,
 				fmt.Sprintf("already present in input as %s", originalName))
 		} else {
-			pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), fileevent.DiscardedServerDuplicate)
+			pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.DiscardedServerDuplicate)
 		}
 	} else {
-		pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), fileevent.ProcessedUploadSuccess)
+		pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedUploadSuccess)
 	}
 	a.ID = string(ar.ID)
 
@@ -377,10 +376,10 @@ func (s *UploadStage) uploadAsset(ctx context.Context, pctx *Context, a *assets.
 			DateTimeOriginal: a.CaptureDate,
 		})
 		if err != nil {
-			pctx.Processor.RecordAssetError(ctx, a.File, int64(a.FileSize), fileevent.ErrorServerError, err)
+			pctx.Processor.RecordAssetError(ctx, a.File, int64(a.FileSize), journal.ErrorServerError, err)
 			return "", err
 		}
-		pctx.Processor.Logger().Record(ctx, fileevent.ProcessedMetadataUpdated, a.File)
+		pctx.Processor.Logger().Record(ctx, journal.ProcessedMetadataUpdated, a.File)
 	}
 	pctx.Index.AddLocalAsset(a)
 	return ar.Status, nil
@@ -389,31 +388,31 @@ func (s *UploadStage) uploadAsset(ctx context.Context, pctx *Context, a *assets.
 func (s *UploadStage) replaceAsset(ctx context.Context, pctx *Context, newAsset, oldAsset *assets.Asset) (string, error) {
 	ar, err := pctx.Server.AssetUpload(ctx, newAsset)
 	if err != nil {
-		pctx.Processor.RecordAssetError(ctx, newAsset.File, int64(newAsset.FileSize), fileevent.ErrorServerError, err)
+		pctx.Processor.RecordAssetError(ctx, newAsset.File, int64(newAsset.FileSize), journal.ErrorServerError, err)
 		return "", err
 	}
 	newAsset.ID = string(ar.ID)
 	if ar.Status == iimmich.UploadDuplicate {
-		pctx.Processor.RecordAssetProcessed(ctx, newAsset.File, int64(newAsset.FileSize), fileevent.DiscardedServerDuplicate)
+		pctx.Processor.RecordAssetProcessed(ctx, newAsset.File, int64(newAsset.FileSize), journal.DiscardedServerDuplicate)
 		return iimmich.UploadDuplicate, nil
 	}
 
 	err = pctx.Server.CopyAsset(ctx, iimmich.AssetID(oldAsset.ID), ar.ID)
 	if err != nil {
-		pctx.Processor.RecordAssetError(ctx, newAsset.File, int64(newAsset.FileSize), fileevent.ErrorServerError, err)
+		pctx.Processor.RecordAssetError(ctx, newAsset.File, int64(newAsset.FileSize), journal.ErrorServerError, err)
 		return "", err
 	}
 
 	err = pctx.Server.DeleteAssets(ctx, []iimmich.AssetID{iimmich.AssetID(oldAsset.ID)}, true)
 	if err != nil {
-		pctx.Processor.RecordAssetError(ctx, newAsset.File, int64(newAsset.FileSize), fileevent.ErrorServerError, err)
+		pctx.Processor.RecordAssetError(ctx, newAsset.File, int64(newAsset.FileSize), journal.ErrorServerError, err)
 		return "", err
 	}
 	pctx.Index.ReplaceAsset(newAsset, oldAsset)
 	return "", nil
 }
 
-func (s *UploadStage) manageAssetAlbums(ctx context.Context, pctx *Context, f fshelper.FSAndName, ID string, albums []assets.Album) {
+func (s *UploadStage) manageAssetAlbums(ctx context.Context, pctx *Context, f journal.Filename, ID string, albums []assets.Album) {
 	if len(albums) == 0 {
 		return
 	}
@@ -421,7 +420,7 @@ func (s *UploadStage) manageAssetAlbums(ctx context.Context, pctx *Context, f fs
 	for _, album := range albums {
 		al := assets.NewAlbum("", album.Title, album.Description)
 		if s.AlbumsCache.AddIDToCollection(al.Title, album, ID) {
-			pctx.Processor.Logger().Record(ctx, fileevent.ProcessedAlbumAdded, f, "album", al.Title)
+			pctx.Processor.Logger().Record(ctx, journal.ProcessedAlbumAdded, f, "album", al.Title)
 		}
 	}
 }
@@ -433,7 +432,7 @@ func (s *UploadStage) manageAssetTags(ctx context.Context, pctx *Context, a *ass
 
 	for _, t := range a.Tags {
 		if s.TagsCache.AddIDToCollection(t.Name, t, a.ID) {
-			pctx.Processor.Logger().Record(ctx, fileevent.ProcessedTagged, a.File, "tag", t.Value)
+			pctx.Processor.Logger().Record(ctx, journal.ProcessedTagged, a.File, "tag", t.Value)
 		}
 	}
 }
