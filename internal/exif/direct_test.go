@@ -152,6 +152,20 @@ func Test_parseExifTime(t *testing.T) {
 			want:     time.Date(2023, 10, 6, 8, 30, 0, int(123*time.Millisecond), time.Local),
 			wantErr:  false,
 		},
+		{
+			name:     "dash in date portion does not corrupt timezone offset",
+			date:     "2023-10-06 08:30:00-05:00",
+			location: time.Local,
+			want:     time.Date(2023, 10, 6, 8, 30, 0, 0, time.Local),
+			wantErr:  false,
+		},
+		{
+			name:     "slash in date portion does not corrupt timezone offset",
+			date:     "2023/10/06 08:30:00-05:00",
+			location: time.Local,
+			want:     time.Date(2023, 10, 6, 8, 30, 0, 0, time.Local),
+			wantErr:  false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
