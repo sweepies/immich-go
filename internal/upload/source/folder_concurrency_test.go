@@ -20,6 +20,7 @@ import (
 	"github.com/sweepies/immich-go/internal/fileevent"
 	"github.com/sweepies/immich-go/internal/fileprocessor"
 	"github.com/sweepies/immich-go/internal/filetypes"
+	"github.com/sweepies/immich-go/internal/namematcher"
 )
 
 func TestFolderSourceBrowseCancellationAndShutdown(t *testing.T) {
@@ -177,7 +178,8 @@ func newTestFolderSource(root string, recursive bool, workers int) *FolderSource
 			ConcurrentTasks: workers,
 		},
 		config: &adapters.FolderConfig{
-			Recursive: recursive,
+			BannedFiles: namematcher.MustList(),
+			Recursive:   recursive,
 		},
 		fsyss: []fs.FS{os.DirFS(root)},
 	}

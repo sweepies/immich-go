@@ -1,0 +1,3 @@
+kind: Changed
+body: 'perf: optimize iCloud takeout browsing by avoiding redundant double scan'
+time: 2026-02-19T23:28:00Z

@@ -51,6 +51,16 @@ type FolderSource struct {
 	picasaAlbums            *gen.SyncMap[string, picasaAlbum]
 	icloudMetas             *gen.SyncMap[string, icloudMeta]
 	icloudMetaPass          bool
+	icloudDiscoveredAssets  *gen.SyncMap[string, *icloudDirDiscovery]
+}
+
+// icloudDirDiscovery holds information collected during the first pass of iCloud takeout.
+type icloudDirDiscovery struct {
+	fsys     fs.FS
+	fsName   string
+	dir      string
+	dirFiles map[string]string
+	assets   []*assets.Asset
 }
 
 // picasaAlbum holds parsed Picasa album information.
@@ -80,15 +90,44 @@ func (s *FolderSource) Browse(ctx context.Context) <-chan *assets.Group {
 			}
 			s.wg.Wait()
 			s.icloudMetaPass = false
-		}
-
-		for _, fsys := range s.fsyss {
-			s.concurrentParseDir(ctx, fsys, ".", gOut)
+			s.processICloudDiscoveredAssets(ctx, gOut)
+		} else {
+			for _, fsys := range s.fsyss {
+				s.concurrentParseDir(ctx, fsys, ".", gOut)
+			}
 		}
 		s.wg.Wait()
 		s.pool.Stop()
 	}()
 	return gOut
+}
+
+func (s *FolderSource) processICloudDiscoveredAssets(ctx context.Context, gOut chan *assets.Group) {
+	var keys []string
+	s.icloudDiscoveredAssets.Range(func(key string, _ *icloudDirDiscovery) bool {
+		keys = append(keys, key)
+		return true
+	})
+
+	for _, key := range keys {
+		d, ok := s.icloudDiscoveredAssets.Load(key)
+		if !ok {
+			continue
+		}
+		s.icloudDiscoveredAssets.Delete(key)
+
+		s.wg.Add(1)
+		submitted := s.pool.Submit(func() {
+			defer s.wg.Done()
+			err := s.processAssets(ctx, d.fsys, d.fsName, d.dir, d.dirFiles, d.assets, gOut)
+			if err != nil {
+				s.deps.Logger.Error(err.Error())
+			}
+		})
+		if !submitted {
+			s.wg.Done()
+		}
+	}
 }
 
 // Close implements adapters.Source.
@@ -115,6 +154,7 @@ func (s *FolderSource) initialize() {
 	}
 	if s.config.ICloudTakeout {
 		s.icloudMetas = gen.NewSyncMap[string, icloudMeta]()
+		s.icloudDiscoveredAssets = gen.NewSyncMap[string, *icloudDirDiscovery]()
 		s.icloudMetaPass = true
 	}
 
@@ -209,10 +249,6 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 			}
 		}
 
-		if s.icloudMetaPass {
-			continue
-		}
-
 		if s.config.ICloudTakeout && !s.icloudMetaPass && ext == icloudMetadataExt {
 			continue
 		}
@@ -282,7 +318,7 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 			a, err := s.assetFromFile(ctx, fsys, name)
 			if err != nil {
 				s.deps.Processor.RecordAssetError(ctx, fshelper.FSName(fsys, name), 0, fileevent.ErrorFileAccess, err)
-				return err
+				continue
 			}
 			if a != nil {
 				code := fileevent.DiscoveredImage
@@ -310,6 +346,23 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 		}
 	}
 
+	if s.icloudMetaPass {
+		if len(as) > 0 {
+			s.icloudDiscoveredAssets.Store(fmt.Sprintf("%p:%s", fsys, dir), &icloudDirDiscovery{
+				fsys:     fsys,
+				fsName:   fsName,
+				dir:      dir,
+				dirFiles: dirFiles,
+				assets:   as,
+			})
+		}
+		return nil
+	}
+
+	return s.processAssets(ctx, fsys, fsName, dir, dirFiles, as, gOut)
+}
+
+func (s *FolderSource) processAssets(ctx context.Context, fsys fs.FS, fsName, dir string, dirFiles map[string]string, as []*assets.Asset, gOut chan *assets.Group) error {
 	// Process assets through grouper pipeline
 	in := make(chan *assets.Asset)
 	go func() {

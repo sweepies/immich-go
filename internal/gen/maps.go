@@ -66,3 +66,13 @@ func (m *SyncMap[K, V]) Keys() []K {
 	defer m.mu.RUnlock()
 	return slices.AppendSeq(make([]K, 0, len(m.m)), maps.Keys(m.m))
 }
+
+func (m *SyncMap[K, V]) Range(f func(K, V) bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for k, v := range m.m {
+		if !f(k, v) {
+			break
+		}
+	}
+}
