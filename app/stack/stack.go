@@ -3,8 +3,10 @@ package stack
 import (
 	"context"
 	"sort"
+	"sync"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/sweepies/immich-go/adapters/shared"
 	"github.com/sweepies/immich-go/app"
 	"github.com/sweepies/immich-go/immich"
@@ -18,7 +20,6 @@ import (
 	"github.com/sweepies/immich-go/internal/groups/burst"
 	"github.com/sweepies/immich-go/internal/groups/epsonfastfoto"
 	"github.com/sweepies/immich-go/internal/groups/series"
-	"github.com/spf13/cobra"
 )
 
 // StackCmd holds the state for stack command execution.
@@ -36,6 +37,7 @@ type StackCmd struct {
 	client         app.Client
 	groupers       []groups.Grouper // groups are used to group assets
 	filters        []filters.Filter // filters are used to filter assets in groups
+	mu             sync.Mutex       // protects assets during concurrent filter calls
 
 	// Configuration (built from CLI flags)
 	config *clistack.Config
@@ -119,7 +121,9 @@ func NewStackCommandFromCLI(ctx context.Context, a *app.Application) *cobra.Comm
 					Tags:        assetData.Tags,
 				}
 
+				o.mu.Lock()
 				o.assets = append(o.assets, assetData)
+				o.mu.Unlock()
 				return nil
 			})
 		if err != nil {
