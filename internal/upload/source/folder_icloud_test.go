@@ -145,3 +145,47 @@ func collectAssets(groups <-chan *assets.Group) []*assets.Asset {
 	}
 	return assetsOut
 }
+
+func TestFolderSourceICloudTakeoutAssetErrorDoesNotAbortMetadataCollection(t *testing.T) {
+	root := t.TempDir()
+	albumsDir := filepath.Join(root, "Albums")
+	if err := os.MkdirAll(albumsDir, 0o755); err != nil {
+		t.Fatalf("creating albums directory: %v", err)
+	}
+
+	// Create a valid asset
+	assetName := "IMG_0001.JPG"
+	if err := os.WriteFile(filepath.Join(root, assetName), []byte("x"), 0o644); err != nil {
+		t.Fatalf("creating test asset: %v", err)
+	}
+
+	// Create an album metadata csv in the subdirectory
+	albumCSV := "imgName\n" + assetName + "\n"
+	if err := os.WriteFile(filepath.Join(albumsDir, "Trip.csv"), []byte(albumCSV), 0o644); err != nil {
+		t.Fatalf("creating album metadata csv: %v", err)
+	}
+
+	// Create a broken symlink which will cause assetFromFile to fail
+	if err := os.Symlink("nonexistent", filepath.Join(root, "broken.jpg")); err != nil {
+		t.Logf("creating broken symlink: %v (skipping test if symlinks not supported)", err)
+		t.Skip()
+	}
+
+	src := newTestFolderSource(root, true, 1)
+	t.Cleanup(func() {
+		_ = src.Close()
+	})
+	src.config.ICloudTakeout = true
+
+	assetsOut := collectAssets(src.Browse(context.Background()))
+	if len(assetsOut) != 1 {
+		t.Fatalf("expected 1 asset, got %d", len(assetsOut))
+	}
+
+	if len(assetsOut[0].Albums) != 1 {
+		t.Fatalf("expected 1 album, got %d", len(assetsOut[0].Albums))
+	}
+	if assetsOut[0].Albums[0].Title != "Trip" {
+		t.Fatalf("expected album title Trip, got %q", assetsOut[0].Albums[0].Title)
+	}
+}

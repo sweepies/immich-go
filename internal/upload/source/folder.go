@@ -309,7 +309,7 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 			a, err := s.assetFromFile(ctx, fsys, name)
 			if err != nil {
 				s.deps.Processor.RecordAssetError(ctx, fshelper.FSName(fsys, name), 0, fileevent.ErrorFileAccess, err)
-				return err
+				continue
 			}
 			if a != nil {
 				code := fileevent.DiscoveredImage
