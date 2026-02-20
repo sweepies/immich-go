@@ -144,7 +144,9 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 				album := assets.NewAlbum(string(a.ID), a.AlbumName, a.Description)
 				select {
 				case <-ctx.Done():
-					break discoveryLoop
+				break discoveryLoop
+				// fall through to wg.Wait() / close(updates) below
+
 				case updates <- albumInfo{album: album, ids: a.AssetIds}:
 				}
 				continue
