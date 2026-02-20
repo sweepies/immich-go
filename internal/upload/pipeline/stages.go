@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/assets/cache"
@@ -31,21 +32,21 @@ func (s *DiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 		return fmt.Errorf("failed to get asset statistics: %w", err)
 	}
 	totalOnImmich := statistics.Total
-	received := 0
+	var received atomic.Int32
 
 	userID := pctx.Server.UserID()
 
 	err = pctx.Server.GetAllAssets(ctx, func(a *iimmich.Asset) error {
+		r := received.Add(1)
 		if s.ProgressUpdate != nil {
 			defer func() {
-				s.ProgressUpdate(received, totalOnImmich)
+				s.ProgressUpdate(int(r), totalOnImmich)
 			}()
 		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			received++
 			if a.OwnerID != userID {
 				pctx.Logger.Debug("Skipping asset with different owner",
 					"assetOwnerID", a.OwnerID, "clientUserID", userID,

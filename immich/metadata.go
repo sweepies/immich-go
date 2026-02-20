@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/sweepies/immich-go/internal/assets"
@@ -295,14 +296,40 @@ type SearchMetadataQuery struct {
 
 func (ic *ImmichClient) callSearchMetadata(ctx context.Context, query *SearchMetadataQuery, filter func(*Asset) error) error {
 	query.Page = 1
-	query.Size = 1000
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
+	if query.Size == 0 {
+		query.Size = 1000
+	}
+
+	resp := searchMetadataResponse{}
+	err := ic.newServerCall(ctx, EndPointGetAllAssets).do(postRequest("/search/metadata", "application/json", setJSONBody(&query), setAcceptJSON()), responseJSON(&resp))
+	if err != nil {
+		return err
+	}
+
+	for _, a := range resp.Assets.Items {
+		err = filter(a)
+		if err != nil {
+			return err
+		}
+	}
+
+	if resp.Assets.NextPage == 0 || resp.Assets.Total <= query.Size {
+		return nil
+	}
+
+	totalPages := (resp.Assets.Total + query.Size - 1) / query.Size
+
+	wg, ctx := errgroup.WithContext(ctx)
+	wg.SetLimit(4)
+
+	for p := 2; p <= totalPages; p++ {
+		page := p
+		wg.Go(func() error {
+			q := *query
+			q.Page = page
+
 			resp := searchMetadataResponse{}
-			err := ic.newServerCall(ctx, EndPointGetAllAssets).do(postRequest("/search/metadata", "application/json", setJSONBody(&query), setAcceptJSON()), responseJSON(&resp))
+			err := ic.newServerCall(ctx, EndPointGetAllAssets).do(postRequest("/search/metadata", "application/json", setJSONBody(&q), setAcceptJSON()), responseJSON(&resp))
 			if err != nil {
 				return err
 			}
@@ -313,13 +340,11 @@ func (ic *ImmichClient) callSearchMetadata(ctx context.Context, query *SearchMet
 					return err
 				}
 			}
-
-			if resp.Assets.NextPage == 0 {
-				return nil
-			}
-			query.Page = resp.Assets.NextPage
-		}
+			return nil
+		})
 	}
+
+	return wg.Wait()
 }
 
 func (ic *ImmichClient) GetAllAssetsWithFilter(ctx context.Context, query *SearchMetadataQuery, filter func(*Asset) error) error {
@@ -336,9 +361,12 @@ func (ic *ImmichClient) GetAssetsByHash(ctx context.Context, hash string) ([]*As
 	query := SearchMetadataQuery{Page: 1, WithExif: true, WithDeleted: true, Checksum: hash}
 	query.Page = 1
 	list := []*Asset{}
+	var mu sync.Mutex
 	filter := func(asset *Asset) error {
 		if asset.Checksum == hash {
+			mu.Lock()
 			list = append(list, asset)
+			mu.Unlock()
 		}
 		return nil
 	}
@@ -355,9 +383,12 @@ func (ic *ImmichClient) GetAssetsByImageName(ctx context.Context, name string) (
 	query := SearchMetadataQuery{Page: 1, WithExif: true, WithDeleted: true, OriginalFileName: name}
 	query.Page = 1
 	list := []*Asset{}
+	var mu sync.Mutex
 	filter := func(asset *Asset) error {
 		if asset.OriginalFileName == name {
+			mu.Lock()
 			list = append(list, asset)
+			mu.Unlock()
 		}
 		return nil
 	}
