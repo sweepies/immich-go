@@ -12,9 +12,10 @@ import (
 
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/assettracker"
-	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/fileprocessor"
+	"github.com/sweepies/immich-go/internal/fshelper"
 	iimmich "github.com/sweepies/immich-go/internal/immich"
+	"github.com/sweepies/immich-go/internal/journal"
 )
 
 // TestRunnerIntegration provides end-to-end tests for the upload pipeline runner.
@@ -419,7 +420,7 @@ func createTestAsset(name string, size int, captureDate time.Time) *assets.Asset
 		},
 	}
 	return &assets.Asset{
-		File:             journal.NewFilename(fsys, name),
+		File:             fshelper.NewFilename(fsys, name),
 		OriginalFileName: name,
 		FileSize:         size,
 		CaptureDate:      captureDate,
@@ -438,7 +439,7 @@ func createTestAssetWithChecksum(name string, size int, captureDate time.Time, c
 		},
 	}
 	return &assets.Asset{
-		File:             journal.NewFilename(fsys, name),
+		File:             fshelper.NewFilename(fsys, name),
 		OriginalFileName: name,
 		FileSize:         size,
 		CaptureDate:      captureDate,

@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/sweepies/immich-go/internal/fshelper"
 )
 
 func TestRecorderSizeTracking(t *testing.T) {
@@ -15,10 +17,10 @@ func TestRecorderSizeTracking(t *testing.T) {
 	ctx := context.Background()
 
 	// Record events with sizes
-	recorder.RecordWithSize(ctx, DiscoveredImage, Filename{}, 1024, "test", "image1")
-	recorder.RecordWithSize(ctx, DiscoveredImage, Filename{}, 2048, "test", "image2")
-	recorder.RecordWithSize(ctx, DiscoveredVideo, Filename{}, 5120, "test", "video1")
-	recorder.RecordWithSize(ctx, DiscoveredSidecar, Filename{}, 512, "test", "sidecar1")
+	recorder.RecordWithSize(ctx, DiscoveredImage, fshelper.Filename{}, 1024, "test", "image1")
+	recorder.RecordWithSize(ctx, DiscoveredImage, fshelper.Filename{}, 2048, "test", "image2")
+	recorder.RecordWithSize(ctx, DiscoveredVideo, fshelper.Filename{}, 5120, "test", "video1")
+	recorder.RecordWithSize(ctx, DiscoveredSidecar, fshelper.Filename{}, 512, "test", "sidecar1")
 
 	// Check counts
 	eventCounts := recorder.GetEventCounts()
@@ -52,8 +54,8 @@ func TestRecordBackwardCompatibility(t *testing.T) {
 	ctx := context.Background()
 
 	// Old Record method should still work (size = 0)
-	recorder.Record(ctx, DiscoveredImage, Filename{}, "test", "image1")
-	recorder.Record(ctx, DiscoveredImage, Filename{}, "test", "image2")
+	recorder.Record(ctx, DiscoveredImage, fshelper.Filename{}, "test", "image1")
+	recorder.Record(ctx, DiscoveredImage, fshelper.Filename{}, "test", "image2")
 
 	// Check counts
 	eventCounts := recorder.GetEventCounts()
@@ -75,13 +77,13 @@ func TestGenerateEventReport(t *testing.T) {
 	ctx := context.Background()
 
 	// Record various events
-	recorder.RecordWithSize(ctx, DiscoveredImage, Filename{}, 1024000, "test", "image")
-	recorder.RecordWithSize(ctx, DiscoveredVideo, Filename{}, 5120000, "test", "video")
-	recorder.RecordWithSize(ctx, DiscoveredSidecar, Filename{}, 512, "test", "sidecar")
-	recorder.RecordWithSize(ctx, DiscoveredBanned, Filename{}, 100, "test", "banned")
-	recorder.Record(ctx, ProcessedUploadSuccess, Filename{})
-	recorder.Record(ctx, DiscardedServerDuplicate, Filename{})
-	recorder.Record(ctx, ErrorUploadFailed, Filename{})
+	recorder.RecordWithSize(ctx, DiscoveredImage, fshelper.Filename{}, 1024000, "test", "image")
+	recorder.RecordWithSize(ctx, DiscoveredVideo, fshelper.Filename{}, 5120000, "test", "video")
+	recorder.RecordWithSize(ctx, DiscoveredSidecar, fshelper.Filename{}, 512, "test", "sidecar")
+	recorder.RecordWithSize(ctx, DiscoveredBanned, fshelper.Filename{}, 100, "test", "banned")
+	recorder.Record(ctx, ProcessedUploadSuccess, fshelper.Filename{})
+	recorder.Record(ctx, DiscardedServerDuplicate, fshelper.Filename{})
+	recorder.Record(ctx, ErrorUploadFailed, fshelper.Filename{})
 
 	// Generate report
 	report := recorder.GenerateEventReport()
@@ -146,11 +148,11 @@ func TestGetEventCountsMap(t *testing.T) {
 	ctx := context.Background()
 
 	// Record some events
-	recorder.Record(ctx, DiscoveredImage, Filename{})
-	recorder.Record(ctx, DiscoveredImage, Filename{})
-	recorder.Record(ctx, DiscoveredImage, Filename{})
-	recorder.Record(ctx, DiscoveredVideo, Filename{})
-	recorder.Record(ctx, ProcessedUploadSuccess, Filename{})
+	recorder.Record(ctx, DiscoveredImage, fshelper.Filename{})
+	recorder.Record(ctx, DiscoveredImage, fshelper.Filename{})
+	recorder.Record(ctx, DiscoveredImage, fshelper.Filename{})
+	recorder.Record(ctx, DiscoveredVideo, fshelper.Filename{})
+	recorder.Record(ctx, ProcessedUploadSuccess, fshelper.Filename{})
 
 	// Get map
 	eventCounts := recorder.GetEventCounts()

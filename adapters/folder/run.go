@@ -13,9 +13,10 @@ import (
 	"github.com/sweepies/immich-go/internal/exif"
 	"github.com/sweepies/immich-go/internal/exif/sidecars/jsonsidecar"
 	"github.com/sweepies/immich-go/internal/exif/sidecars/xmpsidecar"
-	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/filetypes"
+	"github.com/sweepies/immich-go/internal/fshelper"
 	"github.com/sweepies/immich-go/internal/groups"
+	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/namematcher"
 )
 
@@ -94,18 +95,18 @@ func (ifc *ImportFolderCmd) parseDir(ctx context.Context, fsys fs.FS, dir string
 			if strings.HasSuffix(strings.ToLower(dir), "albums") {
 				a, err := UseICloudAlbum(ifc.icloudMetas, fsys, name)
 				if err != nil {
-					ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.ErrorFileAccess, "error", err.Error())
+					ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, name), 0, journal.ErrorFileAccess, "error", err.Error())
 				} else {
-					ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredMetadata, "album", a)
+					ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, name), 0, journal.DiscoveredMetadata, "album", a)
 				}
 				continue
 			}
 			if ifc.ICloudMemoriesAsAlbums && strings.HasSuffix(strings.ToLower(dir), "memories") {
 				a, err := UseICloudMemory(ifc.icloudMetas, fsys, name)
 				if err != nil {
-					ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.ErrorFileAccess, "error", err.Error())
+					ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, name), 0, journal.ErrorFileAccess, "error", err.Error())
 				} else {
-					ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredMetadata, "album", a)
+					ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, name), 0, journal.DiscoveredMetadata, "album", a)
 				}
 				continue
 			}
@@ -113,9 +114,9 @@ func (ifc *ImportFolderCmd) parseDir(ctx context.Context, fsys fs.FS, dir string
 			if strings.HasPrefix(strings.ToLower(base), "photo details") {
 				err := UseICloudPhotoDetails(ifc.icloudMetas, fsys, name)
 				if err != nil {
-					ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.ErrorFileAccess, "error", err.Error())
+					ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, name), 0, journal.ErrorFileAccess, "error", err.Error())
 				} else {
-					ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredMetadata)
+					ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, name), 0, journal.DiscoveredMetadata)
 				}
 				continue
 			}
@@ -132,22 +133,22 @@ func (ifc *ImportFolderCmd) parseDir(ctx context.Context, fsys fs.FS, dir string
 		}
 
 		if matchesBanned(ifc.BannedFiles, name, entry.IsDir()) {
-			ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, entry.Name()), 0, journal.DiscoveredBanned, "reason", "banned file")
+			ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, entry.Name()), 0, journal.DiscoveredBanned, "reason", "banned file")
 			continue
 		}
 
 		if ifc.supportedMedia.IsUseLess(name) {
-			ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, entry.Name()), 0, journal.DiscoveredUnknown, "reason", "useless file")
+			ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, entry.Name()), 0, journal.DiscoveredUnknown, "reason", "useless file")
 			continue
 		}
 
 		if ifc.PicasaAlbum && (strings.ToLower(base) == ".picasa.ini" || strings.ToLower(base) == "picasa.ini") {
 			a, err := ReadPicasaIni(fsys, name)
 			if err != nil {
-				ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.ErrorFileAccess, "error", err.Error())
+				ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, name), 0, journal.ErrorFileAccess, "error", err.Error())
 			} else {
 				ifc.picasaAlbums.Store(dir, a)
-				ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredMetadata, "album", a.Name)
+				ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, name), 0, journal.DiscoveredMetadata, "album", a.Name)
 			}
 			continue
 		}
@@ -155,29 +156,29 @@ func (ifc *ImportFolderCmd) parseDir(ctx context.Context, fsys fs.FS, dir string
 		mediaType := ifc.supportedMedia.TypeFromExt(ext)
 
 		if mediaType == filetypes.TypeUnknown {
-			ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredUnsupported, "reason", "unsupported file type")
+			ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, name), 0, journal.DiscoveredUnsupported, "reason", "unsupported file type")
 			continue
 		}
 
 		switch mediaType {
 		case filetypes.TypeUseless:
-			ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredUnknown)
+			ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, name), 0, journal.DiscoveredUnknown)
 			continue
 		case filetypes.TypeImage, filetypes.TypeVideo:
 			// Will be recorded as discovered asset after assetFromFile creates it
 		case filetypes.TypeSidecar:
 			if ifc.IgnoreSideCarFiles {
-				ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredSidecar, "reason", "sidecar file ignored")
+				ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, name), 0, journal.DiscoveredSidecar, "reason", "sidecar file ignored")
 				continue
 			}
-			ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredSidecar)
+			ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, name), 0, journal.DiscoveredSidecar)
 			continue
 		}
 
 		if !ifc.InclusionFlags.IncludedExtensions.Include(ext) {
 			// Get file size for discarded asset
 			if info, err := fs.Stat(fsys, name); err == nil {
-				ifc.processor.RecordAssetDiscardedImmediately(ctx, journal.NewFilename(fsys, name), info.Size(), journal.DiscardedFiltered, "extension not included")
+				ifc.processor.RecordAssetDiscardedImmediately(ctx, fshelper.NewFilename(fsys, name), info.Size(), journal.DiscardedFiltered, "extension not included")
 			}
 			continue
 		}
@@ -185,7 +186,7 @@ func (ifc *ImportFolderCmd) parseDir(ctx context.Context, fsys fs.FS, dir string
 		if ifc.InclusionFlags.ExcludedExtensions.Exclude(ext) {
 			// Get file size for discarded asset
 			if info, err := fs.Stat(fsys, name); err == nil {
-				ifc.processor.RecordAssetDiscardedImmediately(ctx, journal.NewFilename(fsys, name), info.Size(), journal.DiscardedFiltered, "extension excluded")
+				ifc.processor.RecordAssetDiscardedImmediately(ctx, fshelper.NewFilename(fsys, name), info.Size(), journal.DiscardedFiltered, "extension excluded")
 			}
 			continue
 		}
@@ -197,7 +198,7 @@ func (ifc *ImportFolderCmd) parseDir(ctx context.Context, fsys fs.FS, dir string
 			// we have a file to process - it's an asset (image or video)
 			a, err := ifc.assetFromFile(ctx, fsys, name)
 			if err != nil {
-				ifc.processor.RecordAssetError(ctx, journal.NewFilename(fsys, name), 0, journal.ErrorFileAccess, err)
+				ifc.processor.RecordAssetError(ctx, fshelper.NewFilename(fsys, name), 0, journal.ErrorFileAccess, err)
 				return err
 			}
 			if a != nil {
@@ -218,7 +219,7 @@ func (ifc *ImportFolderCmd) parseDir(ctx context.Context, fsys fs.FS, dir string
 		name := path.Join(dir, base)
 		if entry.IsDir() {
 			if matchesBanned(ifc.BannedFiles, name, true) {
-				ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, name), 0, journal.DiscoveredBanned, "reason", "banned folder")
+				ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, name), 0, journal.DiscoveredBanned, "reason", "banned folder")
 				continue // Skip this folder, no error
 			}
 			if ifc.Recursive && entry.Name() != "." {
@@ -249,22 +250,22 @@ func (ifc *ImportFolderCmd) parseDir(ctx context.Context, fsys fs.FS, dir string
 			if err == nil && jsonName != "" {
 				buf, err := fs.ReadFile(fsys, jsonName)
 				if err != nil {
-					ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, jsonName), 0, journal.ErrorFileAccess, "error", err.Error())
+					ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, jsonName), 0, journal.ErrorFileAccess, "error", err.Error())
 				} else {
 					if bytes.Contains(buf, []byte("immich-go version")) {
 						md := &assets.Metadata{}
 						err = jsonsidecar.Read(bytes.NewReader(buf), md)
 						if err != nil {
-							ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, jsonName), 0, journal.ErrorFileAccess, "error", err.Error())
+							ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, jsonName), 0, journal.ErrorFileAccess, "error", err.Error())
 						} else {
-							ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, jsonName), 0, journal.DiscoveredSidecar)
-							md.File = journal.NewFilename(fsys, jsonName)
+							ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, jsonName), 0, journal.DiscoveredSidecar)
+							md.File = fshelper.NewFilename(fsys, jsonName)
 							a.FromApplication = a.UseMetadata(md) // Force the use of the metadata coming from immich export
 							a.OriginalFileName = md.FileName      // Force the name of the file to be the one from the JSON file
 						}
 					} else {
-						ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, jsonName), 0, journal.DiscoveredSidecar)
-						ifc.app.Log().Warn("JSON file detected but not from immich-go", "file", journal.NewFilename(fsys, jsonName))
+						ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, jsonName), 0, journal.DiscoveredSidecar)
+						ifc.app.Log().Warn("JSON file detected but not from immich-go", "file", fshelper.NewFilename(fsys, jsonName))
 					}
 				}
 			}
@@ -273,15 +274,15 @@ func (ifc *ImportFolderCmd) parseDir(ctx context.Context, fsys fs.FS, dir string
 			if err == nil && xmpName != "" {
 				buf, err := fs.ReadFile(fsys, xmpName)
 				if err != nil {
-					ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, xmpName), 0, journal.ErrorFileAccess, "error", err.Error())
+					ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, xmpName), 0, journal.ErrorFileAccess, "error", err.Error())
 				} else {
 					md := &assets.Metadata{}
 					err = xmpsidecar.ReadXMP(bytes.NewReader(buf), md)
 					if err != nil {
-						ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, xmpName), 0, journal.ErrorFileAccess, "error", err.Error())
+						ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, xmpName), 0, journal.ErrorFileAccess, "error", err.Error())
 					} else {
-						ifc.processor.RecordNonAsset(ctx, journal.NewFilename(fsys, xmpName), 0, journal.DiscoveredSidecar)
-						md.File = journal.NewFilename(fsys, xmpName)
+						ifc.processor.RecordNonAsset(ctx, fshelper.NewFilename(fsys, xmpName), 0, journal.DiscoveredSidecar)
+						md.File = fshelper.NewFilename(fsys, xmpName)
 						a.FromSideCar = a.UseMetadata(md)
 					}
 				}
@@ -456,7 +457,7 @@ func matchesBanned(list namematcher.List, name string, isDir bool) bool {
 
 func (ifc *ImportFolderCmd) assetFromFile(_ context.Context, fsys fs.FS, name string) (*assets.Asset, error) {
 	a := &assets.Asset{
-		File:             journal.NewFilename(fsys, name),
+		File:             fshelper.NewFilename(fsys, name),
 		OriginalFileName: filepath.Base(name),
 	}
 	i, err := fs.Stat(fsys, name)

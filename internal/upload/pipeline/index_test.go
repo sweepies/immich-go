@@ -1,24 +1,24 @@
 package pipeline
 
 import (
-	"github.com/sweepies/immich-go/internal/journal"
 	"testing"
 	"testing/fstest"
 	"time"
 
 	"github.com/sweepies/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/fshelper"
 	iimmich "github.com/sweepies/immich-go/internal/immich"
 )
 
 // mockFilename creates a mock Filename for testing
-func mockFilename(name string) journal.Filename {
+func mockFilename(name string) fshelper.Filename {
 	fsys := fstest.MapFS{
 		name: &fstest.MapFile{
 			Data:    []byte("test content"),
 			ModTime: time.Now(),
 		},
 	}
-	return journal.NewFilename(fsys, name)
+	return fshelper.NewFilename(fsys, name)
 }
 
 func TestNewIndex(t *testing.T) {

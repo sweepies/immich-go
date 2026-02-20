@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sweepies/immich-go/internal/fshelper"
 	"github.com/sweepies/immich-go/internal/journal"
 )
 
@@ -39,7 +40,7 @@ func TestNew(t *testing.T) {
 
 func TestDiscoverAsset(t *testing.T) {
 	tracker := New()
-	file := journal.NewFilename(mockFS{}, "test.jpg")
+	file := fshelper.NewFilename(mockFS{}, "test.jpg")
 
 	tracker.DiscoverAsset(file, 1024, journal.DiscoveredImage)
 
@@ -60,7 +61,7 @@ func TestDiscoverAsset(t *testing.T) {
 
 func TestDiscoverAndDiscard(t *testing.T) {
 	tracker := New()
-	file := journal.NewFilename(mockFS{}, "banned.jpg")
+	file := fshelper.NewFilename(mockFS{}, "banned.jpg")
 
 	tracker.DiscoverAndDiscard(file, 2048, journal.DiscardedBanned, "banned filename")
 
@@ -81,7 +82,7 @@ func TestDiscoverAndDiscard(t *testing.T) {
 
 func TestSetProcessed(t *testing.T) {
 	tracker := New()
-	file := journal.NewFilename(mockFS{}, "photo.jpg")
+	file := fshelper.NewFilename(mockFS{}, "photo.jpg")
 
 	// Discover asset
 	tracker.DiscoverAsset(file, 1024, journal.DiscoveredImage)
@@ -106,7 +107,7 @@ func TestSetProcessed(t *testing.T) {
 
 func TestSetDiscarded(t *testing.T) {
 	tracker := New()
-	file := journal.NewFilename(mockFS{}, "duplicate.jpg")
+	file := fshelper.NewFilename(mockFS{}, "duplicate.jpg")
 
 	// Discover asset
 	tracker.DiscoverAsset(file, 512, journal.DiscoveredImage)
@@ -128,7 +129,7 @@ func TestSetDiscarded(t *testing.T) {
 
 func TestSetError(t *testing.T) {
 	tracker := New()
-	file := journal.NewFilename(mockFS{}, "failed.jpg")
+	file := fshelper.NewFilename(mockFS{}, "failed.jpg")
 
 	// Discover asset
 	tracker.DiscoverAsset(file, 2048, journal.DiscoveredImage)
@@ -163,7 +164,7 @@ func TestMultipleAssets(t *testing.T) {
 	}
 
 	for _, f := range files {
-		file := journal.NewFilename(mockFS{}, f.name)
+		file := fshelper.NewFilename(mockFS{}, f.name)
 		tracker.DiscoverAsset(file, f.size, journal.DiscoveredImage)
 	}
 
@@ -176,14 +177,14 @@ func TestMultipleAssets(t *testing.T) {
 	}
 
 	// Process some
-	tracker.SetProcessed(journal.NewFilename(mockFS{}, "photo1.jpg"), journal.ProcessedUploadSuccess)
-	tracker.SetProcessed(journal.NewFilename(mockFS{}, "photo2.jpg"), journal.ProcessedUploadSuccess)
+	tracker.SetProcessed(fshelper.NewFilename(mockFS{}, "photo1.jpg"), journal.ProcessedUploadSuccess)
+	tracker.SetProcessed(fshelper.NewFilename(mockFS{}, "photo2.jpg"), journal.ProcessedUploadSuccess)
 
 	// Discard some
-	tracker.SetDiscarded(journal.NewFilename(mockFS{}, "photo3.jpg"), journal.DiscardedLocalDuplicate, "duplicate")
+	tracker.SetDiscarded(fshelper.NewFilename(mockFS{}, "photo3.jpg"), journal.DiscardedLocalDuplicate, "duplicate")
 
 	// Error some
-	tracker.SetError(journal.NewFilename(mockFS{}, "video1.mp4"), journal.ErrorUploadFailed, fs.ErrPermission)
+	tracker.SetError(fshelper.NewFilename(mockFS{}, "video1.mp4"), journal.ErrorUploadFailed, fs.ErrPermission)
 
 	counters = tracker.GetCounters()
 	if counters.Processed != 2 {
@@ -207,12 +208,12 @@ func TestGetPending(t *testing.T) {
 	tracker := New()
 
 	// Add some assets
-	tracker.DiscoverAsset(journal.NewFilename(mockFS{}, "pending1.jpg"), 1024, journal.DiscoveredImage)
-	tracker.DiscoverAsset(journal.NewFilename(mockFS{}, "pending2.jpg"), 2048, journal.DiscoveredImage)
-	tracker.DiscoverAsset(journal.NewFilename(mockFS{}, "processed.jpg"), 4096, journal.DiscoveredImage)
+	tracker.DiscoverAsset(fshelper.NewFilename(mockFS{}, "pending1.jpg"), 1024, journal.DiscoveredImage)
+	tracker.DiscoverAsset(fshelper.NewFilename(mockFS{}, "pending2.jpg"), 2048, journal.DiscoveredImage)
+	tracker.DiscoverAsset(fshelper.NewFilename(mockFS{}, "processed.jpg"), 4096, journal.DiscoveredImage)
 
 	// Process one
-	tracker.SetProcessed(journal.NewFilename(mockFS{}, "processed.jpg"), journal.ProcessedUploadSuccess)
+	tracker.SetProcessed(fshelper.NewFilename(mockFS{}, "processed.jpg"), journal.ProcessedUploadSuccess)
 
 	pending := tracker.GetPending()
 	if len(pending) != 2 {
@@ -229,7 +230,7 @@ func TestValidate(t *testing.T) {
 	}
 
 	// Add asset
-	tracker.DiscoverAsset(journal.NewFilename(mockFS{}, "test.jpg"), 1024, journal.DiscoveredImage)
+	tracker.DiscoverAsset(fshelper.NewFilename(mockFS{}, "test.jpg"), 1024, journal.DiscoveredImage)
 
 	// Should be invalid (pending asset)
 	if err := tracker.Validate(); err == nil {
@@ -237,7 +238,7 @@ func TestValidate(t *testing.T) {
 	}
 
 	// Process asset
-	tracker.SetProcessed(journal.NewFilename(mockFS{}, "test.jpg"), journal.ProcessedUploadSuccess)
+	tracker.SetProcessed(fshelper.NewFilename(mockFS{}, "test.jpg"), journal.ProcessedUploadSuccess)
 
 	// Should be valid again
 	if err := tracker.Validate(); err != nil {
@@ -249,7 +250,7 @@ func TestDebugMode(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	tracker := NewWithLogger(log, true)
 
-	file := journal.NewFilename(mockFS{}, "test.jpg")
+	file := fshelper.NewFilename(mockFS{}, "test.jpg")
 
 	// Discover asset
 	tracker.DiscoverAsset(file, 1024, journal.DiscoveredImage)
@@ -280,11 +281,11 @@ func TestGenerateReport(t *testing.T) {
 	tracker := New()
 
 	// Add some assets
-	tracker.DiscoverAsset(journal.NewFilename(mockFS{}, "photo1.jpg"), 1024, journal.DiscoveredImage)
-	tracker.DiscoverAsset(journal.NewFilename(mockFS{}, "photo2.jpg"), 2048, journal.DiscoveredImage)
+	tracker.DiscoverAsset(fshelper.NewFilename(mockFS{}, "photo1.jpg"), 1024, journal.DiscoveredImage)
+	tracker.DiscoverAsset(fshelper.NewFilename(mockFS{}, "photo2.jpg"), 2048, journal.DiscoveredImage)
 
-	tracker.SetProcessed(journal.NewFilename(mockFS{}, "photo1.jpg"), journal.ProcessedUploadSuccess)
-	tracker.SetDiscarded(journal.NewFilename(mockFS{}, "photo2.jpg"), journal.DiscardedLocalDuplicate, "duplicate")
+	tracker.SetProcessed(fshelper.NewFilename(mockFS{}, "photo1.jpg"), journal.ProcessedUploadSuccess)
+	tracker.SetDiscarded(fshelper.NewFilename(mockFS{}, "photo2.jpg"), journal.DiscardedLocalDuplicate, "duplicate")
 
 	report := tracker.GenerateReport()
 	if report == "" {
@@ -299,7 +300,7 @@ func TestGenerateReport(t *testing.T) {
 func TestGenerateDetailedReport(t *testing.T) {
 	tracker := New()
 
-	file := journal.NewFilename(mockFS{}, "photo.jpg")
+	file := fshelper.NewFilename(mockFS{}, "photo.jpg")
 	tracker.DiscoverAsset(file, 1024, journal.DiscoveredImage)
 	tracker.SetProcessed(file, journal.ProcessedUploadSuccess)
 
@@ -316,7 +317,7 @@ func TestGenerateDetailedReport(t *testing.T) {
 func TestStateTransitionErrors(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	tracker := NewWithLogger(log, false)
-	file := journal.NewFilename(mockFS{}, "test.jpg")
+	file := fshelper.NewFilename(mockFS{}, "test.jpg")
 
 	// Try to transition non-existent asset - should log error but not fail
 	tracker.SetProcessed(file, journal.ProcessedUploadSuccess)
@@ -338,7 +339,7 @@ func TestConcurrency(t *testing.T) {
 	// Concurrently add assets
 	for i := range 10 {
 		go func(n int) {
-			file := journal.NewFilename(mockFS{}, "photo"+string(rune(n))+".jpg")
+			file := fshelper.NewFilename(mockFS{}, "photo"+string(rune(n))+".jpg")
 			tracker.DiscoverAsset(file, 1024, journal.DiscoveredImage)
 			time.Sleep(time.Millisecond)
 			tracker.SetProcessed(file, journal.ProcessedUploadSuccess)
@@ -359,10 +360,10 @@ func TestConcurrency(t *testing.T) {
 
 func TestStatusMethods(t *testing.T) {
 	tracker := New()
-	file1 := journal.NewFilename(mockFS{}, "test1.jpg")
-	file2 := journal.NewFilename(mockFS{}, "test2.jpg")
-	file3 := journal.NewFilename(mockFS{}, "test3.jpg")
-	file4 := journal.NewFilename(mockFS{}, "test4.jpg")
+	file1 := fshelper.NewFilename(mockFS{}, "test1.jpg")
+	file2 := fshelper.NewFilename(mockFS{}, "test2.jpg")
+	file3 := fshelper.NewFilename(mockFS{}, "test3.jpg")
+	file4 := fshelper.NewFilename(mockFS{}, "test4.jpg")
 
 	// Discover assets
 	tracker.DiscoverAsset(file1, 1024, journal.DiscoveredImage) // pending: 1, size: 1024

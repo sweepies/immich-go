@@ -5,61 +5,12 @@ package journal
 import (
 	"context"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"strings"
 	"sync/atomic"
+
+	"github.com/sweepies/immich-go/internal/fshelper"
 )
-
-type Filename struct {
-	fsys fs.FS
-	name string
-}
-
-func NewFilename(fsys fs.FS, name string) Filename {
-	return Filename{fsys: fsys, name: name}
-}
-
-func (fn Filename) LogValue() slog.Value {
-	if fn.IsEmpty() {
-		return slog.Value{}
-	}
-	return slog.StringValue(fn.FullName())
-}
-
-func (fn Filename) FS() fs.FS {
-	return fn.fsys
-}
-
-func (fn Filename) Name() string {
-	return fn.name
-}
-
-func (fn Filename) FullName() string {
-	fsys := fn.fsys
-	if fsys, ok := fsys.(interface{ Name() string }); ok {
-		return fsys.Name() + ":" + fn.name
-	}
-	return fn.name
-}
-
-func (fn Filename) Open() (fs.File, error) {
-	if fn.fsys == nil {
-		return nil, fs.ErrNotExist
-	}
-	return fn.fsys.Open(fn.name)
-}
-
-func (fn Filename) Stat() (fs.FileInfo, error) {
-	if fn.fsys == nil {
-		return nil, fs.ErrNotExist
-	}
-	return fs.Stat(fn.fsys, fn.name)
-}
-
-func (fn Filename) IsEmpty() bool {
-	return fn.fsys == nil && fn.name == ""
-}
 
 /*
 	Collect all actions done on a given file
@@ -237,11 +188,11 @@ func (r *Recorder) Log() *slog.Logger {
 	return r.log
 }
 
-func (r *Recorder) Record(ctx context.Context, code Code, file Filename, args ...any) {
+func (r *Recorder) Record(ctx context.Context, code Code, file fshelper.Filename, args ...any) {
 	r.RecordWithSize(ctx, code, file, 0, args...)
 }
 
-func (r *Recorder) RecordWithSize(ctx context.Context, code Code, file Filename, fileSize int64, args ...any) {
+func (r *Recorder) RecordWithSize(ctx context.Context, code Code, file fshelper.Filename, fileSize int64, args ...any) {
 	atomic.AddInt64(&r.counts[code], 1)
 	if fileSize > 0 {
 		atomic.AddInt64(&r.sizes[code], fileSize)

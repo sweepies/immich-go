@@ -9,10 +9,11 @@ import (
 
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/assets/cache"
-	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/filters"
+	"github.com/sweepies/immich-go/internal/fshelper"
 	"github.com/sweepies/immich-go/internal/groups"
 	iimmich "github.com/sweepies/immich-go/internal/immich"
+	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/worker"
 	"golang.org/x/sync/errgroup"
 )
@@ -293,7 +294,9 @@ func (s *UploadStage) handleAsset(ctx context.Context, pctx *Context, a *assets.
 			return err
 		}
 		s.processUploadedAsset(ctx, pctx, a, serverStatus)
-		pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedUploadUpgraded)
+		if serverStatus != iimmich.UploadDuplicate {
+			pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedUploadUpgraded)
+		}
 		return nil
 
 	case AlreadyProcessed:
@@ -311,7 +314,7 @@ func (s *UploadStage) handleAsset(ctx context.Context, pctx *Context, a *assets.
 
 	case BetterOnServer:
 		a.ID = advice.ServerAsset.ID
-		pctx.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.ProcessedMetadataUpdated, advice.Message)
+		pctx.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedServerBetter, advice.Message)
 		s.manageAssetAlbums(ctx, pctx, a.File, a.ID, a.Albums)
 
 	case ForceUpload:
@@ -412,7 +415,7 @@ func (s *UploadStage) replaceAsset(ctx context.Context, pctx *Context, newAsset,
 	return "", nil
 }
 
-func (s *UploadStage) manageAssetAlbums(ctx context.Context, pctx *Context, f journal.Filename, ID string, albums []assets.Album) {
+func (s *UploadStage) manageAssetAlbums(ctx context.Context, pctx *Context, f fshelper.Filename, ID string, albums []assets.Album) {
 	if len(albums) == 0 {
 		return
 	}

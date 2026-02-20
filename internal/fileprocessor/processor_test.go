@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/sweepies/immich-go/internal/assettracker"
+	"github.com/sweepies/immich-go/internal/fshelper"
 	"github.com/sweepies/immich-go/internal/journal"
 )
 
@@ -25,8 +26,8 @@ func (m *mockFS) Name() string {
 	return m.name
 }
 
-func newTestFile(path string) journal.Filename {
-	return journal.NewFilename(&mockFS{name: "test.zip"}, path)
+func newTestFile(path string) fshelper.Filename {
+	return fshelper.NewFilename(&mockFS{name: "test.zip"}, path)
 }
 
 func TestNew(t *testing.T) {

@@ -13,10 +13,11 @@ import (
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/assets/cache"
 	"github.com/sweepies/immich-go/internal/assettracker"
-	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/fileprocessor"
 	"github.com/sweepies/immich-go/internal/filetypes"
+	"github.com/sweepies/immich-go/internal/fshelper"
 	iimmich "github.com/sweepies/immich-go/internal/immich"
+	"github.com/sweepies/immich-go/internal/journal"
 )
 
 // mockServerClient implements ServerClient for testing.
@@ -284,7 +285,7 @@ func createMockAsset(name string, size int, captureDate time.Time) *assets.Asset
 		},
 	}
 	return &assets.Asset{
-		File:             journal.NewFilename(fsys, name),
+		File:             fshelper.NewFilename(fsys, name),
 		OriginalFileName: name,
 		FileSize:         size,
 		CaptureDate:      captureDate,

@@ -1,8 +1,8 @@
 package series
 
 import (
-	"github.com/sweepies/immich-go/internal/journal"
 	"context"
+	"github.com/sweepies/immich-go/internal/fshelper"
 	"reflect"
 	"sort"
 	"testing"
@@ -15,7 +15,7 @@ import (
 
 func mockAsset(ic *filenames.InfoCollector, name string, dateTaken time.Time) *assets.Asset {
 	a := assets.Asset{
-		File:        journal.NewFilename(nil, name),
+		File:        fshelper.NewFilename(nil, name),
 		FileDate:    dateTaken,
 		CaptureDate: dateTaken,
 	}
