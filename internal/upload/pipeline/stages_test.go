@@ -312,6 +312,51 @@ func createTestContext(server ServerClient) *Context {
 	}
 }
 
+func TestUploadStageHandleAsset_ForceUploadReplacementMarksProcessed(t *testing.T) {
+	captureDate := time.Now().UTC().Truncate(time.Second)
+
+	mock := newMockServerClient()
+	mock.uploadResponses = []iimmich.AssetResponse{{ID: "replacement-id", Status: iimmich.UploadCreated}}
+
+	pctx := createTestContext(mock)
+	pctx.Index.AddImmichAsset(&iimmich.Asset{
+		ID:               "server-id",
+		Checksum:         "server-checksum",
+		OriginalFileName: "photo.jpg",
+		OwnerID:          "test-user-id",
+		ExifInfo: iimmich.ExifInfo{
+			FileSizeInByte:   1024,
+			DateTimeOriginal: iimmich.ImmichExifTime{Time: captureDate},
+		},
+	})
+
+	asset := createMockAsset("photo.jpg", 2048, captureDate)
+	pctx.Processor.RecordAssetDiscovered(context.Background(), asset.File, int64(asset.FileSize), journal.DiscoveredImage)
+
+	stage := &UploadStage{Overwrite: true}
+	err := stage.handleAsset(context.Background(), pctx, asset)
+	if err != nil {
+		t.Fatalf("handleAsset() error = %v", err)
+	}
+
+	counters := pctx.Processor.GetAssetCounters()
+	if counters.Pending != 0 {
+		t.Fatalf("expected no pending assets, got %d", counters.Pending)
+	}
+	if counters.Processed != 1 {
+		t.Fatalf("expected one processed asset, got %d", counters.Processed)
+	}
+
+	eventCounts := pctx.Processor.GetEventCounts()
+	if eventCounts[journal.ProcessedUploadUpgraded] != 1 {
+		t.Fatalf("expected one ProcessedUploadUpgraded event, got %d", eventCounts[journal.ProcessedUploadUpgraded])
+	}
+
+	if len(mock.deletedIDs) != 1 || mock.deletedIDs[0] != iimmich.AssetID("server-id") {
+		t.Fatalf("expected old server asset to be deleted, got %v", mock.deletedIDs)
+	}
+}
+
 // TestDiscoveryStage tests the discovery stage.
 func TestDiscoveryStage(t *testing.T) {
 	t.Run("successful discovery", func(t *testing.T) {

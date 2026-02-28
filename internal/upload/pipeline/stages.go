@@ -331,6 +331,9 @@ func (s *UploadStage) handleAsset(ctx context.Context, pctx *Context, a *assets.
 			return err
 		}
 		s.processUploadedAsset(ctx, pctx, a, serverStatus)
+		if advice.ServerAsset != nil && serverStatus != iimmich.UploadDuplicate {
+			pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedUploadUpgraded)
+		}
 		return nil
 	}
 
