@@ -3,8 +3,8 @@ package assettracker
 import (
 	"time"
 
-	"github.com/sweepies/immich-go/internal/fileevent"
 	"github.com/sweepies/immich-go/internal/fshelper"
+	"github.com/sweepies/immich-go/internal/journal"
 )
 
 // AssetState represents the lifecycle state of an asset
@@ -35,19 +35,19 @@ func (s AssetState) String() string {
 
 // AssetRecord tracks an individual asset through its lifecycle
 type AssetRecord struct {
-	File         fshelper.FSAndName // File identity
-	FileSize     int64              // File size in bytes
-	State        AssetState         // Current state
-	EventCode    fileevent.Code     // Most recent event code
-	Reason       string             // Why discarded/errored
-	EventHistory []EventRecord      // Complete timeline (only in debug mode)
-	DiscoveredAt time.Time          // When asset was discovered
-	FinalizedAt  time.Time          // When asset reached final state
+	File         fshelper.Filename // File identity
+	FileSize     int64             // File size in bytes
+	State        AssetState        // Current state
+	EventCode    journal.Code      // Most recent event code
+	Reason       string            // Why discarded/errored
+	EventHistory []EventRecord     // Complete timeline (only in debug mode)
+	DiscoveredAt time.Time         // When asset was discovered
+	FinalizedAt  time.Time         // When asset reached final state
 }
 
 // EventRecord represents a single event in an asset's history
 type EventRecord struct {
-	Code      fileevent.Code // Event code
+	Code      journal.Code   // Event code
 	Timestamp time.Time      // When event occurred
 	Message   string         // Event message
 	Args      map[string]any // Additional arguments

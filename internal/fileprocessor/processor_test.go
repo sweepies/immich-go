@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/sweepies/immich-go/internal/assettracker"
-	"github.com/sweepies/immich-go/internal/fileevent"
 	"github.com/sweepies/immich-go/internal/fshelper"
+	"github.com/sweepies/immich-go/internal/journal"
 )
 
 // mockFS is a simple mock filesystem for testing
@@ -26,14 +26,14 @@ func (m *mockFS) Name() string {
 	return m.name
 }
 
-func newTestFile(path string) fshelper.FSAndName {
-	return fshelper.FSName(&mockFS{name: "test.zip"}, path)
+func newTestFile(path string) fshelper.Filename {
+	return fshelper.NewFilename(&mockFS{name: "test.zip"}, path)
 }
 
 func TestNew(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tracker := assettracker.New()
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 
 	fp := New(tracker, recorder)
 
@@ -51,14 +51,14 @@ func TestNew(t *testing.T) {
 func TestRecordAssetDiscovered(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tracker := assettracker.New()
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	fp := New(tracker, recorder)
 
 	ctx := context.Background()
 	file := newTestFile("/test/image.jpg")
 
 	// Record asset discovery
-	fp.RecordAssetDiscovered(ctx, file, 1024, fileevent.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, file, 1024, journal.DiscoveredImage)
 
 	// Check tracker
 	counters := fp.GetAssetCounters()
@@ -71,26 +71,26 @@ func TestRecordAssetDiscovered(t *testing.T) {
 
 	// Check logger
 	eventCounts := fp.GetEventCounts()
-	if eventCounts[fileevent.DiscoveredImage] != 1 {
-		t.Errorf("Expected 1 DiscoveredImage event, got %d", eventCounts[fileevent.DiscoveredImage])
+	if eventCounts[journal.DiscoveredImage] != 1 {
+		t.Errorf("Expected 1 DiscoveredImage event, got %d", eventCounts[journal.DiscoveredImage])
 	}
 	eventSizes := fp.GetEventSizes()
-	if eventSizes[fileevent.DiscoveredImage] != 1024 {
-		t.Errorf("Expected 1024 bytes for DiscoveredImage, got %d", eventSizes[fileevent.DiscoveredImage])
+	if eventSizes[journal.DiscoveredImage] != 1024 {
+		t.Errorf("Expected 1024 bytes for DiscoveredImage, got %d", eventSizes[journal.DiscoveredImage])
 	}
 }
 
 func TestRecordAssetDiscardedImmediately(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tracker := assettracker.New()
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	fp := New(tracker, recorder)
 
 	ctx := context.Background()
 	file := newTestFile("/test/banned.jpg")
 
 	// Record immediately discarded asset
-	fp.RecordAssetDiscardedImmediately(ctx, file, 512, fileevent.DiscardedBanned, "banned filename")
+	fp.RecordAssetDiscardedImmediately(ctx, file, 512, journal.DiscardedBanned, "banned filename")
 
 	// Check tracker - should be in discarded state
 	counters := fp.GetAssetCounters()
@@ -106,25 +106,25 @@ func TestRecordAssetDiscardedImmediately(t *testing.T) {
 
 	// Check logger
 	eventCounts := fp.GetEventCounts()
-	if eventCounts[fileevent.DiscardedBanned] != 1 {
-		t.Errorf("Expected 1 DiscardedBanned event, got %d", eventCounts[fileevent.DiscardedBanned])
+	if eventCounts[journal.DiscardedBanned] != 1 {
+		t.Errorf("Expected 1 DiscardedBanned event, got %d", eventCounts[journal.DiscardedBanned])
 	}
 }
 
 func TestRecordAssetProcessed(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tracker := assettracker.New()
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	fp := New(tracker, recorder)
 
 	ctx := context.Background()
 	file := newTestFile("/test/image.jpg")
 
 	// First discover the asset
-	fp.RecordAssetDiscovered(ctx, file, 1024, fileevent.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, file, 1024, journal.DiscoveredImage)
 
 	// Then mark as processed
-	fp.RecordAssetProcessed(ctx, file, 1024, fileevent.ProcessedUploadSuccess)
+	fp.RecordAssetProcessed(ctx, file, 1024, journal.ProcessedUploadSuccess)
 
 	// Check tracker
 	counters := fp.GetAssetCounters()
@@ -140,25 +140,25 @@ func TestRecordAssetProcessed(t *testing.T) {
 
 	// Check logger
 	eventCounts := fp.GetEventCounts()
-	if eventCounts[fileevent.ProcessedUploadSuccess] != 1 {
-		t.Errorf("Expected 1 UploadedSuccess event, got %d", eventCounts[fileevent.ProcessedUploadSuccess])
+	if eventCounts[journal.ProcessedUploadSuccess] != 1 {
+		t.Errorf("Expected 1 UploadedSuccess event, got %d", eventCounts[journal.ProcessedUploadSuccess])
 	}
 }
 
 func TestRecordAssetDiscarded(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tracker := assettracker.New()
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	fp := New(tracker, recorder)
 
 	ctx := context.Background()
 	file := newTestFile("/test/duplicate.jpg")
 
 	// First discover the asset
-	fp.RecordAssetDiscovered(ctx, file, 2048, fileevent.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, file, 2048, journal.DiscoveredImage)
 
 	// Then mark as discarded during processing
-	fp.RecordAssetDiscarded(ctx, file, 2048, fileevent.DiscardedLocalDuplicate, "duplicate in input")
+	fp.RecordAssetDiscarded(ctx, file, 2048, journal.DiscardedLocalDuplicate, "duplicate in input")
 
 	// Check tracker
 	counters := fp.GetAssetCounters()
@@ -174,26 +174,26 @@ func TestRecordAssetDiscarded(t *testing.T) {
 
 	// Check logger
 	eventCounts := fp.GetEventCounts()
-	if eventCounts[fileevent.DiscardedLocalDuplicate] != 1 {
-		t.Errorf("Expected 1 DiscardedLocalDuplicate event, got %d", eventCounts[fileevent.DiscardedLocalDuplicate])
+	if eventCounts[journal.DiscardedLocalDuplicate] != 1 {
+		t.Errorf("Expected 1 DiscardedLocalDuplicate event, got %d", eventCounts[journal.DiscardedLocalDuplicate])
 	}
 }
 
 func TestRecordAssetError(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tracker := assettracker.New()
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	fp := New(tracker, recorder)
 
 	ctx := context.Background()
 	file := newTestFile("/test/failed.jpg")
 
 	// First discover the asset
-	fp.RecordAssetDiscovered(ctx, file, 512, fileevent.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, file, 512, journal.DiscoveredImage)
 
 	// Then mark as errored
 	testErr := fs.ErrPermission
-	fp.RecordAssetError(ctx, file, 512, fileevent.ErrorUploadFailed, testErr)
+	fp.RecordAssetError(ctx, file, 512, journal.ErrorUploadFailed, testErr)
 
 	// Check tracker
 	counters := fp.GetAssetCounters()
@@ -209,22 +209,22 @@ func TestRecordAssetError(t *testing.T) {
 
 	// Check logger
 	eventCounts := fp.GetEventCounts()
-	if eventCounts[fileevent.ErrorUploadFailed] != 1 {
-		t.Errorf("Expected 1 ErrorUploadFailed event, got %d", eventCounts[fileevent.ErrorUploadFailed])
+	if eventCounts[journal.ErrorUploadFailed] != 1 {
+		t.Errorf("Expected 1 ErrorUploadFailed event, got %d", eventCounts[journal.ErrorUploadFailed])
 	}
 }
 
 func TestRecordNonAsset(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tracker := assettracker.New()
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	fp := New(tracker, recorder)
 
 	ctx := context.Background()
 	file := newTestFile("/test/metadata.json")
 
 	// Record non-asset file
-	fp.RecordNonAsset(ctx, file, 128, fileevent.DiscoveredSidecar)
+	fp.RecordNonAsset(ctx, file, 128, journal.DiscoveredSidecar)
 
 	// Check tracker - should have nothing tracked
 	counters := fp.GetAssetCounters()
@@ -234,19 +234,19 @@ func TestRecordNonAsset(t *testing.T) {
 
 	// Check logger - should have the event
 	eventCounts := fp.GetEventCounts()
-	if eventCounts[fileevent.DiscoveredSidecar] != 1 {
-		t.Errorf("Expected 1 DiscoveredSidecar event, got %d", eventCounts[fileevent.DiscoveredSidecar])
+	if eventCounts[journal.DiscoveredSidecar] != 1 {
+		t.Errorf("Expected 1 DiscoveredSidecar event, got %d", eventCounts[journal.DiscoveredSidecar])
 	}
 	eventSizes := fp.GetEventSizes()
-	if eventSizes[fileevent.DiscoveredSidecar] != 128 {
-		t.Errorf("Expected 128 bytes for sidecar, got %d", eventSizes[fileevent.DiscoveredSidecar])
+	if eventSizes[journal.DiscoveredSidecar] != 128 {
+		t.Errorf("Expected 128 bytes for sidecar, got %d", eventSizes[journal.DiscoveredSidecar])
 	}
 }
 
 func TestFinalize(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tracker := assettracker.New()
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	fp := New(tracker, recorder)
 
 	ctx := context.Background()
@@ -259,8 +259,8 @@ func TestFinalize(t *testing.T) {
 
 	// Add and process an asset
 	file1 := newTestFile("/test/image1.jpg")
-	fp.RecordAssetDiscovered(ctx, file1, 1024, fileevent.DiscoveredImage)
-	fp.RecordAssetProcessed(ctx, file1, 1024, fileevent.ProcessedUploadSuccess)
+	fp.RecordAssetDiscovered(ctx, file1, 1024, journal.DiscoveredImage)
+	fp.RecordAssetProcessed(ctx, file1, 1024, journal.ProcessedUploadSuccess)
 
 	// Should still succeed
 	err = fp.Finalize(ctx)
@@ -270,7 +270,7 @@ func TestFinalize(t *testing.T) {
 
 	// Add asset but don't process it
 	file2 := newTestFile("/test/image2.jpg")
-	fp.RecordAssetDiscovered(ctx, file2, 2048, fileevent.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, file2, 2048, journal.DiscoveredImage)
 
 	// Should fail with pending asset
 	err = fp.Finalize(ctx)
@@ -283,15 +283,15 @@ func TestFinalize(t *testing.T) {
 
 	// Check that ErrorIncomplete was logged
 	eventCounts := fp.GetEventCounts()
-	if eventCounts[fileevent.ErrorIncomplete] != 1 {
-		t.Errorf("Expected 1 ErrorIncomplete event, got %d", eventCounts[fileevent.ErrorIncomplete])
+	if eventCounts[journal.ErrorIncomplete] != 1 {
+		t.Errorf("Expected 1 ErrorIncomplete event, got %d", eventCounts[journal.ErrorIncomplete])
 	}
 }
 
 func TestIsComplete(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tracker := assettracker.New()
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	fp := New(tracker, recorder)
 
 	ctx := context.Background()
@@ -303,13 +303,13 @@ func TestIsComplete(t *testing.T) {
 
 	// Add asset - not complete
 	file := newTestFile("/test/image.jpg")
-	fp.RecordAssetDiscovered(ctx, file, 1024, fileevent.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, file, 1024, journal.DiscoveredImage)
 	if fp.IsComplete() {
 		t.Error("Should not be complete with pending asset")
 	}
 
 	// Process asset - complete again
-	fp.RecordAssetProcessed(ctx, file, 1024, fileevent.ProcessedUploadSuccess)
+	fp.RecordAssetProcessed(ctx, file, 1024, journal.ProcessedUploadSuccess)
 	if !fp.IsComplete() {
 		t.Error("Should be complete when all assets processed")
 	}
@@ -318,7 +318,7 @@ func TestIsComplete(t *testing.T) {
 func TestGetPendingAssets(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tracker := assettracker.New()
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	fp := New(tracker, recorder)
 
 	ctx := context.Background()
@@ -334,9 +334,9 @@ func TestGetPendingAssets(t *testing.T) {
 	file2 := newTestFile("/test/image2.jpg")
 	file3 := newTestFile("/test/image3.jpg")
 
-	fp.RecordAssetDiscovered(ctx, file1, 1024, fileevent.DiscoveredImage)
-	fp.RecordAssetDiscovered(ctx, file2, 2048, fileevent.DiscoveredImage)
-	fp.RecordAssetDiscovered(ctx, file3, 512, fileevent.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, file1, 1024, journal.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, file2, 2048, journal.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, file3, 512, journal.DiscoveredImage)
 
 	// All should be pending
 	pending = fp.GetPendingAssets()
@@ -345,7 +345,7 @@ func TestGetPendingAssets(t *testing.T) {
 	}
 
 	// Process one
-	fp.RecordAssetProcessed(ctx, file1, 1024, fileevent.ProcessedUploadSuccess)
+	fp.RecordAssetProcessed(ctx, file1, 1024, journal.ProcessedUploadSuccess)
 
 	pending = fp.GetPendingAssets()
 	if len(pending) != 2 {
@@ -353,7 +353,7 @@ func TestGetPendingAssets(t *testing.T) {
 	}
 
 	// Discard another
-	fp.RecordAssetDiscarded(ctx, file2, 2048, fileevent.DiscardedLocalDuplicate, "duplicate")
+	fp.RecordAssetDiscarded(ctx, file2, 2048, journal.DiscardedLocalDuplicate, "duplicate")
 
 	pending = fp.GetPendingAssets()
 	if len(pending) != 1 {
@@ -364,7 +364,7 @@ func TestGetPendingAssets(t *testing.T) {
 func TestGenerateReport(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tracker := assettracker.New()
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	fp := New(tracker, recorder)
 
 	ctx := context.Background()
@@ -374,10 +374,10 @@ func TestGenerateReport(t *testing.T) {
 	file2 := newTestFile("/test/image2.jpg")
 	sidecar := newTestFile("/test/metadata.json")
 
-	fp.RecordAssetDiscovered(ctx, file1, 1024, fileevent.DiscoveredImage)
-	fp.RecordAssetProcessed(ctx, file1, 1024, fileevent.ProcessedUploadSuccess)
-	fp.RecordAssetDiscovered(ctx, file2, 2048, fileevent.DiscoveredVideo)
-	fp.RecordNonAsset(ctx, sidecar, 128, fileevent.DiscoveredSidecar)
+	fp.RecordAssetDiscovered(ctx, file1, 1024, journal.DiscoveredImage)
+	fp.RecordAssetProcessed(ctx, file1, 1024, journal.ProcessedUploadSuccess)
+	fp.RecordAssetDiscovered(ctx, file2, 2048, journal.DiscoveredVideo)
+	fp.RecordNonAsset(ctx, sidecar, 128, journal.DiscoveredSidecar)
 
 	// Generate report
 	report := fp.GenerateReport()
@@ -397,7 +397,7 @@ func TestGenerateReport(t *testing.T) {
 func TestSummary(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tracker := assettracker.New()
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	fp := New(tracker, recorder)
 
 	ctx := context.Background()
@@ -408,15 +408,15 @@ func TestSummary(t *testing.T) {
 	file3 := newTestFile("/test/error.jpg")
 	file4 := newTestFile("/test/pending.jpg")
 
-	fp.RecordAssetDiscovered(ctx, file1, 1024, fileevent.DiscoveredImage)
-	fp.RecordAssetProcessed(ctx, file1, 1024, fileevent.ProcessedUploadSuccess)
+	fp.RecordAssetDiscovered(ctx, file1, 1024, journal.DiscoveredImage)
+	fp.RecordAssetProcessed(ctx, file1, 1024, journal.ProcessedUploadSuccess)
 
-	fp.RecordAssetDiscardedImmediately(ctx, file2, 512, fileevent.DiscardedBanned, "banned")
+	fp.RecordAssetDiscardedImmediately(ctx, file2, 512, journal.DiscardedBanned, "banned")
 
-	fp.RecordAssetDiscovered(ctx, file3, 2048, fileevent.DiscoveredImage)
-	fp.RecordAssetError(ctx, file3, 2048, fileevent.ErrorUploadFailed, fs.ErrPermission)
+	fp.RecordAssetDiscovered(ctx, file3, 2048, journal.DiscoveredImage)
+	fp.RecordAssetError(ctx, file3, 2048, journal.ErrorUploadFailed, fs.ErrPermission)
 
-	fp.RecordAssetDiscovered(ctx, file4, 256, fileevent.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, file4, 256, journal.DiscoveredImage)
 
 	// Get summary
 	summary := fp.Summary()
@@ -438,7 +438,7 @@ func TestSummary(t *testing.T) {
 func TestCompleteWorkflow(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	tracker := assettracker.New()
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	fp := New(tracker, recorder)
 
 	ctx := context.Background()
@@ -452,17 +452,17 @@ func TestCompleteWorkflow(t *testing.T) {
 	sidecar := newTestFile("/photos/metadata.json")
 	banned := newTestFile("/photos/.DS_Store")
 
-	fp.RecordAssetDiscovered(ctx, image1, 1024000, fileevent.DiscoveredImage)
-	fp.RecordAssetDiscovered(ctx, image2, 2048000, fileevent.DiscoveredImage)
-	fp.RecordAssetDiscovered(ctx, video1, 5120000, fileevent.DiscoveredVideo)
-	fp.RecordAssetDiscardedImmediately(ctx, bannedImage, 100, fileevent.DiscardedBanned, "banned filename")
-	fp.RecordNonAsset(ctx, sidecar, 512, fileevent.DiscoveredSidecar)
-	fp.RecordNonAsset(ctx, banned, 50, fileevent.DiscoveredBanned, "reason", "banned filename")
+	fp.RecordAssetDiscovered(ctx, image1, 1024000, journal.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, image2, 2048000, journal.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, video1, 5120000, journal.DiscoveredVideo)
+	fp.RecordAssetDiscardedImmediately(ctx, bannedImage, 100, journal.DiscardedBanned, "banned filename")
+	fp.RecordNonAsset(ctx, sidecar, 512, journal.DiscoveredSidecar)
+	fp.RecordNonAsset(ctx, banned, 50, journal.DiscoveredBanned, "reason", "banned filename")
 
 	// 2. Process assets
-	fp.RecordAssetProcessed(ctx, image1, 1024000, fileevent.ProcessedUploadSuccess)
-	fp.RecordAssetDiscarded(ctx, image2, 2048000, fileevent.DiscardedServerDuplicate, "server has duplicate")
-	fp.RecordAssetProcessed(ctx, video1, 5120000, fileevent.ProcessedUploadSuccess)
+	fp.RecordAssetProcessed(ctx, image1, 1024000, journal.ProcessedUploadSuccess)
+	fp.RecordAssetDiscarded(ctx, image2, 2048000, journal.DiscardedServerDuplicate, "server has duplicate")
+	fp.RecordAssetProcessed(ctx, video1, 5120000, journal.ProcessedUploadSuccess)
 
 	// 3. Validate final state
 	if !fp.IsComplete() {
@@ -488,19 +488,19 @@ func TestCompleteWorkflow(t *testing.T) {
 
 	// 5. Check event counts
 	eventCounts := fp.GetEventCounts()
-	if eventCounts[fileevent.DiscoveredImage] != 2 {
-		t.Errorf("Expected 2 DiscoveredImage events, got %d", eventCounts[fileevent.DiscoveredImage])
+	if eventCounts[journal.DiscoveredImage] != 2 {
+		t.Errorf("Expected 2 DiscoveredImage events, got %d", eventCounts[journal.DiscoveredImage])
 	}
-	if eventCounts[fileevent.DiscoveredVideo] != 1 {
-		t.Errorf("Expected 1 DiscoveredVideo event, got %d", eventCounts[fileevent.DiscoveredVideo])
+	if eventCounts[journal.DiscoveredVideo] != 1 {
+		t.Errorf("Expected 1 DiscoveredVideo event, got %d", eventCounts[journal.DiscoveredVideo])
 	}
-	if eventCounts[fileevent.DiscoveredSidecar] != 1 {
-		t.Errorf("Expected 1 DiscoveredSidecar event, got %d", eventCounts[fileevent.DiscoveredSidecar])
+	if eventCounts[journal.DiscoveredSidecar] != 1 {
+		t.Errorf("Expected 1 DiscoveredSidecar event, got %d", eventCounts[journal.DiscoveredSidecar])
 	}
-	if eventCounts[fileevent.DiscoveredBanned] != 1 {
-		t.Errorf("Expected 1 DiscoveredBanned event (non-asset), got %d", eventCounts[fileevent.DiscoveredBanned])
+	if eventCounts[journal.DiscoveredBanned] != 1 {
+		t.Errorf("Expected 1 DiscoveredBanned event (non-asset), got %d", eventCounts[journal.DiscoveredBanned])
 	}
-	if eventCounts[fileevent.DiscardedBanned] != 1 {
-		t.Errorf("Expected 1 DiscardedBanned event (asset), got %d", eventCounts[fileevent.DiscardedBanned])
+	if eventCounts[journal.DiscardedBanned] != 1 {
+		t.Errorf("Expected 1 DiscardedBanned event (asset), got %d", eventCounts[journal.DiscardedBanned])
 	}
 }

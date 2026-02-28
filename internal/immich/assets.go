@@ -86,7 +86,7 @@ func (ia Asset) AsAsset() *assets.Asset {
 		Rating:           ia.Rating,
 		Latitude:         ia.ExifInfo.Latitude,
 		Longitude:        ia.ExifInfo.Longitude,
-		File:             fshelper.FSName(nil, ia.OriginalFileName),
+		File:             fshelper.NewFilename(nil, ia.OriginalFileName),
 		FileSize:         int(ia.ExifInfo.FileSizeInByte),
 		Checksum:         ia.Checksum,
 	}

@@ -5,39 +5,52 @@ import (
 	"log/slog"
 )
 
-type FSAndName struct {
+type Filename struct {
 	fsys fs.FS
 	name string
 }
 
-func FSName(fsys fs.FS, name string) FSAndName {
-	return FSAndName{fsys: fsys, name: name}
+func NewFilename(fsys fs.FS, name string) Filename {
+	return Filename{fsys: fsys, name: name}
 }
 
-func (fn FSAndName) LogValue() slog.Value {
+func (fn Filename) LogValue() slog.Value {
+	if fn.IsEmpty() {
+		return slog.Value{}
+	}
 	return slog.StringValue(fn.FullName())
 }
 
-func (fn FSAndName) FS() fs.FS {
+func (fn Filename) FS() fs.FS {
 	return fn.fsys
 }
 
-func (fn FSAndName) Name() string {
+func (fn Filename) Name() string {
 	return fn.name
 }
 
-func (fn FSAndName) FullName() string {
+func (fn Filename) FullName() string {
 	fsys := fn.fsys
-	if fsys, ok := fsys.(NameFS); ok {
+	if fsys, ok := fsys.(interface{ Name() string }); ok {
 		return fsys.Name() + ":" + fn.name
 	}
 	return fn.name
 }
 
-func (fn FSAndName) Open() (fs.File, error) {
+func (fn Filename) Open() (fs.File, error) {
+	if fn.fsys == nil {
+		return nil, fs.ErrNotExist
+	}
 	return fn.fsys.Open(fn.name)
 }
 
-func (fn FSAndName) Stat() (fs.FileInfo, error) {
+func (fn Filename) Stat() (fs.FileInfo, error) {
+	if fn.fsys == nil {
+		return nil, fs.ErrNotExist
+	}
 	return fs.Stat(fn.fsys, fn.name)
+}
+
+func (fn Filename) IsEmpty() bool {
+	return fn.fsys == nil && fn.name == ""
 }

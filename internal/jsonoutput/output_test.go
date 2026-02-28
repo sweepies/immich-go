@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/sweepies/immich-go/internal/assettracker"
-	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -71,13 +71,13 @@ func TestWriteSummaryOutputsJSONLine(t *testing.T) {
 		AssetSize:     100,
 		ProcessedSize: 50,
 	}
-	countKey := fileevent.ErrorServerError
-	successKey := fileevent.ProcessedUploadSuccess
-	eventCounts := map[fileevent.Code]int64{
+	countKey := journal.ErrorServerError
+	successKey := journal.ProcessedUploadSuccess
+	eventCounts := map[journal.Code]int64{
 		countKey:   2,
 		successKey: 5,
 	}
-	eventSizes := map[fileevent.Code]int64{
+	eventSizes := map[journal.Code]int64{
 		countKey: 2048,
 	}
 

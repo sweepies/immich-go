@@ -8,7 +8,7 @@ import (
 
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/assets/cache"
-	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/filters"
 	"github.com/sweepies/immich-go/internal/groups"
 	"github.com/sweepies/immich-go/internal/jsonoutput"
@@ -109,8 +109,8 @@ func (r *Runner) runPipeline(ctx context.Context) error {
 		r.pctx.Logger.Info("progress",
 			"immich_read_pct", immichPct,
 			"assets_found", r.pctx.Processor.Logger().TotalAssets(),
-			"upload_errors", counts[fileevent.ErrorServerError],
-			"uploaded", counts[fileevent.ProcessedUploadSuccess],
+			"upload_errors", counts[journal.ErrorServerError],
+			"uploaded", counts[journal.ProcessedUploadSuccess],
 		)
 	}
 
@@ -121,8 +121,8 @@ func (r *Runner) runPipeline(ctx context.Context) error {
 		if err := jsonoutput.WriteProgress(
 			immichPct,
 			r.pctx.Processor.Logger().TotalAssets(),
-			counts[fileevent.ErrorServerError],
-			counts[fileevent.ProcessedUploadSuccess],
+			counts[journal.ErrorServerError],
+			counts[journal.ProcessedUploadSuccess],
 		); err != nil {
 			r.pctx.Logger.Error("failed to write JSON progress", "err", err)
 		}

@@ -15,7 +15,6 @@ import (
 
 	"github.com/sweepies/immich-go/internal/adapters"
 	"github.com/sweepies/immich-go/internal/assets"
-	"github.com/sweepies/immich-go/internal/fileevent"
 	"github.com/sweepies/immich-go/internal/filenames"
 	"github.com/sweepies/immich-go/internal/filetypes"
 	"github.com/sweepies/immich-go/internal/filters"
@@ -25,6 +24,7 @@ import (
 	"github.com/sweepies/immich-go/internal/groups/burst"
 	"github.com/sweepies/immich-go/internal/groups/epsonfastfoto"
 	"github.com/sweepies/immich-go/internal/groups/series"
+	"github.com/sweepies/immich-go/internal/journal"
 )
 
 var (
@@ -58,7 +58,7 @@ type googleTrackingInfo struct {
 	paths    []string
 	count    int
 	metadata *assets.Metadata
-	status   fileevent.Code
+	status   journal.Code
 }
 
 // googleDirCatalog captures all files in a given directory.
@@ -166,27 +166,27 @@ func (s *GoogleSource) passOneFsWalk(ctx context.Context, w fs.FS) error {
 
 			finfo, err := fs.Stat(w, name)
 			if err != nil {
-				s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(w, name), 0, fileevent.ErrorFileAccess, "error", err.Error())
+				s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(w, name), 0, journal.ErrorFileAccess, "error", err.Error())
 				return nil
 			}
 
 			// Exclude banned files
 			if s.config.BannedFiles.Match(name) {
-				s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(w, name), 0, fileevent.DiscoveredBanned, "reason", "banned file")
+				s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(w, name), 0, journal.DiscoveredBanned, "reason", "banned file")
 				return nil
 			}
 
 			if s.deps.SupportedMedia.IsUseLess(name) {
-				s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(w, name), 0, fileevent.DiscoveredUnknown, "reason", "useless file")
+				s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(w, name), 0, journal.DiscoveredUnknown, "reason", "useless file")
 				return nil
 			}
 
 			if !s.config.InclusionFlags.IncludedExtensions.Include(ext) {
-				s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.FSName(w, name), finfo.Size(), fileevent.DiscardedFiltered, "extension not included")
+				s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscardedFiltered, "extension not included")
 				return nil
 			}
 			if s.config.InclusionFlags.ExcludedExtensions.Exclude(ext) {
-				s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.FSName(w, name), finfo.Size(), fileevent.DiscardedFiltered, "extension excluded")
+				s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscardedFiltered, "extension excluded")
 				return nil
 			}
 
@@ -206,25 +206,25 @@ func (s *GoogleSource) passOneFsWalk(ctx context.Context, w fs.FS) error {
 				if bytes.Contains(b, []byte("immich-go version:")) {
 					md, err := assets.UnMarshalMetadata(b)
 					if err != nil {
-						s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(w, name), int64(len(b)), fileevent.DiscoveredUnsupported, "reason", "unknown JSON file")
+						s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(w, name), int64(len(b)), journal.DiscoveredUnsupported, "reason", "unknown JSON file")
 						return nil
 					}
 					md.FileName = base
-					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(w, name), int64(len(b)), fileevent.DiscoveredSidecar, "type", "immich-go metadata", "title", md.FileName)
-					md.File = fshelper.FSName(w, name)
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(w, name), int64(len(b)), journal.DiscoveredSidecar, "type", "immich-go metadata", "title", md.FileName)
+					md.File = fshelper.NewFilename(w, name)
 				} else {
 					gmd, err := unmarshalGoogleJSON(b)
 					if err == nil {
 						switch {
 						case gmd.isAsset():
-							md := gmd.asMetadata(fshelper.FSName(w, name), s.config.PeopleTag)
+							md := gmd.asMetadata(fshelper.NewFilename(w, name), s.config.PeopleTag)
 							dirCatalog.jsons[base] = md
 							s.deps.Logger.Debug("Asset JSON", "metadata", md)
-							s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(w, name), int64(len(b)), fileevent.DiscoveredSidecar, "type", "asset metadata", "title", md.FileName, "date", md.DateTaken)
+							s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(w, name), int64(len(b)), journal.DiscoveredSidecar, "type", "asset metadata", "title", md.FileName, "date", md.DateTaken)
 						case gmd.isAlbum():
 							s.deps.Logger.Debug("Album JSON", "metadata", gmd)
 							if !s.config.KeepUntitled && gmd.Title == "" {
-								s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(w, name), int64(len(b)), fileevent.DiscoveredUnsupported, "reason", "discard untitled album")
+								s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(w, name), int64(len(b)), journal.DiscoveredUnsupported, "reason", "discard untitled album")
 								return nil
 							}
 							a := s.albums[dir]
@@ -238,13 +238,13 @@ func (s *GoogleSource) passOneFsWalk(ctx context.Context, w fs.FS) error {
 								a.Longitude = e.Longitude
 							}
 							s.albums[dir] = a
-							s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(w, name), int64(len(b)), fileevent.DiscoveredSidecar, "type", "album metadata", "title", gmd.Title)
+							s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(w, name), int64(len(b)), journal.DiscoveredSidecar, "type", "album metadata", "title", gmd.Title)
 						default:
-							s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(w, name), int64(len(b)), fileevent.DiscoveredUnsupported, "reason", "unknown JSON file")
+							s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(w, name), int64(len(b)), journal.DiscoveredUnsupported, "reason", "unknown JSON file")
 							return nil
 						}
 					} else {
-						s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(w, name), int64(len(b)), fileevent.DiscoveredUnsupported, "reason", "unknown JSON file")
+						s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(w, name), int64(len(b)), journal.DiscoveredUnsupported, "reason", "unknown JSON file")
 						return nil
 					}
 				}
@@ -252,19 +252,19 @@ func (s *GoogleSource) passOneFsWalk(ctx context.Context, w fs.FS) error {
 				t := s.deps.SupportedMedia.TypeFromExt(ext)
 				switch t {
 				case filetypes.TypeUseless:
-					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(w, name), finfo.Size(), fileevent.DiscoveredUnknown, "reason", "useless file")
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscoveredUnknown, "reason", "useless file")
 					return nil
 				case filetypes.TypeUnknown:
-					s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(w, name), finfo.Size(), fileevent.DiscoveredUnsupported, "reason", "unsupported file type")
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscoveredUnsupported, "reason", "unsupported file type")
 					return nil
 				case filetypes.TypeVideo:
 					if strings.Contains(name, "Failed Videos") {
-						s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.FSName(w, name), finfo.Size(), fileevent.DiscardedFiltered, "can't upload failed videos")
+						s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscardedFiltered, "can't upload failed videos")
 						return nil
 					}
-					s.deps.Processor.RecordAssetDiscovered(ctx, fshelper.FSName(w, name), finfo.Size(), fileevent.DiscoveredVideo)
+					s.deps.Processor.RecordAssetDiscovered(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscoveredVideo)
 				case filetypes.TypeImage:
-					s.deps.Processor.RecordAssetDiscovered(ctx, fshelper.FSName(w, name), finfo.Size(), fileevent.DiscoveredImage)
+					s.deps.Processor.RecordAssetDiscovered(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscoveredImage)
 				}
 
 				key := googleFileKey{baseName: base, size: finfo.Size()}
@@ -274,7 +274,7 @@ func (s *GoogleSource) passOneFsWalk(ctx context.Context, w fs.FS) error {
 				s.fileTracker.Store(key, tracking)
 
 				if _, ok := dirCatalog.unMatchedFiles[base]; ok {
-					s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.FSName(w, name), finfo.Size(), fileevent.DiscardedLocalDuplicate, "duplicated in the directory")
+					s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscardedLocalDuplicate, "duplicated in the directory")
 					return nil
 				}
 
@@ -297,7 +297,7 @@ func (s *GoogleSource) matchFile(ctx context.Context, dir string, jsonName strin
 		i.md = md
 		a := s.makeAsset(ctx, dir, i, md)
 		cat.matchedFiles[fileName] = a
-		s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(i.fsys, path.Join(dir, i.base)), 0, fileevent.ProcessedAssociatedMetadata, "json", jsonName, "matcher", matcherName)
+		s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(i.fsys, path.Join(dir, i.base)), 0, journal.ProcessedAssociatedMetadata, "json", jsonName, "matcher", matcherName)
 		delete(cat.unMatchedFiles, fileName)
 	}
 }
@@ -558,7 +558,7 @@ func (s *GoogleSource) solvePuzzle(ctx context.Context) error {
 			sort.Strings(files)
 			for _, f := range files {
 				i := cat.unMatchedFiles[f]
-				s.deps.Processor.RecordNonAsset(ctx, fshelper.FSName(i.fsys, path.Join(dir, i.base)), 0, fileevent.ProcessedMissingMetadata)
+				s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(i.fsys, path.Join(dir, i.base)), 0, journal.ProcessedMissingMetadata)
 				if s.config.KeepJSONLess {
 					a := s.makeAsset(ctx, dir, i, nil)
 					cat.matchedFiles[f] = a
@@ -597,13 +597,13 @@ func (s *GoogleSource) handleDir(ctx context.Context, dir string, gOut chan *ass
 		key := googleFileKey{baseName: name, size: int64(a.FileSize)}
 		track, _ := s.fileTracker.Load(key)
 
-		if track.status == fileevent.ProcessedUploadSuccess {
+		if track.status == journal.ProcessedUploadSuccess {
 			a.Close()
-			s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), fileevent.DiscardedLocalDuplicate, "local duplicate")
+			s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedLocalDuplicate, "local duplicate")
 			continue
 		}
 
-		if code := s.filterOnMetadata(ctx, a); code != fileevent.Code(0) {
+		if code := s.filterOnMetadata(ctx, a); code != journal.Code(0) {
 			continue
 		}
 		dirEntries = append(dirEntries, a)
@@ -645,7 +645,7 @@ func (s *GoogleSource) handleDir(ctx context.Context, dir string, gOut chan *ass
 			for _, a := range g.Assets {
 				key := googleFileKey{baseName: path.Base(a.File.Name()), size: int64(a.FileSize)}
 				track, _ := s.fileTracker.Load(key)
-				track.status = fileevent.ProcessedUploadSuccess
+				track.status = journal.ProcessedUploadSuccess
 				s.fileTracker.Store(key, track)
 			}
 		case <-ctx.Done():
@@ -666,7 +666,7 @@ func normalizeTakeoutName(name string) string {
 func (s *GoogleSource) makeAsset(_ context.Context, dir string, f *googleAssetFile, md *assets.Metadata) *assets.Asset {
 	file := path.Join(dir, f.base)
 	a := &assets.Asset{
-		File:             fshelper.FSName(f.fsys, file),
+		File:             fshelper.NewFilename(f.fsys, file),
 		FileSize:         f.length,
 		OriginalFileName: f.base,
 		FileDate:         f.date,
@@ -692,26 +692,26 @@ func (s *GoogleSource) makeAsset(_ context.Context, dir string, f *googleAssetFi
 }
 
 // filterOnMetadata filters assets based on their metadata.
-func (s *GoogleSource) filterOnMetadata(ctx context.Context, a *assets.Asset) fileevent.Code {
+func (s *GoogleSource) filterOnMetadata(ctx context.Context, a *assets.Asset) journal.Code {
 	if !s.config.KeepArchived && a.Visibility == assets.VisibilityArchive {
-		s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), fileevent.DiscardedFiltered, "discarding archived file")
+		s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedFiltered, "discarding archived file")
 		a.Close()
-		return fileevent.DiscardedFiltered
+		return journal.DiscardedFiltered
 	}
 	if !s.config.KeepPartner && a.FromPartner {
-		s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), fileevent.DiscardedFiltered, "discarding partner file")
+		s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedFiltered, "discarding partner file")
 		a.Close()
-		return fileevent.DiscardedFiltered
+		return journal.DiscardedFiltered
 	}
 	if !s.config.KeepTrashed && a.Trashed {
-		s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), fileevent.DiscardedFiltered, "discarding trashed file")
+		s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedFiltered, "discarding trashed file")
 		a.Close()
-		return fileevent.DiscardedFiltered
+		return journal.DiscardedFiltered
 	}
 	if s.config.InclusionFlags.DateRange.IsSet() && !s.config.InclusionFlags.DateRange.InRange(a.CaptureDate) {
-		s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), fileevent.DiscardedFiltered, "discarding files out of date range")
+		s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedFiltered, "discarding files out of date range")
 		a.Close()
-		return fileevent.DiscardedFiltered
+		return journal.DiscardedFiltered
 	}
 	if s.config.ImportFromAlbum != "" {
 		keep := false
@@ -723,12 +723,12 @@ func (s *GoogleSource) filterOnMetadata(ctx context.Context, a *assets.Asset) fi
 			keep = keep || album.Title == s.config.ImportFromAlbum
 		}
 		if !keep {
-			s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), fileevent.DiscardedFiltered, "discarding files not in the specified album")
+			s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedFiltered, "discarding files not in the specified album")
 			a.Close()
-			return fileevent.DiscardedFiltered
+			return journal.DiscardedFiltered
 		}
 	}
-	return fileevent.Code(0)
+	return journal.Code(0)
 }
 
 // assignAlbums assigns album information to an asset.
@@ -851,7 +851,7 @@ func (gmd *googleMetaData) isPartner() bool {
 	return gmd.GooglePhotosOrigin.FromPartnerSharing
 }
 
-func (gmd *googleMetaData) asMetadata(name fshelper.FSAndName, tagPeople bool) *assets.Metadata {
+func (gmd *googleMetaData) asMetadata(name fshelper.Filename, tagPeople bool) *assets.Metadata {
 	md := &assets.Metadata{
 		File:        name,
 		FileName:    sanitizeTitle(gmd.Title),

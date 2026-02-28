@@ -2,6 +2,7 @@ package epsonfastfoto
 
 import (
 	"context"
+	"github.com/sweepies/immich-go/internal/fshelper"
 	"reflect"
 	"testing"
 	"time"
@@ -9,12 +10,11 @@ import (
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/filenames"
 	"github.com/sweepies/immich-go/internal/filetypes"
-	"github.com/sweepies/immich-go/internal/fshelper"
 )
 
 func mockAsset(ic *filenames.InfoCollector, name string, dateTaken time.Time) *assets.Asset {
 	a := assets.Asset{
-		File:        fshelper.FSName(nil, name),
+		File:        fshelper.NewFilename(nil, name),
 		FileDate:    dateTaken,
 		CaptureDate: dateTaken,
 	}

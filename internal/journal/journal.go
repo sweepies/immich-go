@@ -1,19 +1,15 @@
-// Package fileevent provides a mechanism to record and report events related to file processing.
+// Package journal provides a mechanism to record and report events related to file processing.
 
-package fileevent
+package journal
 
-/*
-	TODO:
-	- rename the package as journal
-	- use a filenemame type that keeps the fsys and the name in that fsys
-
-*/
 import (
 	"context"
 	"fmt"
 	"log/slog"
 	"strings"
 	"sync/atomic"
+
+	"github.com/sweepies/immich-go/internal/fshelper"
 )
 
 /*
@@ -192,18 +188,18 @@ func (r *Recorder) Log() *slog.Logger {
 	return r.log
 }
 
-func (r *Recorder) Record(ctx context.Context, code Code, file slog.LogValuer, args ...any) {
+func (r *Recorder) Record(ctx context.Context, code Code, file fshelper.Filename, args ...any) {
 	r.RecordWithSize(ctx, code, file, 0, args...)
 }
 
-func (r *Recorder) RecordWithSize(ctx context.Context, code Code, file slog.LogValuer, fileSize int64, args ...any) {
+func (r *Recorder) RecordWithSize(ctx context.Context, code Code, file fshelper.Filename, fileSize int64, args ...any) {
 	atomic.AddInt64(&r.counts[code], 1)
 	if fileSize > 0 {
 		atomic.AddInt64(&r.sizes[code], fileSize)
 	}
 	if r.log != nil {
 		level := _logLevels[code]
-		if file != nil {
+		if !file.IsEmpty() {
 			args = append([]any{"file", file.LogValue()}, args...)
 		}
 
@@ -236,7 +232,7 @@ func (r *Recorder) GetCounts() []int64 {
 // GetEventCounts returns event counts as a map (Code -> count)
 func (r *Recorder) GetEventCounts() map[Code]int64 {
 	eventCounts := make(map[Code]int64)
-	for i := range MaxCode {
+	for i := range Code(MaxCode) {
 		count := atomic.LoadInt64(&r.counts[i])
 		if count > 0 {
 			eventCounts[i] = count
@@ -248,7 +244,7 @@ func (r *Recorder) GetEventCounts() map[Code]int64 {
 // GetEventSizes returns event sizes as a map (Code -> total bytes)
 func (r *Recorder) GetEventSizes() map[Code]int64 {
 	eventSizes := make(map[Code]int64)
-	for i := range MaxCode {
+	for i := range Code(MaxCode) {
 		size := atomic.LoadInt64(&r.sizes[i])
 		if size > 0 {
 			eventSizes[i] = size
@@ -442,7 +438,7 @@ func IsEqualCounts(a, b []int64) bool {
 // Used for tests only
 
 func NewCounts() *counts {
-	c := counts(make([]int64, MaxCode))
+	c := counts(make([]int64, int(MaxCode)))
 	return &c
 }
 

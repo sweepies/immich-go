@@ -13,7 +13,7 @@ import (
 	"github.com/sweepies/immich-go/internal/adapters"
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/assettracker"
-	"github.com/sweepies/immich-go/internal/fileevent"
+	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/filenames"
 	"github.com/sweepies/immich-go/internal/fileprocessor"
 	"github.com/sweepies/immich-go/internal/filetypes"
@@ -89,7 +89,7 @@ func BenchmarkSolvePuzzle(b *testing.B) {
 	}
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	recorder := fileevent.NewRecorder(logger)
+	recorder := journal.NewRecorder(logger)
 	tracker := assettracker.New()
 	processor := fileprocessor.New(tracker, recorder)
 	supportedMedia := filetypes.DefaultSupportedMedia

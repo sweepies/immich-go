@@ -38,7 +38,7 @@ const (
 
 type Asset struct {
 	// File system and file name
-	File     fshelper.FSAndName
+	File     fshelper.Filename
 	FileDate time.Time // File creation date
 	ID       string    // Immich ID after upload
 	Checksum string    // Hash of the file as delivered by Immich

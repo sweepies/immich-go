@@ -1,20 +1,20 @@
 package filters
 
 import (
+	"github.com/sweepies/immich-go/internal/fshelper"
 	"testing"
 	"time"
 
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/filenames"
 	"github.com/sweepies/immich-go/internal/filetypes"
-	"github.com/sweepies/immich-go/internal/fshelper"
 )
 
 var ic = filenames.NewInfoCollector(time.Local, filetypes.DefaultSupportedMedia)
 
 func mockAsset(name string) *assets.Asset {
 	a := &assets.Asset{
-		File: fshelper.FSName(nil, name),
+		File: fshelper.NewFilename(nil, name),
 	}
 	a.SetNameInfo(ic.GetInfo(name))
 	return a

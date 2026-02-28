@@ -9,11 +9,11 @@ import (
 	"github.com/sweepies/immich-go/immich"
 	"github.com/sweepies/immich-go/internal/adapters"
 	"github.com/sweepies/immich-go/internal/assets"
-	"github.com/sweepies/immich-go/internal/fileevent"
 	"github.com/sweepies/immich-go/internal/filenames"
 	"github.com/sweepies/immich-go/internal/fshelper"
 	"github.com/sweepies/immich-go/internal/gen"
 	"github.com/sweepies/immich-go/internal/immichfs"
+	"github.com/sweepies/immich-go/internal/journal"
 )
 
 // FromImmichSource implements adapters.Source for reading from another Immich server.
@@ -349,12 +349,12 @@ func (s *FromImmichSource) getAssets(ctx context.Context, gOut chan *assets.Grou
 			Tags:        asset.Tags,
 		}
 		asset.UseMetadata(asset.FromApplication)
-		asset.File = fshelper.FSName(s.ifs, a.ID)
+		asset.File = fshelper.NewFilename(s.ifs, a.ID)
 
 		// Record asset discovery
-		code := fileevent.DiscoveredImage
+		code := journal.DiscoveredImage
 		if a.Type == "VIDEO" {
-			code = fileevent.DiscoveredVideo
+			code = journal.DiscoveredVideo
 		}
 		s.deps.Processor.RecordAssetDiscovered(ctx, asset.File, int64(asset.FileSize), code)
 
