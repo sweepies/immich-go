@@ -1,0 +1,2 @@
+kind: Changed
+body: Optimize DeleteAssets calls by batching them per group in the stack command

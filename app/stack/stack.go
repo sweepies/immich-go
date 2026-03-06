@@ -164,10 +164,16 @@ func (s *StackCmd) ProcessAssets(ctx context.Context, app *app.Application) erro
 		g = filters.ApplyFilters(g, s.filters...)
 		// Delete filtered assets
 		if len(g.Removed) > 0 {
+			ids := make([]string, 0, len(g.Removed))
 			for _, r := range g.Removed {
-				if err := s.client.Immich.DeleteAssets(ctx, []string{r.Asset.ID}, false); err != nil {
+				ids = append(ids, r.Asset.ID)
+			}
+			if err := s.client.Immich.DeleteAssets(ctx, ids, false); err != nil {
+				for _, r := range g.Removed {
 					log.Error("can't delete asset %s: %s", r.Asset.OriginalFileName, err)
-				} else {
+				}
+			} else {
+				for _, r := range g.Removed {
 					log.Info("Asset %s deleted: %s", r.Asset.OriginalFileName, r.Reason)
 				}
 			}
