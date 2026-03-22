@@ -2,12 +2,20 @@ package stack
 
 import (
 	"context"
+	"io"
+	"log/slog"
+	"reflect"
 	"testing"
+	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/sweepies/immich-go/app"
 	"github.com/sweepies/immich-go/immich"
 	"github.com/sweepies/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/filetypes"
 	"github.com/sweepies/immich-go/internal/filters"
+	"github.com/sweepies/immich-go/internal/groups"
+	"github.com/sweepies/immich-go/internal/groups/series"
 )
 
 type mockImmich struct {
@@ -26,96 +34,108 @@ func (m *mockImmich) CreateStack(ctx context.Context, ids []string) (string, err
 	return "stack-id", nil
 }
 
-type mockFilter struct{}
-
-func (f mockFilter) Filter(g *assets.Group) *assets.Group {
-	if len(g.Assets) > 1 {
-		// Mark the second asset for removal
-		assetToRemove := g.Assets[1]
-		g.RemoveAsset(assetToRemove, "test removal")
-	}
-	return g
+func newTestApp() *app.Application {
+	a := app.New(context.Background(), &cobra.Command{Use: "test"})
+	a.SetLog(&app.Log{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	return a
 }
 
-func TestProcessAssets_DeleteBatching(t *testing.T) {
-	mi := &mockImmich{}
-	s := &StackCmd{
+func newImageAsset(id, radical, name string, taken time.Time) *assets.Asset {
+	return &assets.Asset{
+		ID:               id,
+		OriginalFileName: name,
+		CaptureDate:      taken,
+		NameInfo: assets.NameInfo{
+			Radical: radical,
+			Type:    filetypes.TypeImage,
+		},
+	}
+}
+
+func newStackCmd(mi *mockImmich, as []*assets.Asset, fs ...filters.Filter) *StackCmd {
+	return &StackCmd{
 		client: app.Client{
 			Immich: mi,
 		},
-		assets: []*assets.Asset{
-			{ID: "1", Radical: "file", OriginalFileName: "file.jpg"},
-			{ID: "2", Radical: "file", OriginalFileName: "file.heic"},
-			{ID: "3", Radical: "other", OriginalFileName: "other.jpg"},
-			{ID: "4", Radical: "other", OriginalFileName: "other.heic"},
-		},
-		filters: []filters.Filter{mockFilter{}},
+		assets:   as,
+		filters:  fs,
+		groupers: []groups.Grouper{series.Group},
 	}
+}
 
-	// We need a grouper that groups by radical
-	s.groupers = append(s.groupers, func(ctx context.Context, out chan<- *assets.Group, in <-chan *assets.Asset) {
-		groupsMap := make(map[string]*assets.Group)
-		for a := range in {
-			g, ok := groupsMap[a.Radical]
-			if !ok {
-				g = assets.NewGroup(assets.GroupByOther)
-				groupsMap[a.Radical] = g
-			}
-			g.AddAsset(a)
+func removeSecondAsset() filters.Filter {
+	return func(g *assets.Group) *assets.Group {
+		if len(g.Assets) > 1 {
+			g.RemoveAsset(g.Assets[1], "test removal")
 		}
-		for _, g := range groupsMap {
-			out <- g
-		}
-	})
-
-	ctx := context.Background()
-	a := app.NewApplication(app.OptionNoLogFile())
-
-	err := s.ProcessAssets(ctx, a)
-	if err != nil {
-		t.Fatalf("ProcessAssets failed: %v", err)
+		return g
 	}
+}
 
-	// Baseline expectation (current code):
-	// 2 groups (file, other), each having 1 asset removed.
-	// Total 2 assets removed.
-	// Current code calls DeleteAssets for each removed asset.
-	// So 2 calls.
-	//
-	// After optimization, if we batch per group, it would still be 2 calls if each group has 1 removed asset.
-	// To see the benefit, we need a group with multiple removed assets.
-
-	mi.deleteCalls = 0
-	mi.deletedIDs = nil
-
-	s.assets = []*assets.Asset{
-		{ID: "1", Radical: "group1", OriginalFileName: "g1-1.jpg"},
-		{ID: "2", Radical: "group1", OriginalFileName: "g1-2.jpg"},
-		{ID: "3", Radical: "group1", OriginalFileName: "g1-3.jpg"},
-	}
-	// mockFilter2 removes all but the first asset
-	mockFilter2 := filters.FilterFn(func(g *assets.Group) *assets.Group {
+func keepOnlyFirstAsset() filters.Filter {
+	return func(g *assets.Group) *assets.Group {
 		for len(g.Assets) > 1 {
 			g.RemoveAsset(g.Assets[1], "test removal")
 		}
 		return g
+	}
+}
+
+func TestProcessAssetsDeleteBatching(t *testing.T) {
+	ctx := context.Background()
+	a := newTestApp()
+	baseTime := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+
+	t.Run("deletes once per group", func(t *testing.T) {
+		mi := &mockImmich{}
+		s := newStackCmd(
+			mi,
+			[]*assets.Asset{
+				newImageAsset("1", "file", "file-1.jpg", baseTime),
+				newImageAsset("2", "file", "file-2.heic", baseTime.Add(100*time.Millisecond)),
+				newImageAsset("3", "other", "other-1.jpg", baseTime.Add(2*time.Second)),
+				newImageAsset("4", "other", "other-2.heic", baseTime.Add(2100*time.Millisecond)),
+			},
+			removeSecondAsset(),
+		)
+
+		if err := s.ProcessAssets(ctx, a); err != nil {
+			t.Fatalf("ProcessAssets failed: %v", err)
+		}
+
+		if mi.deleteCalls != 2 {
+			t.Fatalf("expected 2 DeleteAssets calls, got %d", mi.deleteCalls)
+		}
+
+		want := [][]string{{"2"}, {"4"}}
+		if !reflect.DeepEqual(mi.deletedIDs, want) {
+			t.Fatalf("expected deleted IDs %v, got %v", want, mi.deletedIDs)
+		}
 	})
-	s.filters = []filters.Filter{mockFilter2}
 
-	err = s.ProcessAssets(ctx, a)
-	if err != nil {
-		t.Fatalf("ProcessAssets failed: %v", err)
-	}
+	t.Run("batches multiple removals from one group", func(t *testing.T) {
+		mi := &mockImmich{}
+		s := newStackCmd(
+			mi,
+			[]*assets.Asset{
+				newImageAsset("1", "group1", "g1-1.jpg", baseTime),
+				newImageAsset("2", "group1", "g1-2.jpg", baseTime.Add(100*time.Millisecond)),
+				newImageAsset("3", "group1", "g1-3.jpg", baseTime.Add(200*time.Millisecond)),
+			},
+			keepOnlyFirstAsset(),
+		)
 
-	// After optimization, for 2 removed assets in 1 group, it should call DeleteAssets once.
-	t.Logf("DeleteAssets calls: %d", mi.deleteCalls)
-	if mi.deleteCalls != 1 {
-		t.Errorf("Expected 1 DeleteAssets call (optimized), got %d", mi.deleteCalls)
-	}
+		if err := s.ProcessAssets(ctx, a); err != nil {
+			t.Fatalf("ProcessAssets failed: %v", err)
+		}
 
-	if len(mi.deletedIDs) != 1 {
-		t.Errorf("Expected 1 DeleteAssets call, got %d", len(mi.deletedIDs))
-	} else if len(mi.deletedIDs[0]) != 2 {
-		t.Errorf("Expected 1 call with 2 IDs, got 1 call with %d IDs", len(mi.deletedIDs[0]))
-	}
+		if mi.deleteCalls != 1 {
+			t.Fatalf("expected 1 DeleteAssets call, got %d", mi.deleteCalls)
+		}
+
+		want := [][]string{{"2", "3"}}
+		if !reflect.DeepEqual(mi.deletedIDs, want) {
+			t.Fatalf("expected deleted IDs %v, got %v", want, mi.deletedIDs)
+		}
+	})
 }
