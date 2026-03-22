@@ -113,7 +113,9 @@ func TestProcessAssets_DeleteBatching(t *testing.T) {
 		t.Errorf("Expected 1 DeleteAssets call (optimized), got %d", mi.deleteCalls)
 	}
 
-	if len(mi.deletedIDs) != 1 || len(mi.deletedIDs[0]) != 2 {
-		t.Errorf("Expected 1 call with 2 IDs, got %d calls, 1st call with %d IDs", len(mi.deletedIDs), len(mi.deletedIDs[0]))
+	if len(mi.deletedIDs) != 1 {
+		t.Errorf("Expected 1 DeleteAssets call, got %d", len(mi.deletedIDs))
+	} else if len(mi.deletedIDs[0]) != 2 {
+		t.Errorf("Expected 1 call with 2 IDs, got 1 call with %d IDs", len(mi.deletedIDs[0]))
 	}
 }
