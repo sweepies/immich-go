@@ -1,0 +1,3 @@
+kind: Changed
+body: 'perf: optimize RemoveAsset in internal/assets/group.go from O(N) to O(1) using swap-with-last'
+time: 2026-03-26T18:27:17+00:00

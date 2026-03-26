@@ -44,7 +44,19 @@ func (g *Group) RemoveAsset(a *Asset, reason string) {
 	for i, asset := range g.Assets {
 		if asset == a {
 			g.Removed = append(g.Removed, removed{Asset: asset, Reason: reason})
-			g.Assets = append(g.Assets[:i], g.Assets[i+1:]...)
+			lastIdx := len(g.Assets) - 1
+			if i == g.CoverIndex {
+				// We remove the cover index, reset it
+				g.CoverIndex = 0
+			} else if g.CoverIndex == lastIdx {
+				// The cover is at the last position, it will be moved to index i
+				g.CoverIndex = i
+			}
+			if i != lastIdx {
+				g.Assets[i] = g.Assets[lastIdx]
+			}
+			g.Assets[lastIdx] = nil
+			g.Assets = g.Assets[:lastIdx]
 			return
 		}
 	}
@@ -69,7 +81,7 @@ func (g *Group) Validate() error {
 			return errors.New("nil asset in group")
 		}
 	}
-	if 0 > g.CoverIndex || g.CoverIndex > len(g.Assets) {
+	if 0 > g.CoverIndex || g.CoverIndex >= len(g.Assets) {
 		return errors.New("cover index out of range")
 	}
 	return nil
