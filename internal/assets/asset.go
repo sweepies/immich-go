@@ -146,31 +146,33 @@ func (a Asset) LogValue() slog.Value {
 }
 
 func (a *Asset) MergeAlbums(a2 []Album) {
-	for _, album := range a2 {
-		found := false
-		for _, existingAlbum := range a.Albums {
-			if existingAlbum.Title == album.Title {
-				found = true
-				break
-			}
-		}
-		if !found {
-			a.Albums = append(a.Albums, album)
+	if len(a2) == 0 {
+		return
+	}
+	existing := make(map[string]struct{}, len(a.Albums))
+	for _, alb := range a.Albums {
+		existing[alb.Title] = struct{}{}
+	}
+	for _, alb := range a2 {
+		if _, ok := existing[alb.Title]; !ok {
+			a.Albums = append(a.Albums, alb)
+			existing[alb.Title] = struct{}{}
 		}
 	}
 }
 
 func (a *Asset) MergeTags(t2 []Tag) {
+	if len(t2) == 0 {
+		return
+	}
+	existing := make(map[string]struct{}, len(a.Tags))
+	for _, tag := range a.Tags {
+		existing[tag.Name] = struct{}{}
+	}
 	for _, tag := range t2 {
-		found := false
-		for _, existingTag := range a.Tags {
-			if existingTag.Name == tag.Name {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if _, ok := existing[tag.Name]; !ok {
 			a.Tags = append(a.Tags, tag)
+			existing[tag.Name] = struct{}{}
 		}
 	}
 }
