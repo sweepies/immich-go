@@ -170,11 +170,11 @@ func (s *StackCmd) ProcessAssets(ctx context.Context, app *app.Application) erro
 			}
 			if err := s.client.Immich.DeleteAssets(ctx, ids, false); err != nil {
 				for _, r := range g.Removed {
-					log.Error("Can't delete asset", "file", r.Asset.OriginalFileName, "error", err)
+					log.Error("can't delete asset %s: %s", r.Asset.OriginalFileName, err)
 				}
 			} else {
 				for _, r := range g.Removed {
-					log.Info("Asset deleted", "file", r.Asset.OriginalFileName, "reason", r.Reason)
+					log.Info("Asset %s deleted: %s", r.Asset.OriginalFileName, r.Reason)
 				}
 			}
 		}
