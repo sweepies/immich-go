@@ -134,16 +134,46 @@ type AboutInfo struct {
 }
 
 func (ic *ImmichClient) GetAboutInfo(ctx context.Context) (AboutInfo, error) {
-	var about AboutInfo
-	if err := ic.newServerCall(ctx, EndPointGetAboutInfo).do(getRequest("/server/about", setAcceptJSON()), responseJSON(&about)); err != nil {
-		return about, err
-	}
-	version, err := parseServerVersion(about.Version)
+	ic.serverVersionMu.Lock()
+	defer ic.serverVersionMu.Unlock()
+
+	about, version, err := ic.loadAboutInfo(ctx)
 	if err != nil {
-		return about, fmt.Errorf("can't parse server version %q: %w", about.Version, err)
+		return about, err
 	}
 	ic.serverVersion = version
 	return about, nil
+}
+
+func (ic *ImmichClient) ensureServerVersion(ctx context.Context) error {
+	if ic.ServerVersion().String() != "" {
+		return nil
+	}
+
+	ic.serverVersionMu.Lock()
+	defer ic.serverVersionMu.Unlock()
+	if ic.serverVersion.String() != "" {
+		return nil
+	}
+
+	_, version, err := ic.loadAboutInfo(ctx)
+	if err != nil {
+		return err
+	}
+	ic.serverVersion = version
+	return nil
+}
+
+func (ic *ImmichClient) loadAboutInfo(ctx context.Context) (AboutInfo, ServerVersion, error) {
+	var about AboutInfo
+	if err := ic.newServerCall(ctx, EndPointGetAboutInfo).do(getRequest("/server/about", setAcceptJSON()), responseJSON(&about)); err != nil {
+		return about, ServerVersion{}, err
+	}
+	version, err := parseServerVersion(about.Version)
+	if err != nil {
+		return about, ServerVersion{}, fmt.Errorf("can't parse server version %q: %w", about.Version, err)
+	}
+	return about, version, nil
 }
 
 // getAssetStatistics

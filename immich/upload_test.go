@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -243,6 +244,59 @@ func TestAssetUploadServerErrors(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+func TestConcurrentFirstAssetUploadsDiscoverVersionOnce(t *testing.T) {
+	profile := immichtest.V310()
+	server, client := newUploadContractClient(t, profile, func(immichtest.Request) immichtest.Response {
+		return immichtest.JSONResponse(http.StatusCreated, AssetResponse{ID: "asset-id", Status: UploadCreated})
+	})
+
+	const uploadCount = 8
+	start := make(chan struct{})
+	errs := make(chan error, uploadCount)
+	var wg sync.WaitGroup
+	for i := range uploadCount {
+		asset := newUploadContractAsset(t, fmt.Sprintf("photo-%d.jpg", i), []byte("jpeg-data"), false)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, err := client.AssetUpload(t.Context(), asset)
+			errs <- err
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Errorf("concurrent upload failed: %v", err)
+		}
+	}
+
+	var aboutCalls, uploadCalls int
+	for _, request := range server.Requests() {
+		switch request.Path {
+		case "/api/server/about":
+			aboutCalls++
+		case "/api/assets":
+			uploadCalls++
+			assertMultipartValue(t, request.Multipart, "duration", "0")
+			if _, ok := request.Multipart["deviceId"]; ok {
+				t.Error("v3 concurrent upload contains deviceId")
+			}
+			if _, ok := request.Multipart["deviceAssetId"]; ok {
+				t.Error("v3 concurrent upload contains deviceAssetId")
+			}
+		}
+	}
+	if aboutCalls != 1 {
+		t.Errorf("server version discovery calls = %d, want 1", aboutCalls)
+	}
+	if uploadCalls != uploadCount {
+		t.Errorf("asset upload calls = %d, want %d", uploadCalls, uploadCount)
 	}
 }
 

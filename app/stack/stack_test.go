@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"slices"
 	"testing"
 
 	"github.com/sweepies/immich-go/app"
@@ -74,7 +75,8 @@ func TestProcessAssets_DeleteBatching(t *testing.T) {
 	if len(mi.deletedIDs) != 1 {
 		t.Fatalf("DeleteAssets batches = %d, want 1", len(mi.deletedIDs))
 	}
-	if len(mi.deletedIDs[0]) != 2 {
-		t.Errorf("DeleteAssets batch size = %d, want 2", len(mi.deletedIDs[0]))
+	wantIDs := []immich.AssetID{"2", "3"}
+	if !slices.Equal(mi.deletedIDs[0], wantIDs) {
+		t.Errorf("DeleteAssets IDs = %v, want %v", mi.deletedIDs[0], wantIDs)
 	}
 }

@@ -102,9 +102,10 @@ func TestRunnerIntegration(t *testing.T) {
 		pauseCount := 0
 		resumeCount := 0
 		for _, cmd := range mock.jobCommands {
-			if cmd.command == immich.JobCommandPause {
+			switch cmd.command {
+			case immich.JobCommandPause:
 				pauseCount++
-			} else if cmd.command == immich.JobCommandResume {
+			case immich.JobCommandResume:
 				resumeCount++
 			}
 		}
@@ -340,14 +341,15 @@ func TestNewContext(t *testing.T) {
 		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 		recorder := journal.NewRecorder(logger)
 		processor := fileprocessor.New(nil, recorder)
-		mock := newMockServerClient()
+		server := newMockServerClient()
+		jobs := newMockServerClient()
 
 		cfg := Config{
 			SessionTag:     true,
 			ConcurrentTask: 4,
 		}
 
-		ctx := NewContext(cfg, logger, processor, nil, mock, mock)
+		ctx := NewContext(cfg, logger, processor, nil, server, jobs)
 
 		if ctx.SessionTagValue == "" {
 			t.Error("expected session tag value to be set")
@@ -355,22 +357,35 @@ func TestNewContext(t *testing.T) {
 		if ctx.Index == nil {
 			t.Error("expected index to be initialized")
 		}
+		if ctx.Server != server {
+			t.Error("context server does not preserve upload client argument")
+		}
+		if ctx.Jobs != jobs {
+			t.Error("context jobs does not preserve job-control client argument")
+		}
 	})
 
 	t.Run("creates context without session tag", func(t *testing.T) {
 		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 		recorder := journal.NewRecorder(logger)
 		processor := fileprocessor.New(nil, recorder)
-		mock := newMockServerClient()
+		server := newMockServerClient()
+		jobs := newMockServerClient()
 
 		cfg := Config{
 			SessionTag: false,
 		}
 
-		ctx := NewContext(cfg, logger, processor, nil, mock, mock)
+		ctx := NewContext(cfg, logger, processor, nil, server, jobs)
 
 		if ctx.SessionTagValue != "" {
 			t.Errorf("expected empty session tag value, got %s", ctx.SessionTagValue)
+		}
+		if ctx.Server != server {
+			t.Error("context server does not preserve upload client argument")
+		}
+		if ctx.Jobs != jobs {
+			t.Error("context jobs does not preserve job-control client argument")
 		}
 	})
 }

@@ -128,6 +128,19 @@ func (m *mockServerClient) AssetUpload(ctx context.Context, a *assets.Asset) (im
 	}, nil
 }
 
+type coverUploadFailureClient struct {
+	*mockServerClient
+	uploadCalls int
+}
+
+func (c *coverUploadFailureClient) AssetUpload(context.Context, *assets.Asset) (immich.AssetResponse, error) {
+	c.uploadCalls++
+	if c.uploadCalls == 1 {
+		return immich.AssetResponse{}, errors.New("cover upload failed")
+	}
+	return immich.AssetResponse{ID: "second-id", Status: immich.UploadCreated}, nil
+}
+
 func (m *mockServerClient) UpdateAsset(ctx context.Context, id immich.AssetID, fields immich.UpdateAssetRequest) (*immich.Asset, error) {
 	if m.updateAssetError != nil {
 		return nil, m.updateAssetError
@@ -356,6 +369,25 @@ func TestUploadStageHandleAsset_ForceUploadReplacementMarksProcessed(t *testing.
 
 	if len(mock.deletedIDs) != 1 || mock.deletedIDs[0] != immich.AssetID("server-id") {
 		t.Fatalf("expected old server asset to be deleted, got %v", mock.deletedIDs)
+	}
+}
+
+func TestUploadStageHandleGroupSkipsStackWithoutCoverID(t *testing.T) {
+	client := &coverUploadFailureClient{mockServerClient: newMockServerClient()}
+	pctx := createTestContext(client)
+	group := assets.NewGroup(assets.GroupByOther)
+	group.AddAsset(createMockAsset("cover.jpg", 10, time.Now()))
+	group.AddAsset(createMockAsset("second.jpg", 10, time.Now()))
+	for _, asset := range group.Assets {
+		pctx.Processor.RecordAssetDiscovered(t.Context(), asset.File, int64(asset.FileSize), journal.DiscoveredImage)
+	}
+
+	stage := &UploadStage{}
+	if err := stage.handleGroup(t.Context(), pctx, group); err == nil {
+		t.Fatal("handleGroup() error = nil, want cover upload error")
+	}
+	if len(client.createdStacks) != 0 {
+		t.Errorf("created stacks = %v, want none without a cover ID", client.createdStacks)
 	}
 }
 

@@ -41,10 +41,8 @@ func (ic *ImmichClient) uploadAsset(ctx context.Context, la *assets.Asset) (Asse
 			Status: UploadCreated,
 		}, nil
 	}
-	if ic.serverVersion.String() == "" {
-		if _, err := ic.GetAboutInfo(ctx); err != nil {
-			return AssetResponse{}, fmt.Errorf("discover server version before upload: %w", err)
-		}
+	if err := ic.ensureServerVersion(ctx); err != nil {
+		return AssetResponse{}, fmt.Errorf("discover server version before upload: %w", err)
 	}
 
 	var ar AssetResponse
@@ -120,11 +118,12 @@ func (ic *ImmichClient) uploadAsset(ctx context.Context, la *assets.Asset) (Asse
 }
 
 func (ic *ImmichClient) prepareCallValues(la *assets.Asset, s fs.FileInfo) map[string]string {
+	serverVersion := ic.ServerVersion()
 	callValues := map[string]string{
 		"fileModifiedAt": s.ModTime().UTC().Format(TimeFormat),
 		"isFavorite":     myBool(la.Favorite).String(),
 	}
-	if ic.serverVersion.Major() < 3 {
+	if serverVersion.Major() < 3 {
 		callValues["deviceAssetId"] = fmt.Sprintf("%s-%d", path.Base(la.OriginalFileName), s.Size())
 		callValues["deviceId"] = ic.DeviceUUID
 	}
@@ -134,7 +133,7 @@ func (ic *ImmichClient) prepareCallValues(la *assets.Asset, s fs.FileInfo) map[s
 		callValues["fileCreatedAt"] = s.ModTime().UTC().Format(TimeFormat)
 	}
 	duration := time.Duration(0)
-	if value, ok := formatUploadDuration(ic.serverVersion, &duration); ok {
+	if value, ok := formatUploadDuration(serverVersion, &duration); ok {
 		callValues["duration"] = value
 	}
 	if la.Archived {

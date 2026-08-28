@@ -280,6 +280,9 @@ func (uc *UpCmd) saveTag(ctx context.Context, tag assets.Tag, ids []string) (ass
 			uc.app.Log().Error("failed to create tag", "err", err, "tag", tag.Name)
 			return tag, err
 		}
+		if len(r) == 0 {
+			return tag, fmt.Errorf("upsert tag %q returned no tags", tag.Value)
+		}
 		uc.app.Log().Info("created tag", "tag", tag.Value)
 		tag.ID = r[0].ID.String()
 	}

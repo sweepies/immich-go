@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/sweepies/immich-go/internal/filetypes"
@@ -30,6 +31,7 @@ type ImmichClient struct {
 	supportedMediaTypes filetypes.SupportedMedia // Server's list of supported medias
 	dryRun              bool                     //  If true, do not send any data to the server
 	userID              UserID
+	serverVersionMu     sync.RWMutex
 	serverVersion       ServerVersion
 }
 
@@ -56,6 +58,8 @@ func (ic *ImmichClient) UserID() UserID {
 
 // ServerVersion returns the version reported by GetAboutInfo.
 func (ic *ImmichClient) ServerVersion() ServerVersion {
+	ic.serverVersionMu.RLock()
+	defer ic.serverVersionMu.RUnlock()
 	return ic.serverVersion
 }
 

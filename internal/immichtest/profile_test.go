@@ -75,7 +75,7 @@ func TestServerCapturesExactRequestContracts(t *testing.T) {
 	})
 
 	jsonBody := []byte(`{"name":"album","ids":["one","two"]}`)
-	request, err := http.NewRequest(http.MethodPost, server.URL+"/api/json?shared=true&id=one&id=two", bytes.NewReader(jsonBody))
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL+"/api/json?shared=true&id=one&id=two", bytes.NewReader(jsonBody))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,9 @@ func TestServerCapturesExactRequestContracts(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, _ = io.Copy(io.Discard, response.Body)
-	response.Body.Close()
+	if err := response.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	var multipartBody bytes.Buffer
 	writer := multipart.NewWriter(&multipartBody)
@@ -103,7 +105,7 @@ func TestServerCapturesExactRequestContracts(t *testing.T) {
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	request, err = http.NewRequest(http.MethodPost, server.URL+"/api/multipart", &multipartBody)
+	request, err = http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL+"/api/multipart", &multipartBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +114,9 @@ func TestServerCapturesExactRequestContracts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	response.Body.Close()
+	if err := response.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	requests := server.Requests()
 	if len(requests) != 2 {

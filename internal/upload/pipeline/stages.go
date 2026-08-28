@@ -250,14 +250,18 @@ func (s *UploadStage) handleGroup(ctx context.Context, pctx *Context, g *assets.
 
 	// Manage groups - stack assets after filtering and upload
 	if len(g.Assets) > 1 && g.Grouping != assets.GroupByNone {
-		ids := []immich.AssetID{immich.AssetID(g.Assets[g.CoverIndex].ID)}
+		coverID := g.Assets[g.CoverIndex].ID
+		ids := make([]immich.AssetID, 0, len(g.Assets))
+		if coverID != "" {
+			ids = append(ids, immich.AssetID(coverID))
+		}
 		for i, a := range g.Assets {
 			pctx.Processor.RecordNonAsset(ctx, g.Assets[i].File, 0, journal.ProcessedStacked)
-			if i != g.CoverIndex && a.ID != "" {
+			if coverID != "" && i != g.CoverIndex && a.ID != "" {
 				ids = append(ids, immich.AssetID(a.ID))
 			}
 		}
-		if len(ids) > 1 {
+		if coverID != "" && len(ids) > 1 {
 			_, err := pctx.Server.CreateStack(ctx, ids)
 			if err != nil {
 				pctx.Logger.Error("Can't create stack", "error", err)
@@ -494,7 +498,7 @@ func (s *JobControlStage) Name() string {
 
 func (s *JobControlStage) Run(ctx context.Context, pctx *Context) error {
 	if pctx.Jobs == nil {
-		return errors.New("Immich job client is not configured")
+		return errors.New("immich job client is not configured")
 	}
 	jobs := []string{"thumbnailGeneration", "metadataExtraction", "videoConversion", "faceDetection", "smartSearch"}
 
