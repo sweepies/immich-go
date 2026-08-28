@@ -1,3 +1,0 @@
-kind: Changed
-body: 'perf: optimize CSV report generation using strings.Builder instead of concatenation'
-time: 2026-01-31T08:43:21.083028-05:00

@@ -3,6 +3,7 @@ package immich
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"sync"
 	"time"
@@ -62,7 +63,7 @@ var defaultVisibility = []assets.Visibility{assets.VisibilityArchive, assets.Vis
 
 // set the queried visibilities in archive, timeline, hidden, locked values
 func (so *searchOptions) WithVisibility(visibilities ...assets.Visibility) *searchOptions {
-	gen.AddOnce(so.visibilities, visibilities...)
+	so.visibilities = gen.AddOnce(so.visibilities, visibilities...)
 	return so
 }
 
@@ -262,6 +263,48 @@ type searchMetadataResponse struct {
 		Count    int      `json:"count"`
 		Items    []*Asset `json:"items"`
 		NextPage int      `json:"nextPage,string"`
+	}
+}
+
+// GetAlbumAssetIDs returns complete album membership through metadata search.
+func (ic *ImmichClient) GetAlbumAssetIDs(ctx context.Context, albumID AlbumID) ([]AssetID, error) {
+	query := SearchMetadataQuery{
+		Page:     1,
+		Size:     1000,
+		AlbumIds: []string{albumID.String()},
+	}
+	ids := make([]AssetID, 0)
+	seen := make(map[AssetID]struct{})
+	visitedPages := make(map[int]struct{})
+
+	for {
+		if _, visited := visitedPages[query.Page]; visited {
+			return nil, fmt.Errorf("metadata search returned repeated page %d for album %s", query.Page, albumID)
+		}
+		visitedPages[query.Page] = struct{}{}
+
+		response := searchMetadataResponse{}
+		err := ic.newServerCall(ctx, EndPointGetAlbumAssetIDs).do(
+			postRequest("/search/metadata", "application/json", setJSONBody(&query), setAcceptJSON()),
+			responseJSON(&response),
+		)
+		if err != nil {
+			return nil, err
+		}
+		for _, asset := range response.Assets.Items {
+			if asset == nil {
+				continue
+			}
+			if _, exists := seen[asset.ID]; exists {
+				continue
+			}
+			seen[asset.ID] = struct{}{}
+			ids = append(ids, asset.ID)
+		}
+		if response.Assets.NextPage <= 0 {
+			return ids, nil
+		}
+		query.Page = response.Assets.NextPage
 	}
 }
 

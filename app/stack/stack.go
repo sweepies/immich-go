@@ -164,9 +164,9 @@ func (s *StackCmd) ProcessAssets(ctx context.Context, app *app.Application) erro
 		g = filters.ApplyFilters(g, s.filters...)
 		// Delete filtered assets
 		if len(g.Removed) > 0 {
-			ids := make([]string, 0, len(g.Removed))
-			for _, r := range g.Removed {
-				ids = append(ids, r.Asset.ID)
+			ids := make([]immich.AssetID, 0, len(g.Removed))
+			for _, removed := range g.Removed {
+				ids = append(ids, immich.AssetID(removed.Asset.ID))
 			}
 			if err := s.client.Immich.DeleteAssets(ctx, ids, false); err != nil {
 				for _, r := range g.Removed {
@@ -180,16 +180,15 @@ func (s *StackCmd) ProcessAssets(ctx context.Context, app *app.Application) erro
 		}
 
 		if len(g.Assets) > 1 && g.Grouping != assets.GroupByNone {
-			client := s.client.Immich.(immich.ImmichStackInterface)
-			ids := []string{g.Assets[g.CoverIndex].ID}
-			for _, a := range g.Assets {
-				log.Info("Stacking", "file", a.OriginalFileName)
-				if a.ID != ids[0] {
-					ids = append(ids, a.ID)
+			ids := []immich.AssetID{immich.AssetID(g.Assets[g.CoverIndex].ID)}
+			for _, asset := range g.Assets {
+				log.Info("Stacking", "file", asset.OriginalFileName)
+				if immich.AssetID(asset.ID) != ids[0] {
+					ids = append(ids, immich.AssetID(asset.ID))
 				}
 			}
 			if len(ids) > 1 {
-				if _, err := client.CreateStack(ctx, ids); err != nil {
+				if _, err := s.client.Immich.CreateStack(ctx, ids); err != nil {
 					log.Error("Can't create stack", "error", err)
 				}
 			}

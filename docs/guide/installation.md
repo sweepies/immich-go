@@ -54,6 +54,14 @@ sudo mv immich-go /usr/local/bin/
 immich-go --version
 ```
 
+## Immich Compatibility
+
+immich-go supports the Immich v2.7.x and v3.x API generations.
+
+Automated compatibility coverage uses deterministic local HTTP contract fixtures pinned to Immich v2.7.5 and v3.1.0. These fixtures exercise the CLI and API request/response contracts without Docker or a live Immich server; they are not live-server end-to-end tests.
+
+The `--device-uuid` upload option is retained for Immich v2 compatibility. immich-go sends the legacy device fields to v2 servers and omits them from v3 uploads.
+
 ## Build from Source
 
 Requires Go 1.26 or higher.
@@ -119,7 +127,6 @@ Create an API key in Immich (**Account Settings > API Keys**) with these permiss
 | `asset.delete` | Delete assets (for stacking) |
 | `asset.download` | Download assets (for archive/migration) |
 | `asset.copy` | Copy assets between albums |
-| `asset.replace` | Replace existing assets |
 | `asset.statistics` | Get upload statistics |
 | `album.create` | Create albums |
 | `album.read` | Read album information |

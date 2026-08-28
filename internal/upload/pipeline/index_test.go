@@ -5,9 +5,9 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/sweepies/immich-go/immich"
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/fshelper"
-	iimmich "github.com/sweepies/immich-go/internal/immich"
 )
 
 // mockFilename creates a mock Filename for testing
@@ -34,12 +34,12 @@ func TestNewIndex(t *testing.T) {
 func TestIndex_AddImmichAsset(t *testing.T) {
 	idx := NewIndex()
 
-	ia := &iimmich.Asset{
+	ia := &immich.Asset{
 		ID:               "asset-1",
 		Checksum:         "checksum-1",
 		OriginalFileName: "photo.jpg",
-		ExifInfo: iimmich.ExifInfo{
-			DateTimeOriginal: iimmich.ImmichExifTime{Time: time.Now()},
+		ExifInfo: immich.ExifInfo{
+			DateTimeOriginal: immich.ImmichExifTime{Time: time.Now()},
 			FileSizeInByte:   1024,
 		},
 	}
@@ -68,12 +68,12 @@ func TestIndex_AddImmichAsset(t *testing.T) {
 func TestIndex_GetByID(t *testing.T) {
 	idx := NewIndex()
 
-	ia := &iimmich.Asset{
+	ia := &immich.Asset{
 		ID:               "asset-1",
 		Checksum:         "checksum-1",
 		OriginalFileName: "photo.jpg",
-		ExifInfo: iimmich.ExifInfo{
-			DateTimeOriginal: iimmich.ImmichExifTime{Time: time.Now()},
+		ExifInfo: immich.ExifInfo{
+			DateTimeOriginal: immich.ImmichExifTime{Time: time.Now()},
 			FileSizeInByte:   1024,
 		},
 	}
@@ -121,12 +121,12 @@ func TestIndex_ShouldUpload_SameOnServer(t *testing.T) {
 	captureDate := time.Now()
 
 	// Add an asset to the server
-	ia := &iimmich.Asset{
+	ia := &immich.Asset{
 		ID:               "server-asset-1",
 		Checksum:         "checksum-same",
 		OriginalFileName: "photo.jpg",
-		ExifInfo: iimmich.ExifInfo{
-			DateTimeOriginal: iimmich.ImmichExifTime{Time: captureDate},
+		ExifInfo: immich.ExifInfo{
+			DateTimeOriginal: immich.ImmichExifTime{Time: captureDate},
 			FileSizeInByte:   1024,
 		},
 	}
@@ -156,12 +156,12 @@ func TestIndex_ShouldUpload_SmallerOnServer(t *testing.T) {
 	captureDate := time.Now()
 
 	// Add a smaller asset to the server
-	ia := &iimmich.Asset{
+	ia := &immich.Asset{
 		ID:               "server-asset-1",
 		Checksum:         "checksum-server",
 		OriginalFileName: "photo.jpg",
-		ExifInfo: iimmich.ExifInfo{
-			DateTimeOriginal: iimmich.ImmichExifTime{Time: captureDate},
+		ExifInfo: immich.ExifInfo{
+			DateTimeOriginal: immich.ImmichExifTime{Time: captureDate},
 			FileSizeInByte:   512, // Smaller than local
 		},
 	}
@@ -191,12 +191,12 @@ func TestIndex_ShouldUpload_BetterOnServer(t *testing.T) {
 	captureDate := time.Now()
 
 	// Add a larger asset to the server
-	ia := &iimmich.Asset{
+	ia := &immich.Asset{
 		ID:               "server-asset-1",
 		Checksum:         "checksum-server",
 		OriginalFileName: "photo.jpg",
-		ExifInfo: iimmich.ExifInfo{
-			DateTimeOriginal: iimmich.ImmichExifTime{Time: captureDate},
+		ExifInfo: immich.ExifInfo{
+			DateTimeOriginal: immich.ImmichExifTime{Time: captureDate},
 			FileSizeInByte:   2048, // Larger than local
 		},
 	}
@@ -226,12 +226,12 @@ func TestIndex_ShouldUpload_ForceUpload(t *testing.T) {
 	captureDate := time.Now()
 
 	// Add an asset to the server
-	ia := &iimmich.Asset{
+	ia := &immich.Asset{
 		ID:               "server-asset-1",
 		Checksum:         "checksum-server",
 		OriginalFileName: "photo.jpg",
-		ExifInfo: iimmich.ExifInfo{
-			DateTimeOriginal: iimmich.ImmichExifTime{Time: captureDate},
+		ExifInfo: immich.ExifInfo{
+			DateTimeOriginal: immich.ImmichExifTime{Time: captureDate},
 			FileSizeInByte:   1024,
 		},
 	}

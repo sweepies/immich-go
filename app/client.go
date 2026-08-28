@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sweepies/immich-go/immich"
 	"github.com/spf13/pflag"
+	"github.com/sweepies/immich-go/immich"
 )
 
 // Client represents an Immich server client with configuration and connection management.
@@ -32,10 +32,10 @@ type Client struct {
 	User                      immich.User    `mapstructure:"user" json:"user" toml:"user" yaml:"user"`                                                                                                 // User info corresponding to the API key
 	PauseImmichBackgroundJobs bool           `mapstructure:"pause_immich_background_jobs" json:"pause_immich_background_jobs" toml:"pause_immich_background_jobs" yaml:"pause_immich_background_jobs"` // Pause Immich background jobs
 
-	TZ          *time.Location         // Time zone to use
-	Immich      immich.ImmichInterface // Immich client
-	AdminImmich immich.ImmichInterface // Immich client for admin
-	ClientLog   *slog.Logger           // Logger
+	TZ          *time.Location // Time zone to use
+	Immich      immich.Client  // User-authenticated Immich client
+	AdminImmich immich.Client  // Administrator-authenticated Immich client
+	ClientLog   *slog.Logger   // Logger
 	app         *Application
 	DryRun      bool // Protect the server from changes
 }

@@ -8,10 +8,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/sweepies/immich-go/immich"
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/gen/syncmap"
 	"github.com/sweepies/immich-go/internal/gen/syncset"
-	iimmich "github.com/sweepies/immich-go/internal/immich"
 )
 
 // AdviceCode represents the decision about whether to upload an asset.
@@ -87,7 +87,7 @@ func NewIndex() *Index {
 
 // AddImmichAsset adds an asset from the server to the index.
 // Returns the asset and true if added, or existing asset and false if already present.
-func (idx *Index) AddImmichAsset(ia *iimmich.Asset) (*assets.Asset, bool) {
+func (idx *Index) AddImmichAsset(ia *immich.Asset) (*assets.Asset, bool) {
 	idx.lock.Lock()
 	defer idx.lock.Unlock()
 

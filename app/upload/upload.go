@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/sweepies/immich-go/app"
+	"github.com/sweepies/immich-go/immich"
 	"github.com/sweepies/immich-go/internal/adapters"
 	"github.com/sweepies/immich-go/internal/assets"
 	cliupload "github.com/sweepies/immich-go/internal/cli/upload"
@@ -190,12 +191,7 @@ func (uc *UpCmd) Run(ctx context.Context, cmd *cobra.Command) error {
 		uc.ManageHEICJPG.GroupFilter(),
 	}
 
-	// Create the server client adapter
-	serverClient := &pipeline.ServerClientAdapter{
-		Immich:      uc.client.Immich,
-		AdminImmich: uc.client.AdminImmich,
-		User:        uc.client.User,
-	}
+	// The pipeline consumes the canonical user and admin client contracts directly.
 
 	// Create pipeline context
 	pipelineCfg := pipeline.Config{
@@ -213,7 +209,8 @@ func (uc *UpCmd) Run(ctx context.Context, cmd *cobra.Command) error {
 		uc.app.Log().Logger,
 		uc.app.FileProcessor(),
 		uc.app.GetSupportedMedia(),
-		serverClient,
+		uc.client.Immich,
+		uc.client.AdminImmich,
 	)
 
 	// Create save callbacks for albums and tags
@@ -227,7 +224,6 @@ func (uc *UpCmd) Run(ctx context.Context, cmd *cobra.Command) error {
 	// Create and run the pipeline runner
 	runner := pipeline.NewRunner(pipeline.RunnerConfig{
 		Source:       adapterSource,
-		Server:       serverClient,
 		PipelineCtx:  pctx,
 		Groupers:     groupers,
 		Filters:      filterList,
@@ -246,8 +242,12 @@ func (uc *UpCmd) saveAlbum(ctx context.Context, album assets.Album, ids []string
 	if len(ids) == 0 {
 		return album, nil
 	}
+	assetIDs := make([]immich.AssetID, len(ids))
+	for i, id := range ids {
+		assetIDs[i] = immich.AssetID(id)
+	}
 	if album.ID == "" {
-		r, err := uc.client.Immich.CreateAlbum(ctx, album.Title, album.Description, ids)
+		r, err := uc.client.Immich.CreateAlbum(ctx, album.Title, album.Description, assetIDs)
 		if err != nil {
 			uc.app.Log().Error("failed to create album", "err", err, "album", album.Title)
 			return album, err
@@ -256,7 +256,7 @@ func (uc *UpCmd) saveAlbum(ctx context.Context, album assets.Album, ids []string
 		album.ID = r.ID
 		return album, nil
 	}
-	_, err := uc.client.Immich.AddAssetToAlbum(ctx, album.ID, ids)
+	_, err := uc.client.Immich.AddAssetToAlbum(ctx, immich.AlbumID(album.ID), assetIDs)
 	if err != nil {
 		uc.app.Log().Error("failed to add assets to album", "err", err, "album", album.Title, "assets", len(ids))
 		return album, err
@@ -270,16 +270,23 @@ func (uc *UpCmd) saveTag(ctx context.Context, tag assets.Tag, ids []string) (ass
 	if len(ids) == 0 {
 		return tag, nil
 	}
+	assetIDs := make([]immich.AssetID, len(ids))
+	for i, id := range ids {
+		assetIDs[i] = immich.AssetID(id)
+	}
 	if tag.ID == "" {
 		r, err := uc.client.Immich.UpsertTags(ctx, []string{tag.Value})
 		if err != nil {
 			uc.app.Log().Error("failed to create tag", "err", err, "tag", tag.Name)
 			return tag, err
 		}
+		if len(r) == 0 {
+			return tag, fmt.Errorf("upsert tag %q returned no tags", tag.Value)
+		}
 		uc.app.Log().Info("created tag", "tag", tag.Value)
-		tag.ID = r[0].ID
+		tag.ID = r[0].ID.String()
 	}
-	_, err := uc.client.Immich.TagAssets(ctx, tag.ID, ids)
+	_, err := uc.client.Immich.TagAssets(ctx, immich.TagID(tag.ID), assetIDs)
 	if err != nil {
 		uc.app.Log().Error("failed to add assets to tag", "err", err, "tag", tag.Value, "assets", len(ids))
 		return tag, err

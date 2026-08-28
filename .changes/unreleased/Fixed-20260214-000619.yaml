@@ -1,3 +1,0 @@
-kind: Fixed
-body: 'fix(upload): stop folder source worker pool at end of browse'
-time: 2026-02-14T00:06:19.315026-05:00

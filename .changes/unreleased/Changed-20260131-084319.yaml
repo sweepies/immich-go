@@ -1,3 +1,0 @@
-kind: Changed
-body: 'perf: optimize Google Photos metadata matching from O(n²) to O(n) for large takeout imports'
-time: 2026-01-31T08:43:19.68776-05:00
