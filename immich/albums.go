@@ -14,6 +14,7 @@ type AlbumSimplified struct {
 	Description string  `json:"description,omitempty"`
 }
 
+// AlbumsFromAlbumSimplified converts simplified album records into asset album values.
 func AlbumsFromAlbumSimplified(albums []AlbumSimplified) []assets.Album {
 	result := make([]assets.Album, 0, len(albums))
 	for _, a := range albums {

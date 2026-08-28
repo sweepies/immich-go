@@ -96,7 +96,8 @@ type Response struct {
 	Body   []byte
 }
 
-// JSONResponse creates a JSON response and panics only if value cannot be encoded.
+// JSONResponse creates a response containing the JSON-encoded value.
+// It panics if the value cannot be encoded as JSON.
 func JSONResponse(status int, value any) Response {
 	body, err := json.Marshal(value)
 	if err != nil {
@@ -157,6 +158,9 @@ type Request struct {
 	Multipart map[string][]MultipartField
 }
 
+// captureRequest snapshots request metadata and body content, parsing JSON and multipart
+// form data into the corresponding Request fields. It returns an error if the body
+// cannot be read or multipart data cannot be parsed.
 func captureRequest(request *http.Request) (Request, error) {
 	body, err := io.ReadAll(request.Body)
 	if err != nil {
@@ -324,6 +328,8 @@ func routeKey(method, path string) string {
 	return method + " " + path
 }
 
+// writeResponse writes a response's headers, status, and body to the provided writer.
+// An unset status is written as HTTP 200 OK.
 func writeResponse(writer http.ResponseWriter, response Response) {
 	for name, values := range response.Header {
 		for _, value := range values {
@@ -338,7 +344,9 @@ func writeResponse(writer http.ResponseWriter, response Response) {
 	_, _ = writer.Write(response.Body)
 }
 
-// Paginate returns a one-based deterministic page using profile.PageSize.
+// Paginate returns a one-based page of items using the profile's page size.
+// Invalid page sizes use the default, and page numbers less than one use the
+// first page. It reports whether more items remain after the returned page.
 func Paginate[T any](profile Profile, items []T, page int) (values []T, hasNext bool) {
 	pageSize := profile.PageSize
 	if pageSize <= 0 {

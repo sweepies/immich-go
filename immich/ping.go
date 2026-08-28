@@ -91,6 +91,8 @@ func (v ServerVersion) Major() uint64 {
 	return v.major
 }
 
+// parseServerVersion parses a version in major.minor.patch format, optionally with a v prefix or suffix.
+// It returns the normalized version and its major component, or an error for invalid input.
 func parseServerVersion(value string) (ServerVersion, error) {
 	value = strings.TrimSpace(value)
 	core := strings.TrimPrefix(value, "v")

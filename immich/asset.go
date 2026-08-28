@@ -119,6 +119,7 @@ const (
 	UploadDuplicate = "duplicate"
 )
 
+// formatDuration formats a duration as hours, minutes, seconds, and milliseconds.
 func formatDuration(duration time.Duration) string {
 	hours := duration / time.Hour
 	duration -= hours * time.Hour

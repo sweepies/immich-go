@@ -24,6 +24,8 @@ const (
 	ctxCallValues callValues = "call-values"
 )
 
+// setContextValue returns a request option that stores call values in the server call context.
+// It leaves the context unchanged when the call already has an error or the values map is nil.
 func setContextValue(kv map[string]string) serverRequestOption {
 	return func(sc *serverCall, req *http.Request) error {
 		if sc.err != nil || kv == nil {
@@ -144,6 +146,9 @@ func (ic *ImmichClient) prepareCallValues(la *assets.Asset, s fs.FileInfo) map[s
 	return callValues
 }
 
+// formatUploadDuration formats a duration according to the server version.
+// It returns the duration in milliseconds for server version 3 or later and in
+// the legacy format for earlier versions. A nil duration is rejected.
 func formatUploadDuration(version ServerVersion, duration *time.Duration) (string, bool) {
 	if duration == nil {
 		return "", false

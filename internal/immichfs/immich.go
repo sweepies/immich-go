@@ -22,7 +22,7 @@ type ImmichFS struct {
 	url    string
 }
 
-// NewImmichFS creates a new ImmichFS using the client.
+// NewImmichFS creates an ImmichFS with the specified context, URL, and asset service.
 func NewImmichFS(ctx context.Context, url string, client immich.AssetsService) *ImmichFS {
 	return &ImmichFS{
 		ctx:    ctx,

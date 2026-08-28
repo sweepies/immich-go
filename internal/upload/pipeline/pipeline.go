@@ -52,7 +52,8 @@ type Context struct {
 	SessionTagValue string
 }
 
-// NewContext creates a new pipeline context with the given configuration.
+// NewContext creates a pipeline context with the provided configuration and dependencies.
+// It initializes the asset index and start time, and generates a session tag when enabled.
 func NewContext(
 	cfg Config,
 	log *slog.Logger,
