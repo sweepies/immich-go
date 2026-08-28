@@ -7,9 +7,14 @@ import (
 	"github.com/google/uuid"
 )
 
-// CreateStack create a stack with the given assets, the 1st asset is the cover, return the stack ID
-func (ic *ImmichClient) CreateStack(ctx context.Context, ids []string) (string, error) {
-	// remove the empty ids
+// StackResponse is the server response after creating a stack.
+type StackResponse struct {
+	ID             StackID `json:"id"`
+	PrimaryAssetID AssetID `json:"primaryAssetId"`
+}
+
+// CreateStack creates a stack with the first asset as its cover.
+func (ic *ImmichClient) CreateStack(ctx context.Context, ids []AssetID) (StackID, error) {
 	n := 0
 	for _, id := range ids {
 		if id != "" {
@@ -24,20 +29,16 @@ func (ic *ImmichClient) CreateStack(ctx context.Context, ids []string) (string, 
 	}
 
 	if ic.dryRun {
-		return uuid.NewString(), nil
+		return StackID(uuid.NewString()), nil
 	}
 
 	param := struct {
-		AssetIds []string `json:"assetIds"`
+		AssetIDs []AssetID `json:"assetIds"`
 	}{
-		AssetIds: ids,
+		AssetIDs: ids,
 	}
 
-	var result struct {
-		ID             string `json:"id"`
-		PrimaryAssetID string `json:"primaryAssetId"`
-	}
-
+	var result StackResponse
 	err := ic.newServerCall(ctx, "createStack").do(postRequest("/stacks", "application/json", setAcceptJSON(), setJSONBody(param)), responseJSON(&result))
 	return result.ID, err
 }

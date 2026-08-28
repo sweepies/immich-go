@@ -18,12 +18,12 @@ var _ fs.FS = (*ImmichFS)(nil)
 
 type ImmichFS struct {
 	ctx    context.Context
-	client immich.ImmichInterface
+	client immich.AssetsService
 	url    string
 }
 
-// NewImmichFS creates a new ImmichFS using the client
-func NewImmichFS(ctx context.Context, url string, client immich.ImmichInterface) *ImmichFS {
+// NewImmichFS creates a new ImmichFS using the client.
+func NewImmichFS(ctx context.Context, url string, client immich.AssetsService) *ImmichFS {
 	return &ImmichFS{
 		ctx:    ctx,
 		client: client,
@@ -52,7 +52,7 @@ func (ifs *ImmichFS) Open(name string) (fs.File, error) {
 		return nil, err
 	}
 
-	rc, err := ifs.client.DownloadAsset(ctx, name)
+	rc, err := ifs.client.DownloadAsset(ctx, immich.AssetID(name))
 	if err != nil {
 		cancel(err)
 		return nil, err
@@ -93,7 +93,7 @@ func (file *ImmichFile) Stat() (fs.FileInfo, error) {
 // Stat returns a FileInfo describing the file.
 // Name is the ID of the asset
 func (ifs *ImmichFS) Stat(name string) (*fsFileInfo, error) {
-	a, err := ifs.client.GetAssetInfo(ifs.ctx, name)
+	a, err := ifs.client.GetAssetInfo(ifs.ctx, immich.AssetID(name))
 	if err != nil {
 		return nil, err
 	}

@@ -172,7 +172,7 @@ func (s *FromImmichSource) resolveAlbums(ctx context.Context) error {
 		found := false
 		for _, a := range albums {
 			if a.AlbumName == fromAlbum {
-				s.albumIDs = gen.AddOnce(s.albumIDs, a.ID)
+				s.albumIDs = gen.AddOnce(s.albumIDs, a.ID.String())
 				found = true
 			}
 		}
@@ -206,7 +206,7 @@ func (s *FromImmichSource) resolveTags(ctx context.Context) error {
 		found := false
 		for _, t := range tags {
 			if t.Value == fromTag {
-				s.tagIDs = gen.AddOnce(s.tagIDs, t.ID)
+				s.tagIDs = gen.AddOnce(s.tagIDs, t.ID.String())
 				found = true
 			}
 		}
@@ -349,7 +349,7 @@ func (s *FromImmichSource) getAssets(ctx context.Context, gOut chan *assets.Grou
 			Tags:        asset.Tags,
 		}
 		asset.UseMetadata(asset.FromApplication)
-		asset.File = fshelper.NewFilename(s.ifs, a.ID)
+		asset.File = fshelper.NewFilename(s.ifs, a.ID.String())
 
 		// Record asset discovery
 		code := journal.DiscoveredImage

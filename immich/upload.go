@@ -9,7 +9,9 @@ import (
 	"mime/multipart"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sweepies/immich-go/internal/assets"
@@ -32,12 +34,17 @@ func setContextValue(kv map[string]string) serverRequestOption {
 	}
 }
 
-func (ic *ImmichClient) uploadAsset(ctx context.Context, la *assets.Asset, endPoint string, replaceID string) (AssetResponse, error) {
+func (ic *ImmichClient) uploadAsset(ctx context.Context, la *assets.Asset) (AssetResponse, error) {
 	if ic.dryRun {
 		return AssetResponse{
-			ID:     uuid.NewString(),
+			ID:     AssetID(uuid.NewString()),
 			Status: UploadCreated,
 		}, nil
+	}
+	if ic.serverVersion.String() == "" {
+		if _, err := ic.GetAboutInfo(ctx); err != nil {
+			return AssetResponse{}, fmt.Errorf("discover server version before upload: %w", err)
+		}
 	}
 
 	var ar AssetResponse
@@ -68,7 +75,7 @@ func (ic *ImmichClient) uploadAsset(ctx context.Context, la *assets.Asset, endPo
 		return ar, err
 	}
 
-	callValues := ic.prepareCallValues(la, s, ext, mtype)
+	callValues := ic.prepareCallValues(la, s)
 	body, pw := io.Pipe()
 	m := multipart.NewWriter(pw)
 
@@ -86,7 +93,7 @@ func (ic *ImmichClient) uploadAsset(ctx context.Context, la *assets.Asset, endPo
 			return
 		}
 
-		gErr = ic.writeFilePart(m, f, la.OriginalFileName, mtype)
+		gErr = ic.writeFilePart(m, f, la.OriginalFileName)
 		if gErr != nil {
 			errChan <- gErr
 			return
@@ -102,15 +109,8 @@ func (ic *ImmichClient) uploadAsset(ctx context.Context, la *assets.Asset, endPo
 		errChan <- nil
 	}()
 
-	var errCall error
-	switch endPoint {
-	case EndPointAssetUpload:
-		errCall = ic.newServerCall(ctx, EndPointAssetUpload).
-			do(postRequest("/assets", m.FormDataContentType(), setContextValue(callValues), setAcceptJSON(), setImmichChecksum(la), setBody(body)), responseJSON(&ar))
-	case EndPointAssetReplace:
-		errCall = ic.newServerCall(ctx, EndPointAssetReplace).
-			do(putRequest("/assets/"+replaceID+"/original", setContextValue(callValues), setAcceptJSON(), setImmichChecksum(la), setContentType(m.FormDataContentType()), setBody(body)), responseJSON(&ar))
-	}
+	errCall := ic.newServerCall(ctx, EndPointAssetUpload).
+		do(postRequest("/assets", m.FormDataContentType(), setContextValue(callValues), setAcceptJSON(), setImmichChecksum(la), setBody(body)), responseJSON(&ar))
 	gErr := <-errChan
 	if ar.Status == "duplicate" && errors.Is(gErr, io.ErrClosedPipe) {
 		gErr = nil // immich closes the connection when we upload the x-immich-checksum header and it finds a duplicate
@@ -119,28 +119,40 @@ func (ic *ImmichClient) uploadAsset(ctx context.Context, la *assets.Asset, endPo
 	return ar, err
 }
 
-func (ic *ImmichClient) prepareCallValues(la *assets.Asset, s fs.FileInfo, ext, mtype string) map[string]string {
-	callValues := map[string]string{}
-
-	callValues["deviceAssetId"] = fmt.Sprintf("%s-%d", path.Base(la.OriginalFileName), s.Size())
-	callValues["deviceId"] = ic.DeviceUUID
-	callValues["assetType"] = mtype
+func (ic *ImmichClient) prepareCallValues(la *assets.Asset, s fs.FileInfo) map[string]string {
+	callValues := map[string]string{
+		"fileModifiedAt": s.ModTime().UTC().Format(TimeFormat),
+		"isFavorite":     myBool(la.Favorite).String(),
+	}
+	if ic.serverVersion.Major() < 3 {
+		callValues["deviceAssetId"] = fmt.Sprintf("%s-%d", path.Base(la.OriginalFileName), s.Size())
+		callValues["deviceId"] = ic.DeviceUUID
+	}
 	if !la.CaptureDate.IsZero() {
 		callValues["fileCreatedAt"] = la.CaptureDate.Format(TimeFormat)
 	} else {
 		callValues["fileCreatedAt"] = s.ModTime().UTC().Format(TimeFormat)
 	}
-	callValues["fileModifiedAt"] = s.ModTime().UTC().Format(TimeFormat)
-	callValues["isFavorite"] = myBool(la.Favorite).String()
-	callValues["fileExtension"] = ext
-	callValues["duration"] = formatDuration(0)
-	callValues["isReadOnly"] = "false"
+	duration := time.Duration(0)
+	if value, ok := formatUploadDuration(ic.serverVersion, &duration); ok {
+		callValues["duration"] = value
+	}
 	if la.Archived {
 		callValues["visibility"] = "archive"
 	} else {
 		callValues["visibility"] = "timeline"
 	}
 	return callValues
+}
+
+func formatUploadDuration(version ServerVersion, duration *time.Duration) (string, bool) {
+	if duration == nil {
+		return "", false
+	}
+	if version.Major() >= 3 {
+		return strconv.FormatInt(duration.Milliseconds(), 10), true
+	}
+	return formatDuration(*duration), true
 }
 
 func (ic *ImmichClient) writeMultipartFields(m *multipart.Writer, callValues map[string]string) error {
@@ -153,7 +165,7 @@ func (ic *ImmichClient) writeMultipartFields(m *multipart.Writer, callValues map
 	return nil
 }
 
-func (ic *ImmichClient) writeFilePart(m *multipart.Writer, f io.Reader, originalFileName, _ string) error {
+func (ic *ImmichClient) writeFilePart(m *multipart.Writer, f io.Reader, originalFileName string) error {
 	w, err := m.CreateFormFile("assetData", originalFileName)
 	if err != nil {
 		return err

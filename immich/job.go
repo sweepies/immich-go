@@ -17,7 +17,7 @@ type Job struct {
 	} `json:"queueStatus"`
 }
 
-type SendJobCommandResponse struct {
+type JobCommandResponse struct {
 	JobCounts struct {
 		Active    int `json:"active"`
 		Completed int `json:"completed"`
@@ -29,31 +29,31 @@ type SendJobCommandResponse struct {
 	QueueStatus struct {
 		IsActive bool `json:"isActive"`
 		IsPause  bool `json:"isPause"`
-	}
+	} `json:"queueStatus"`
 }
 
 type JobID string
 
 const (
-	StorageTemplateMigration JobID = "storageTemplateMigration"
+	JobStorageTemplateMigration JobID = "storageTemplateMigration"
 )
 
 type JobCommand string
 
 const (
-	Start       JobCommand = "start"
-	Pause       JobCommand = "pause"
-	Resume      JobCommand = "resume"
-	Empty       JobCommand = "empty"
-	ClearFailed JobCommand = "clear-failed"
+	JobCommandStart       JobCommand = "start"
+	JobCommandPause       JobCommand = "pause"
+	JobCommandResume      JobCommand = "resume"
+	JobCommandEmpty       JobCommand = "empty"
+	JobCommandClearFailed JobCommand = "clear-failed"
 )
 
 type JobName string
 
 const (
-	PersonCleanup JobName = "person-cleanup"
-	TagCleanup    JobName = "tag-cleanup"
-	UserCleanup   JobName = "user-cleanup"
+	JobPersonCleanup JobName = "person-cleanup"
+	JobTagCleanup    JobName = "tag-cleanup"
+	JobUserCleanup   JobName = "user-cleanup"
 )
 
 func (ic *ImmichClient) GetJobs(ctx context.Context) (map[string]Job, error) {
@@ -68,7 +68,7 @@ func (ic *ImmichClient) SendJobCommand(
 	jobID string,
 	command JobCommand,
 	force bool,
-) (resp SendJobCommandResponse, err error) {
+) (resp JobCommandResponse, err error) {
 	err = ic.newServerCall(ctx, EndPointSendJobCommand).do(putRequest("/jobs/"+jobID,
 		setJSONBody(struct {
 			Command JobCommand `json:"command"`

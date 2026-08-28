@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/sweepies/immich-go/immich"
 	"github.com/sweepies/immich-go/internal/adapters"
 	"github.com/sweepies/immich-go/internal/fileprocessor"
 	"github.com/sweepies/immich-go/internal/filetypes"
@@ -40,7 +41,8 @@ type Context struct {
 	Media     filetypes.SupportedMedia
 
 	// Server interaction
-	Server ServerClient
+	Server immich.UploadClient
+	Jobs   immich.JobControlService
 
 	// Pipeline state (mutable during execution)
 	Index     *Index
@@ -51,13 +53,21 @@ type Context struct {
 }
 
 // NewContext creates a new pipeline context with the given configuration.
-func NewContext(cfg Config, log *slog.Logger, processor *fileprocessor.FileProcessor, media filetypes.SupportedMedia, server ServerClient) *Context {
+func NewContext(
+	cfg Config,
+	log *slog.Logger,
+	processor *fileprocessor.FileProcessor,
+	media filetypes.SupportedMedia,
+	server immich.UploadClient,
+	jobs immich.JobControlService,
+) *Context {
 	ctx := &Context{
 		Config:    cfg,
 		Logger:    log,
 		Processor: processor,
 		Media:     media,
 		Server:    server,
+		Jobs:      jobs,
 		Index:     NewIndex(),
 		StartTime: time.Now(),
 	}

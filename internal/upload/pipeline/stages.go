@@ -7,12 +7,12 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/sweepies/immich-go/immich"
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/assets/cache"
 	"github.com/sweepies/immich-go/internal/filters"
 	"github.com/sweepies/immich-go/internal/fshelper"
 	"github.com/sweepies/immich-go/internal/groups"
-	iimmich "github.com/sweepies/immich-go/internal/immich"
 	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/worker"
 	"golang.org/x/sync/errgroup"
@@ -36,7 +36,7 @@ func (s *DiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 
 	userID := pctx.Server.UserID()
 
-	err = pctx.Server.GetAllAssets(ctx, func(a *iimmich.Asset) error {
+	err = pctx.Server.GetAllAssets(ctx, func(a *immich.Asset) error {
 		r := received.Add(1)
 		if s.ProgressUpdate != nil {
 			defer func() {
@@ -97,7 +97,7 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 	case <-s.AssetsReady:
 		type albumInfo struct {
 			album assets.Album
-			ids   []string
+			ids   []immich.AssetID
 		}
 
 		// Channel to receive album info from workers
@@ -119,12 +119,16 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 		go func() {
 			defer close(consumerDone)
 			for info := range updates {
-				s.AlbumsCache.NewCollection(info.album.Title, info.album, info.ids)
+				cacheIDs := make([]string, len(info.ids))
+				for i, id := range info.ids {
+					cacheIDs[i] = id.String()
+				}
+				s.AlbumsCache.NewCollection(info.album.Title, info.album, cacheIDs)
 				pctx.Logger.Info("got album from the server", "album", info.album.Title, "assets", len(info.ids))
 
 				// assign the album to the assets
 				for _, id := range info.ids {
-					asset := pctx.Index.GetByID(id)
+					asset := pctx.Index.GetByID(id.String())
 					if asset == nil {
 						pctx.Logger.Debug("processing the immich albums: asset not found in index", "id", id)
 						continue
@@ -137,20 +141,16 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 		// Producers: fetch album info
 		for _, a := range serverAlbums {
 			wg.Go(func() error {
-				r, err := pctx.Server.GetAlbumInfo(ctx, a.ID, false)
+				ids, err := pctx.Server.GetAlbumAssetIDs(ctx, a.ID)
 				if err != nil {
 					if ctx.Err() != nil {
 						return ctx.Err()
 					}
-					pctx.Logger.Error("can't get the album info from the server", "album", a.AlbumName, "err", err)
+					pctx.Logger.Error("can't get the album assets from the server", "album", a.AlbumName, "err", err)
 					albumErrMu.Lock()
 					albumErr = errors.Join(albumErr, fmt.Errorf("album %s: %w", a.AlbumName, err))
 					albumErrMu.Unlock()
 					return nil
-				}
-				ids := make([]string, 0, len(r.Assets))
-				for _, aa := range r.Assets {
-					ids = append(ids, string(aa.ID))
 				}
 
 				album := assets.NewAlbum(string(a.ID), a.AlbumName, a.Description)
@@ -250,11 +250,11 @@ func (s *UploadStage) handleGroup(ctx context.Context, pctx *Context, g *assets.
 
 	// Manage groups - stack assets after filtering and upload
 	if len(g.Assets) > 1 && g.Grouping != assets.GroupByNone {
-		ids := []iimmich.AssetID{iimmich.AssetID(g.Assets[g.CoverIndex].ID)}
+		ids := []immich.AssetID{immich.AssetID(g.Assets[g.CoverIndex].ID)}
 		for i, a := range g.Assets {
 			pctx.Processor.RecordNonAsset(ctx, g.Assets[i].File, 0, journal.ProcessedStacked)
 			if i != g.CoverIndex && a.ID != "" {
-				ids = append(ids, iimmich.AssetID(a.ID))
+				ids = append(ids, immich.AssetID(a.ID))
 			}
 		}
 		if len(ids) > 1 {
@@ -294,7 +294,7 @@ func (s *UploadStage) handleAsset(ctx context.Context, pctx *Context, a *assets.
 			return err
 		}
 		s.processUploadedAsset(ctx, pctx, a, serverStatus)
-		if serverStatus != iimmich.UploadDuplicate {
+		if serverStatus != immich.UploadDuplicate {
 			pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedUploadUpgraded)
 		}
 		return nil
@@ -331,7 +331,7 @@ func (s *UploadStage) handleAsset(ctx context.Context, pctx *Context, a *assets.
 			return err
 		}
 		s.processUploadedAsset(ctx, pctx, a, serverStatus)
-		if advice.ServerAsset != nil && serverStatus != iimmich.UploadDuplicate {
+		if advice.ServerAsset != nil && serverStatus != immich.UploadDuplicate {
 			pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedUploadUpgraded)
 		}
 		return nil
@@ -355,7 +355,7 @@ func (s *UploadStage) uploadAsset(ctx context.Context, pctx *Context, a *assets.
 		pctx.Processor.RecordAssetError(ctx, a.File, int64(a.FileSize), journal.ErrorServerError, err)
 		return "", err
 	}
-	if ar.Status == iimmich.UploadDuplicate {
+	if ar.Status == immich.UploadDuplicate {
 		originalName := "unknown"
 		original := pctx.Index.GetByID(string(ar.ID))
 		if original != nil {
@@ -372,9 +372,9 @@ func (s *UploadStage) uploadAsset(ctx context.Context, pctx *Context, a *assets.
 	}
 	a.ID = string(ar.ID)
 
-	if a.FromApplication != nil && ar.Status != iimmich.UploadDuplicate {
+	if a.FromApplication != nil && ar.Status != immich.UploadDuplicate {
 		a.UseMetadata(a.FromApplication)
-		_, err := pctx.Server.UpdateAsset(ctx, ar.ID, iimmich.UpdateAssetRequest{
+		_, err := pctx.Server.UpdateAsset(ctx, ar.ID, immich.UpdateAssetRequest{
 			Description:      a.Description,
 			Latitude:         a.Latitude,
 			Longitude:        a.Longitude,
@@ -398,18 +398,18 @@ func (s *UploadStage) replaceAsset(ctx context.Context, pctx *Context, newAsset,
 		return "", err
 	}
 	newAsset.ID = string(ar.ID)
-	if ar.Status == iimmich.UploadDuplicate {
+	if ar.Status == immich.UploadDuplicate {
 		pctx.Processor.RecordAssetProcessed(ctx, newAsset.File, int64(newAsset.FileSize), journal.DiscardedServerDuplicate)
-		return iimmich.UploadDuplicate, nil
+		return immich.UploadDuplicate, nil
 	}
 
-	err = pctx.Server.CopyAsset(ctx, iimmich.AssetID(oldAsset.ID), ar.ID)
+	err = pctx.Server.CopyAsset(ctx, immich.AssetID(oldAsset.ID), ar.ID)
 	if err != nil {
 		pctx.Processor.RecordAssetError(ctx, newAsset.File, int64(newAsset.FileSize), journal.ErrorServerError, err)
 		return "", err
 	}
 
-	err = pctx.Server.DeleteAssets(ctx, []iimmich.AssetID{iimmich.AssetID(oldAsset.ID)}, true)
+	err = pctx.Server.DeleteAssets(ctx, []immich.AssetID{immich.AssetID(oldAsset.ID)}, true)
 	if err != nil {
 		pctx.Processor.RecordAssetError(ctx, newAsset.File, int64(newAsset.FileSize), journal.ErrorServerError, err)
 		return "", err
@@ -444,7 +444,7 @@ func (s *UploadStage) manageAssetTags(ctx context.Context, pctx *Context, a *ass
 }
 
 func (s *UploadStage) processUploadedAsset(ctx context.Context, pctx *Context, a *assets.Asset, serverStatus string) {
-	if serverStatus != iimmich.UploadDuplicate {
+	if serverStatus != immich.UploadDuplicate {
 		s.manageAssetAlbums(ctx, pctx, a.File, a.ID, a.Albums)
 		s.manageAssetTags(ctx, pctx, a)
 	}
@@ -493,11 +493,14 @@ func (s *JobControlStage) Name() string {
 }
 
 func (s *JobControlStage) Run(ctx context.Context, pctx *Context) error {
+	if pctx.Jobs == nil {
+		return errors.New("Immich job client is not configured")
+	}
 	jobs := []string{"thumbnailGeneration", "metadataExtraction", "videoConversion", "faceDetection", "smartSearch"}
 
-	command := iimmich.JobCommandResume
+	command := immich.JobCommandResume
 	if s.Pause {
-		command = iimmich.JobCommandPause
+		command = immich.JobCommandPause
 	}
 
 	// For resume, use a fresh context in case the original was cancelled
@@ -507,7 +510,7 @@ func (s *JobControlStage) Run(ctx context.Context, pctx *Context) error {
 	}
 
 	for _, name := range jobs {
-		_, err := pctx.Server.SendJobCommand(runCtx, name, command, true)
+		_, err := pctx.Jobs.SendJobCommand(runCtx, name, command, true)
 		if err != nil {
 			pctx.Logger.Error("Immich Job command sent", string(command), name, "err", err.Error())
 			if s.Pause {

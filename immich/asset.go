@@ -3,7 +3,6 @@ package immich
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -15,23 +14,18 @@ import (
 
 // immich Asset simplified
 type Asset struct {
-	Checksum string `json:"checksum"`
-	// createdAt
-	DeviceAssetID string `json:"deviceAssetId"`
-	DeviceID      string `json:"deviceId"`
-	// duplicateId
-	Duration       string     `json:"duration"`
+	Checksum       string     `json:"checksum"`
 	ExifInfo       ExifInfo   `json:"exifInfo"`
 	FileCreatedAt  ImmichTime `json:"fileCreatedAt"`
 	FileModifiedAt ImmichTime `json:"fileModifiedAt"`
 	// hasMetadata
-	ID         string `json:"id"`
-	IsArchived bool   `json:"isArchived"`
-	IsFavorite bool   `json:"isFavorite"`
+	ID         AssetID `json:"id"`
+	IsArchived bool    `json:"isArchived"`
+	IsFavorite bool    `json:"isFavorite"`
 	// isOffline
-	IsTrashed        bool   `json:"isTrashed"`
-	LibraryID        string `json:"libraryId,omitempty"`
-	LivePhotoVideoID string `json:"livePhotoVideoId"`
+	IsTrashed        bool    `json:"isTrashed"`
+	LibraryID        string  `json:"libraryId,omitempty"`
+	LivePhotoVideoID AssetID `json:"livePhotoVideoId"`
 
 	// The local date and time when the photo/video was taken,
 	// derived from EXIF metadata. This represents the
@@ -43,7 +37,7 @@ type Asset struct {
 	// originalMimeType
 	OriginalPath string `json:"originalPath"`
 	// owner
-	OwnerID string `json:"ownerId"`
+	OwnerID UserID `json:"ownerId"`
 	// people
 	Resized bool `json:"resized"`
 	// stack
@@ -66,7 +60,7 @@ func (ia Asset) AsAsset() *assets.Asset {
 		FileDate:         ia.FileModifiedAt.Time,
 		Description:      ia.ExifInfo.Description,
 		OriginalFileName: ia.OriginalFileName,
-		ID:               ia.ID,
+		ID:               ia.ID.String(),
 		CaptureDate:      ia.ExifInfo.DateTimeOriginal.Time,
 		Trashed:          ia.IsTrashed,
 		Archived:         ia.IsArchived,
@@ -116,13 +110,12 @@ type ExifInfo struct {
 }
 
 type AssetResponse struct {
-	ID     string `json:"id"`
-	Status string `json:"status"`
+	ID     AssetID `json:"id"`
+	Status string  `json:"status"`
 }
 
 const (
 	UploadCreated   = "created"
-	UploadReplaced  = "replaced"
 	UploadDuplicate = "duplicate"
 )
 
@@ -141,20 +134,8 @@ func formatDuration(duration time.Duration) string {
 	return fmt.Sprintf("%02d:%02d:%02d.%06d", hours, minutes, seconds, milliseconds)
 }
 
-const (
-	StatusCreated   = "created"
-	StatusReplaced  = "replaced"
-	StatusDuplicate = "duplicate"
-)
-
 func (ic *ImmichClient) AssetUpload(ctx context.Context, la *assets.Asset) (AssetResponse, error) {
-	return ic.uploadAsset(ctx, la, EndPointAssetUpload, "")
-}
-
-// ReplaceAsset is deprecated, use CopyAsset
-func (ic *ImmichClient) ReplaceAsset(ctx context.Context, ID string, la *assets.Asset) (AssetResponse, error) {
-	return AssetResponse{}, errors.New("ReplaceAsset end point is deprecated, use CopyAsset")
-	// return ic.uploadAsset(ctx, la, EndPointAssetReplace, ID)
+	return ic.uploadAsset(ctx, la)
 }
 
 type GetAssetOptions struct {
@@ -178,15 +159,15 @@ func (o *GetAssetOptions) Values() url.Values {
 	return v
 }
 
-func (ic *ImmichClient) DeleteAssets(ctx context.Context, id []string, forceDelete bool) error {
+func (ic *ImmichClient) DeleteAssets(ctx context.Context, ids []AssetID, forceDelete bool) error {
 	if ic.dryRun {
 		return nil
 	}
 	req := struct {
-		Force bool     `json:"force"`
-		IDs   []string `json:"ids"`
+		Force bool      `json:"force"`
+		IDs   []AssetID `json:"ids"`
 	}{
-		IDs:   id,
+		IDs:   ids,
 		Force: forceDelete,
 	}
 
@@ -195,31 +176,31 @@ func (ic *ImmichClient) DeleteAssets(ctx context.Context, id []string, forceDele
 
 // getAssetInfo
 // https://api.immich.app/endpoints/assets/getAssetInfo
-func (ic *ImmichClient) GetAssetInfo(ctx context.Context, id string) (*Asset, error) {
+func (ic *ImmichClient) GetAssetInfo(ctx context.Context, id AssetID) (*Asset, error) {
 	r := Asset{}
-	err := ic.newServerCall(ctx, "GetAssetInfo").do(getRequest("/assets/"+id, setAcceptJSON()), responseJSON(&r))
+	err := ic.newServerCall(ctx, "GetAssetInfo").do(getRequest("/assets/"+id.String(), setAcceptJSON()), responseJSON(&r))
 	return &r, err
 }
 
-func (ic *ImmichClient) UpdateAssets(ctx context.Context, ids []string,
+func (ic *ImmichClient) UpdateAssets(ctx context.Context, ids []AssetID,
 	isArchived bool, isFavorite bool,
 	latitude float64, longitude float64,
-	removeParent bool, stackParentID string,
+	removeParent bool, stackParentID StackID,
 ) error {
 	if ic.dryRun {
 		return nil
 	}
-	type updAssets struct {
-		IDs           []string `json:"ids"`
-		IsArchived    bool     `json:"isArchived"`
-		IsFavorite    bool     `json:"isFavorite"`
-		Latitude      float64  `json:"latitude"`
-		Longitude     float64  `json:"longitude"`
-		RemoveParent  bool     `json:"removeParent"`
-		StackParentID string   `json:"stackParentId,omitempty"`
+	type updateAssetsRequest struct {
+		IDs           []AssetID `json:"ids"`
+		IsArchived    bool      `json:"isArchived"`
+		IsFavorite    bool      `json:"isFavorite"`
+		Latitude      float64   `json:"latitude"`
+		Longitude     float64   `json:"longitude"`
+		RemoveParent  bool      `json:"removeParent"`
+		StackParentID StackID   `json:"stackParentId,omitempty"`
 	}
 
-	param := updAssets{
+	param := updateAssetsRequest{
 		IDs:           ids,
 		IsArchived:    isArchived,
 		IsFavorite:    isFavorite,
@@ -231,8 +212,8 @@ func (ic *ImmichClient) UpdateAssets(ctx context.Context, ids []string,
 	return ic.newServerCall(ctx, "updateAssets").do(putRequest("/assets", setJSONBody(param)))
 }
 
-// UpdAssetField is used to update asset with fields given in the struct fields
-type UpdAssetField struct {
+// UpdateAssetRequest contains fields that can be updated on an asset.
+type UpdateAssetRequest struct {
 	IsArchived       bool      `json:"isArchived,omitempty"`
 	IsFavorite       bool      `json:"isFavorite,omitempty"`
 	Latitude         float64   `json:"latitude,omitempty"`
@@ -242,10 +223,8 @@ type UpdAssetField struct {
 	DateTimeOriginal time.Time `json:"dateTimeOriginal,omitempty"`
 }
 
-// MarshalJSON customizes the JSON marshaling for the UpdAssetField struct.
-// If either Latitude or Longitude is non-zero, it includes them in the JSON output.
-// Otherwise, it omits them by using the alias type.
-func (u UpdAssetField) MarshalJSON() ([]byte, error) {
+// MarshalJSON includes both coordinates when either coordinate is non-zero.
+func (u UpdateAssetRequest) MarshalJSON() ([]byte, error) {
 	// withGPS is a struct that always includes Latitude and Longitude in the JSON output.
 	type withGPS struct {
 		IsArchived       bool      `json:"isArchived,omitempty"`
@@ -257,8 +236,8 @@ func (u UpdAssetField) MarshalJSON() ([]byte, error) {
 		DateTimeOriginal time.Time `json:"dateTimeOriginal,omitempty"`
 	}
 
-	// alias is used to omit Latitude and Longitude when they are zero.
-	type alias UpdAssetField
+	// alias omits zero-valued coordinates.
+	type alias UpdateAssetRequest
 
 	// Check if Latitude or Longitude is non-zero, and use withGPS if true.
 	if u.Latitude != 0 || u.Longitude != 0 {
@@ -269,39 +248,39 @@ func (u UpdAssetField) MarshalJSON() ([]byte, error) {
 	return json.Marshal(alias(u))
 }
 
-func (ic *ImmichClient) UpdateAsset(ctx context.Context, id string, param UpdAssetField) (*Asset, error) {
+func (ic *ImmichClient) UpdateAsset(ctx context.Context, id AssetID, param UpdateAssetRequest) (*Asset, error) {
 	if ic.dryRun {
 		return nil, nil
 	}
 	r := Asset{}
-	err := ic.newServerCall(ctx, "updateAsset").do(putRequest("/assets/"+id, setJSONBody(param)), responseJSON(&r))
+	err := ic.newServerCall(ctx, "updateAsset").do(putRequest("/assets/"+id.String(), setJSONBody(param)), responseJSON(&r))
 	return &r, err
 }
 
-func (ic *ImmichClient) DownloadAsset(ctx context.Context, id string) (io.ReadCloser, error) {
+func (ic *ImmichClient) DownloadAsset(ctx context.Context, id AssetID) (io.ReadCloser, error) {
 	var rc io.ReadCloser
 
 	err := ic.newServerCall(ctx, "DownloadAsset").do(getRequest(fmt.Sprintf("/assets/%s/original", id), setOctetStream()), responseOctetStream(&rc))
 	return rc, err
 }
 
-// CopyAsset copy metadata from the sourceID to targeID
-func (ic *ImmichClient) CopyAsset(ctx context.Context, sourceID string, targetID string) error {
+// CopyAsset copies metadata from sourceID to targetID.
+func (ic *ImmichClient) CopyAsset(ctx context.Context, sourceID, targetID AssetID) error {
 	if ic.dryRun {
 		return nil
 	}
 
-	type AssetCopyDto struct {
-		SourceID    string `json:"sourceId"`
-		TargetID    string `json:"targetId"`
-		Albums      bool   `json:"albums"`
-		Favorite    bool   `json:"favorite"`
-		SharedLinks bool   `json:"sharedLinks"`
-		Sidecar     bool   `json:"sidecar"`
-		Stack       bool   `json:"stack"`
+	type assetCopyRequest struct {
+		SourceID    AssetID `json:"sourceId"`
+		TargetID    AssetID `json:"targetId"`
+		Albums      bool    `json:"albums"`
+		Favorite    bool    `json:"favorite"`
+		SharedLinks bool    `json:"sharedLinks"`
+		Sidecar     bool    `json:"sidecar"`
+		Stack       bool    `json:"stack"`
 	}
 
-	req := AssetCopyDto{
+	req := assetCopyRequest{
 		SourceID:    sourceID,
 		TargetID:    targetID,
 		Albums:      true,

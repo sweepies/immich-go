@@ -11,114 +11,152 @@ import (
 	"github.com/sweepies/immich-go/internal/filetypes"
 )
 
-var _ ImmichInterface = (*ImmichClient)(nil)
+// AssetID is a typed identifier for assets.
+type AssetID string
 
-// ImmichInterface is an interface that implements the minimal immich client set of features for uploading
-// interface used to mock up the client
-type ImmichInterface interface {
-	ImmichAssetInterface
-	ImmichClientInterface
-	ImmichAlbumInterface
-	ImmichTagInterface
-	ImmichStackInterface
-	ImmichJobInterface
+func (id AssetID) String() string { return string(id) }
+
+// AlbumID is a typed identifier for albums.
+type AlbumID string
+
+func (id AlbumID) String() string { return string(id) }
+
+// TagID is a typed identifier for tags.
+type TagID string
+
+func (id TagID) String() string { return string(id) }
+
+// StackID is a typed identifier for stacks.
+type StackID string
+
+func (id StackID) String() string { return string(id) }
+
+// UserID is a typed identifier for users.
+type UserID string
+
+func (id UserID) String() string { return string(id) }
+
+var (
+	_ Client            = (*ImmichClient)(nil)
+	_ UploadClient      = (*ImmichClient)(nil)
+	_ JobControlService = (*ImmichClient)(nil)
+)
+
+// Client is the complete Immich API surface used by the application.
+type Client interface {
+	AssetsService
+	ServerService
+	AlbumsService
+	TagsService
+	StacksService
+	JobsService
 }
 
-type ImmichAssetInterface interface {
-	GetAssetInfo(ctx context.Context, id string) (*Asset, error)
-	DownloadAsset(ctx context.Context, id string) (io.ReadCloser, error)
-	UpdateAsset(ctx context.Context, id string, param UpdAssetField) (*Asset, error)
-	ReplaceAsset(ctx context.Context, ID string, la *assets.Asset) (AssetResponse, error) // Deprecated
-	CopyAsset(ctx context.Context, sourceID string, targetID string) error
+// UploadClient is the narrow user-client contract required by the upload pipeline.
+// Administrative job control is supplied separately through JobsService.
+type UploadClient interface {
+	GetAssetStatistics(ctx context.Context) (AssetStatistics, error)
 	GetAllAssets(ctx context.Context, fn func(*Asset) error) error
-	AddAssetToAlbum(context.Context, string, []string) ([]UpdateAlbumResult, error)
+	AssetUpload(context.Context, *assets.Asset) (AssetResponse, error)
+	UpdateAsset(ctx context.Context, id AssetID, fields UpdateAssetRequest) (*Asset, error)
+	DeleteAssets(ctx context.Context, ids []AssetID, forceDelete bool) error
+	CopyAsset(ctx context.Context, sourceID, targetID AssetID) error
+	UserID() UserID
+
+	GetAllAlbums(ctx context.Context) ([]AlbumSimplified, error)
+	GetAlbumAssetIDs(ctx context.Context, albumID AlbumID) ([]AssetID, error)
+	CreateAlbum(ctx context.Context, title, description string, ids []AssetID) (assets.Album, error)
+	AddAssetToAlbum(ctx context.Context, albumID AlbumID, ids []AssetID) ([]UpdateAlbumResult, error)
+
+	UpsertTags(ctx context.Context, tags []string) ([]TagSimplified, error)
+	TagAssets(ctx context.Context, tagID TagID, ids []AssetID) ([]TagAssetsResponse, error)
+	CreateStack(ctx context.Context, ids []AssetID) (StackID, error)
+}
+
+// AssetsService provides asset-related server operations.
+type AssetsService interface {
+	GetAssetInfo(ctx context.Context, id AssetID) (*Asset, error)
+	DownloadAsset(ctx context.Context, id AssetID) (io.ReadCloser, error)
+	UpdateAsset(ctx context.Context, id AssetID, fields UpdateAssetRequest) (*Asset, error)
+	CopyAsset(ctx context.Context, sourceID, targetID AssetID) error
+	GetAllAssets(ctx context.Context, fn func(*Asset) error) error
 	UpdateAssets(
 		ctx context.Context,
-		IDs []string,
+		ids []AssetID,
 		isArchived bool,
 		isFavorite bool,
 		latitude float64,
 		longitude float64,
 		removeParent bool,
-		stackParentID string,
+		stackParentID StackID,
 	) error
 	GetFilteredAssetsFn(ctx context.Context, so *searchOptions, filter func(*Asset) error) error
-	// GetAllAssetsWithFilter(context.Context, *SearchMetadataQuery, func(*Asset) error) error
 	GetAssetsByHash(ctx context.Context, hash string) ([]*Asset, error)
 	GetAssetsByImageName(ctx context.Context, name string) ([]*Asset, error)
-
 	AssetUpload(context.Context, *assets.Asset) (AssetResponse, error)
-	DeleteAssets(ctx context.Context, IDs []string, force bool) error
+	DeleteAssets(ctx context.Context, ids []AssetID, forceDelete bool) error
 }
 
-// ImmichGetSuggestion is not a part of the immich client interface to simplify the client mokes
-type ImmichGetSuggestion interface {
+// SuggestionService provides metadata-search suggestions.
+type SuggestionService interface {
 	GetSearchSuggestions(ctx context.Context, req SearchSuggestionRequest) (SearchSuggestions, error)
 }
 
 type RoundTripperDecorator func(rt http.RoundTripper) http.RoundTripper
 
-type ImmichClientInterface interface {
+// ServerService provides connection and server-level operations.
+type ServerService interface {
 	SetEndPoint(string)
-	// EnableAppTrace by decorating the client's transport with round tripper that logs queries
 	EnableAppTrace(rtd RoundTripperDecorator)
 	SetDeviceUUID(string)
 	PingServer(ctx context.Context) error
 	ValidateConnection(ctx context.Context) (User, error)
 	GetServerStatistics(ctx context.Context) (ServerStatistics, error)
-	GetAssetStatistics(ctx context.Context) (UserStatistics, error)
+	GetAssetStatistics(ctx context.Context) (AssetStatistics, error)
 	SupportedMedia() filetypes.SupportedMedia
 	GetAboutInfo(ctx context.Context) (AboutInfo, error)
+	UserID() UserID
+	ServerVersion() ServerVersion
 }
 
-type ImmichAlbumInterface interface {
+// AlbumsService provides album operations.
+type AlbumsService interface {
 	GetAllAlbums(ctx context.Context) ([]AlbumSimplified, error)
-	GetAlbumInfo(ctx context.Context, id string, withoutAssets bool) (AlbumContent, error)
-	CreateAlbum(
-		ctx context.Context,
-		tilte string,
-		description string,
-		ids []string,
-	) (assets.Album, error)
-
-	// GetAssetAlbums get all albums that an asset belongs to
-	GetAssetAlbums(ctx context.Context, assetID string) ([]AlbumSimplified, error)
-	DeleteAlbum(ctx context.Context, id string) error
+	GetAlbumInfo(ctx context.Context, id AlbumID, withoutAssets bool) (AlbumContent, error)
+	GetAlbumAssetIDs(ctx context.Context, albumID AlbumID) ([]AssetID, error)
+	CreateAlbum(ctx context.Context, title, description string, ids []AssetID) (assets.Album, error)
+	AddAssetToAlbum(ctx context.Context, albumID AlbumID, ids []AssetID) ([]UpdateAlbumResult, error)
+	GetAssetAlbums(ctx context.Context, assetID AssetID) ([]AlbumSimplified, error)
+	DeleteAlbum(ctx context.Context, id AlbumID) error
 }
-type ImmichTagInterface interface {
+
+// TagsService provides tag operations.
+type TagsService interface {
 	GetAllTags(ctx context.Context) ([]TagSimplified, error)
 	UpsertTags(ctx context.Context, tags []string) ([]TagSimplified, error)
-	TagAssets(
-		ctx context.Context,
-		tagID string,
-		assetIDs []string,
-	) ([]TagAssetsResponse, error)
-	BulkTagAssets(
-		ctx context.Context,
-		tagIDs []string,
-		assetIDs []string,
-	) (struct {
-		Count int `json:"count"`
-	}, error)
+	TagAssets(ctx context.Context, tagID TagID, assetIDs []AssetID) ([]TagAssetsResponse, error)
+	BulkTagAssets(ctx context.Context, tagIDs []TagID, assetIDs []AssetID) (BulkTagResult, error)
 }
 
-type ImmichStackInterface interface {
-	// CreateStack create a stack with the given assets, the 1st asset is the cover, return the stack ID
-	CreateStack(ctx context.Context, ids []string) (string, error)
+// StacksService provides stack operations.
+type StacksService interface {
+	CreateStack(ctx context.Context, ids []AssetID) (StackID, error)
 }
 
-type ImmichJobInterface interface {
+// JobControlService is the narrow administrative contract used by uploads.
+type JobControlService interface {
+	SendJobCommand(ctx context.Context, jobID string, command JobCommand, force bool) (JobCommandResponse, error)
+}
+
+// JobsService provides complete administrative background-job control.
+type JobsService interface {
+	JobControlService
 	GetJobs(ctx context.Context) (map[string]Job, error)
-	SendJobCommand(
-		ctx context.Context,
-		jobID string,
-		command JobCommand,
-		force bool,
-	) (SendJobCommandResponse, error)
 	CreateJob(ctx context.Context, name JobName) error
 }
 
-type ImmichPeopleInterface interface {
+// PeopleService provides person lookup operations.
+type PeopleService interface {
 	GetAllPeople(ctx context.Context, opts ...GetAllPeopleOptions) (*PeopleResponseDto, error)
 	GetAllPeopleIterator(ctx context.Context, fn func(*PersonResponseDto) error, opts ...GetAllPeopleOptions) error
 	GetPersonByName(ctx context.Context, name string, opts ...GetAllPeopleOptions) (*PersonResponseDto, error)

@@ -10,11 +10,11 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/sweepies/immich-go/immich"
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/assettracker"
 	"github.com/sweepies/immich-go/internal/fileprocessor"
 	"github.com/sweepies/immich-go/internal/fshelper"
-	iimmich "github.com/sweepies/immich-go/internal/immich"
 	"github.com/sweepies/immich-go/internal/journal"
 )
 
@@ -22,9 +22,9 @@ import (
 func TestRunnerIntegration(t *testing.T) {
 	t.Run("successful upload flow", func(t *testing.T) {
 		mock := newMockServerClient()
-		mock.assetStats = iimmich.AssetStatistics{Total: 1, Images: 1}
-		mock.assets = []*iimmich.Asset{
-			{ID: "existing-1", Checksum: "existing-cs", OriginalFileName: "existing.jpg", OwnerID: "test-user-id", ExifInfo: iimmich.ExifInfo{FileSizeInByte: 1024}},
+		mock.assetStats = immich.AssetStatistics{Total: 1, Images: 1}
+		mock.assets = []*immich.Asset{
+			{ID: "existing-1", Checksum: "existing-cs", OriginalFileName: "existing.jpg", OwnerID: "test-user-id", ExifInfo: immich.ExifInfo{FileSizeInByte: 1024}},
 		}
 
 		// Create source with new assets to upload
@@ -43,7 +43,6 @@ func TestRunnerIntegration(t *testing.T) {
 
 		runner := NewRunner(RunnerConfig{
 			Source:      source,
-			Server:      mock,
 			PipelineCtx: pctx,
 			PauseJobs:   false,
 			OnError: func(err error) error {
@@ -76,7 +75,7 @@ func TestRunnerIntegration(t *testing.T) {
 
 	t.Run("upload with job pausing", func(t *testing.T) {
 		mock := newMockServerClient()
-		mock.assetStats = iimmich.AssetStatistics{Total: 0}
+		mock.assetStats = immich.AssetStatistics{Total: 0}
 
 		source := newMockSource()
 
@@ -84,7 +83,6 @@ func TestRunnerIntegration(t *testing.T) {
 
 		runner := NewRunner(RunnerConfig{
 			Source:      source,
-			Server:      mock,
 			PipelineCtx: pctx,
 			PauseJobs:   true,
 			SaveAlbum: func(album assets.Album, ids []string) (assets.Album, error) {
@@ -104,9 +102,9 @@ func TestRunnerIntegration(t *testing.T) {
 		pauseCount := 0
 		resumeCount := 0
 		for _, cmd := range mock.jobCommands {
-			if cmd.command == iimmich.JobCommandPause {
+			if cmd.command == immich.JobCommandPause {
 				pauseCount++
-			} else if cmd.command == iimmich.JobCommandResume {
+			} else if cmd.command == immich.JobCommandResume {
 				resumeCount++
 			}
 		}
@@ -128,7 +126,6 @@ func TestRunnerIntegration(t *testing.T) {
 
 		runner := NewRunner(RunnerConfig{
 			Source:      source,
-			Server:      mock,
 			PipelineCtx: pctx,
 			PauseJobs:   true,
 			SaveAlbum: func(album assets.Album, ids []string) (assets.Album, error) {
@@ -154,7 +151,6 @@ func TestRunnerIntegration(t *testing.T) {
 
 		runner := NewRunner(RunnerConfig{
 			Source:      source,
-			Server:      mock,
 			PipelineCtx: pctx,
 			SaveAlbum: func(album assets.Album, ids []string) (assets.Album, error) {
 				return album, nil
@@ -174,16 +170,16 @@ func TestRunnerIntegration(t *testing.T) {
 		captureDate := time.Now()
 
 		mock := newMockServerClient()
-		mock.assetStats = iimmich.AssetStatistics{Total: 1}
-		mock.assets = []*iimmich.Asset{
+		mock.assetStats = immich.AssetStatistics{Total: 1}
+		mock.assets = []*immich.Asset{
 			{
 				ID:               "server-asset-1",
 				Checksum:         "same-checksum",
 				OriginalFileName: "photo.jpg",
 				OwnerID:          "test-user-id",
-				ExifInfo: iimmich.ExifInfo{
+				ExifInfo: immich.ExifInfo{
 					FileSizeInByte:   2048,
-					DateTimeOriginal: iimmich.ImmichExifTime{Time: captureDate},
+					DateTimeOriginal: immich.ImmichExifTime{Time: captureDate},
 				},
 			},
 		}
@@ -199,7 +195,6 @@ func TestRunnerIntegration(t *testing.T) {
 
 		runner := NewRunner(RunnerConfig{
 			Source:      source,
-			Server:      mock,
 			PipelineCtx: pctx,
 			SaveAlbum: func(album assets.Album, ids []string) (assets.Album, error) {
 				return album, nil
@@ -223,15 +218,11 @@ func TestRunnerIntegration(t *testing.T) {
 
 	t.Run("upload with albums", func(t *testing.T) {
 		mock := newMockServerClient()
-		mock.assetStats = iimmich.AssetStatistics{Total: 0}
-		mock.albums = []iimmich.AlbumSimplified{
+		mock.assetStats = immich.AssetStatistics{Total: 0}
+		mock.albums = []immich.AlbumSimplified{
 			{ID: "album-1", AlbumName: "Existing Album"},
 		}
-		mock.albumContents["album-1"] = iimmich.AlbumContent{
-			ID:        "album-1",
-			AlbumName: "Existing Album",
-			Assets:    []*iimmich.Asset{},
-		}
+		mock.albumAssetIDs["album-1"] = []immich.AssetID{}
 
 		asset := createTestAsset("photo.jpg", 2048, time.Now())
 		asset.Albums = []assets.Album{
@@ -247,7 +238,6 @@ func TestRunnerIntegration(t *testing.T) {
 		albumsSaved := []string{}
 		runner := NewRunner(RunnerConfig{
 			Source:      source,
-			Server:      mock,
 			PipelineCtx: pctx,
 			SaveAlbum: func(album assets.Album, ids []string) (assets.Album, error) {
 				albumsSaved = append(albumsSaved, album.Title)
@@ -272,7 +262,7 @@ func TestRunnerIntegration(t *testing.T) {
 
 	t.Run("context cancellation during upload", func(t *testing.T) {
 		mock := newMockServerClient()
-		mock.assetStats = iimmich.AssetStatistics{Total: 0}
+		mock.assetStats = immich.AssetStatistics{Total: 0}
 
 		// Create many assets to upload
 		groups := make([]*assets.Group, 100)
@@ -286,7 +276,6 @@ func TestRunnerIntegration(t *testing.T) {
 
 		runner := NewRunner(RunnerConfig{
 			Source:      source,
-			Server:      mock,
 			PipelineCtx: pctx,
 			SaveAlbum: func(album assets.Album, ids []string) (assets.Album, error) {
 				return album, nil
@@ -308,7 +297,7 @@ func TestRunnerIntegration(t *testing.T) {
 
 	t.Run("error callback controls abort", func(t *testing.T) {
 		mock := newMockServerClient()
-		mock.assetStats = iimmich.AssetStatistics{Total: 0}
+		mock.assetStats = immich.AssetStatistics{Total: 0}
 		mock.uploadError = errors.New("upload failed")
 
 		asset := createTestAsset("photo.jpg", 1024, time.Now())
@@ -321,7 +310,6 @@ func TestRunnerIntegration(t *testing.T) {
 		errorCallCount := 0
 		runner := NewRunner(RunnerConfig{
 			Source:      source,
-			Server:      mock,
 			PipelineCtx: pctx,
 			OnError: func(err error) error {
 				errorCallCount++
@@ -359,7 +347,7 @@ func TestNewContext(t *testing.T) {
 			ConcurrentTask: 4,
 		}
 
-		ctx := NewContext(cfg, logger, processor, nil, mock)
+		ctx := NewContext(cfg, logger, processor, nil, mock, mock)
 
 		if ctx.SessionTagValue == "" {
 			t.Error("expected session tag value to be set")
@@ -379,7 +367,7 @@ func TestNewContext(t *testing.T) {
 			SessionTag: false,
 		}
 
-		ctx := NewContext(cfg, logger, processor, nil, mock)
+		ctx := NewContext(cfg, logger, processor, nil, mock, mock)
 
 		if ctx.SessionTagValue != "" {
 			t.Errorf("expected empty session tag value, got %s", ctx.SessionTagValue)
@@ -388,11 +376,12 @@ func TestNewContext(t *testing.T) {
 }
 
 // Helper to create test context for runner tests.
-func createRunnerTestContext(server ServerClient) *Context {
+func createRunnerTestContext(server immich.UploadClient) *Context {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	recorder := journal.NewRecorder(logger)
 	tracker := assettracker.New()
 	processor := fileprocessor.New(tracker, recorder)
+	jobs, _ := server.(immich.JobControlService)
 	return &Context{
 		Config: Config{
 			ConcurrentTask: 2,
@@ -401,6 +390,7 @@ func createRunnerTestContext(server ServerClient) *Context {
 		Logger:    logger,
 		Processor: processor,
 		Server:    server,
+		Jobs:      jobs,
 		Index:     NewIndex(),
 		StartTime: time.Now(),
 	}

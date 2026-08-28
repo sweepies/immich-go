@@ -9,26 +9,16 @@ import (
 )
 
 type AlbumSimplified struct {
-	ID          string `json:"id,omitempty"`
-	AlbumName   string `json:"albumName"`
-	Description string `json:"description,omitempty"`
-	// OwnerID                    string    `json:"ownerId"`
-	// CreatedAt                  time.Time `json:"createdAt"`
-	// UpdatedAt                  time.Time `json:"updatedAt"`
-	// AlbumThumbnailAssetID      string    `json:"albumThumbnailAssetId"`
-	// SharedUsers                []string  `json:"sharedUsers"`
-	// Owner                      User      `json:"owner"`
-	// Shared                     bool      `json:"shared"`
-	// AssetCount                 int       `json:"assetCount"`
-	// LastModifiedAssetTimestamp time.Time `json:"lastModifiedAssetTimestamp"
-	AssetIds []string `json:"assetIds,omitempty"`
+	ID          AlbumID `json:"id,omitempty"`
+	AlbumName   string  `json:"albumName"`
+	Description string  `json:"description,omitempty"`
 }
 
 func AlbumsFromAlbumSimplified(albums []AlbumSimplified) []assets.Album {
 	result := make([]assets.Album, 0, len(albums))
 	for _, a := range albums {
 		result = append(result, assets.Album{
-			ID:          a.ID,
+			ID:          a.ID.String(),
 			Title:       a.AlbumName,
 			Description: a.Description,
 		})
@@ -50,49 +40,15 @@ func (ic *ImmichClient) GetAllAlbums(ctx context.Context) ([]AlbumSimplified, er
 }
 
 type AlbumContent struct {
-	ID string `json:"id,omitempty"`
-	// OwnerID                    string    `json:"ownerId"`
-	AlbumName   string   `json:"albumName"`
-	Description string   `json:"description"`
-	Shared      bool     `json:"shared"`
-	Assets      []*Asset `json:"assets,omitempty"`
-	AssetIDs    []string `json:"assetIds,omitempty"`
-	// CreatedAt                  time.Time `json:"createdAt"`
-	// UpdatedAt                  time.Time `json:"updatedAt"`
-	// AlbumThumbnailAssetID      string    `json:"albumThumbnailAssetId"`
-	// SharedUsers                []string  `json:"sharedUsers"`
-	// Owner                      User      `json:"owner"`
-	// AssetCount                 int       `json:"assetCount"`
-	// LastModifiedAssetTimestamp time.Time `json:"lastModifiedAssetTimestamp"
+	ID          AlbumID `json:"id,omitempty"`
+	AlbumName   string  `json:"albumName"`
+	Description string  `json:"description"`
+	Shared      bool    `json:"shared"`
 }
 
-// immich Asset simplified
-type AssetSimplified struct {
-	ID            string `json:"id"`
-	DeviceAssetID string `json:"deviceAssetId"`
-	// // OwnerID          string `json:"ownerId"`
-	// DeviceID         string `json:"deviceId"`
-	// Type             string `json:"type"`
-	// OriginalPath     string `json:"originalPath"`
-	// OriginalFileName string `json:"originalFileName"`
-	// // Resized          bool      `json:"resized"`
-	// // Thumbhash        string    `json:"thumbhash"`
-	// FileCreatedAt time.Time `json:"fileCreatedAt"`
-	// // FileModifiedAt time.Time `json:"fileModifiedAt"`
-	// UpdatedAt time.Time `json:"updatedAt"`
-	// // IsFavorite     bool      `json:"isFavorite"`
-	// // IsArchived     bool      `json:"isArchived"`
-	// // Duration       string    `json:"duration"`
-	// // ExifInfo ExifInfo `json:"exifInfo"`
-	// // LivePhotoVideoID any    `json:"livePhotoVideoId"`
-	// // Tags             []any  `json:"tags"`
-	// Checksum     string `json:"checksum"`
-	// JustUploaded bool   `json:"-"`
-}
-
-func (ic *ImmichClient) GetAlbumInfo(ctx context.Context, id string, withoutAssets bool) (AlbumContent, error) {
+func (ic *ImmichClient) GetAlbumInfo(ctx context.Context, id AlbumID, withoutAssets bool) (AlbumContent, error) {
 	var album AlbumContent
-	query := id
+	query := id.String()
 	if withoutAssets {
 		query += "?withoutAssets=true"
 	} else {
@@ -102,7 +58,7 @@ func (ic *ImmichClient) GetAlbumInfo(ctx context.Context, id string, withoutAsse
 	return album, err
 }
 
-func (ic *ImmichClient) GetAssetsAlbums(ctx context.Context, id string) ([]assets.Album, error) {
+func (ic *ImmichClient) GetAssetsAlbums(ctx context.Context, id AssetID) ([]assets.Album, error) {
 	var albums []AlbumSimplified
 	err := ic.newServerCall(ctx, EndPointGetAlbumInfo).do(getRequest("/albums", setAcceptJSON()), responseJSON(&albums))
 	if err != nil {
@@ -112,70 +68,74 @@ func (ic *ImmichClient) GetAssetsAlbums(ctx context.Context, id string) ([]asset
 }
 
 type UpdateAlbum struct {
-	IDS []string `json:"ids"`
+	IDs []AssetID `json:"ids"`
 }
 
 type UpdateAlbumResult struct {
-	ID      string `json:"id"`
-	Success bool   `json:"success"`
-	Error   string `json:"error,omitempty"`
+	ID      AssetID `json:"id"`
+	Success bool    `json:"success"`
+	Error   string  `json:"error,omitempty"`
 }
 
-func (ic *ImmichClient) AddAssetToAlbum(ctx context.Context, albumID string, assets []string) ([]UpdateAlbumResult, error) {
+func (ic *ImmichClient) AddAssetToAlbum(ctx context.Context, albumID AlbumID, assetIDs []AssetID) ([]UpdateAlbumResult, error) {
 	if ic.dryRun {
 		return []UpdateAlbumResult{}, nil
 	}
-	var r []UpdateAlbumResult
+	var result []UpdateAlbumResult
 	body := UpdateAlbum{
-		IDS: assets,
+		IDs: assetIDs,
 	}
 	err := ic.newServerCall(ctx, EndPointAddAsstToAlbum).do(
 		putRequest(fmt.Sprintf("/albums/%s/assets", albumID), setAcceptJSON(),
 			setJSONBody(body)),
-		responseJSON(&r))
+		responseJSON(&result))
 	if err != nil {
 		return nil, err
 	}
-	return r, nil
+	return result, nil
 }
 
-func (ic *ImmichClient) CreateAlbum(ctx context.Context, name string, description string, assetsIDs []string) (assets.Album, error) {
+func (ic *ImmichClient) CreateAlbum(ctx context.Context, name, description string, assetIDs []AssetID) (assets.Album, error) {
 	if ic.dryRun {
 		return assets.Album{
 			ID:    uuid.NewString(),
 			Title: name,
 		}, nil
 	}
-	body := AlbumContent{
+	body := struct {
+		AlbumName   string    `json:"albumName"`
+		Description string    `json:"description"`
+		AssetIDs    []AssetID `json:"assetIds,omitempty"`
+	}{
 		AlbumName:   name,
 		Description: description,
-		AssetIDs:    assetsIDs,
+		AssetIDs:    assetIDs,
 	}
-	var r AlbumSimplified
+	var result AlbumSimplified
 	err := ic.newServerCall(ctx, EndPointCreateAlbum).do(
 		postRequest("/albums", "application/json", setAcceptJSON(), setJSONBody(body)),
-		responseJSON(&r))
+		responseJSON(&result))
 	if err != nil {
 		return assets.Album{}, err
 	}
 	return assets.Album{
-		ID:          r.ID,
-		Title:       r.AlbumName,
-		Description: r.Description,
+		ID:          result.ID.String(),
+		Title:       result.AlbumName,
+		Description: result.Description,
 	}, nil
 }
 
-func (ic *ImmichClient) GetAssetAlbums(ctx context.Context, assetID string) ([]AlbumSimplified, error) {
-	var r []AlbumSimplified
+func (ic *ImmichClient) GetAssetAlbums(ctx context.Context, assetID AssetID) ([]AlbumSimplified, error) {
+	var result []AlbumSimplified
 	err := ic.newServerCall(ctx, EndPointGetAssetAlbums).do(
-		getRequest("/albums?assetId="+assetID, setAcceptJSON()),
-		responseJSON(&r))
-	return r, err
+		getRequest("/albums?assetId="+assetID.String(), setAcceptJSON()),
+		responseJSON(&result))
+	return result, err
 }
 
-func (ic *ImmichClient) DeleteAlbum(ctx context.Context, id string) error {
+func (ic *ImmichClient) DeleteAlbum(ctx context.Context, id AlbumID) error {
 	if ic.dryRun {
 		return nil
 	}
-	return ic.newServerCall(ctx, EndPointDeleteAlbum).do(deleteRequest("/albums/" + id))
+	return ic.newServerCall(ctx, EndPointDeleteAlbum).do(deleteRequest("/albums/" + id.String()))
 }

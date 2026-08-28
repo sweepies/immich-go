@@ -29,6 +29,8 @@ type ImmichClient struct {
 
 	supportedMediaTypes filetypes.SupportedMedia // Server's list of supported medias
 	dryRun              bool                     //  If true, do not send any data to the server
+	userID              UserID
+	serverVersion       ServerVersion
 }
 
 func (ic *ImmichClient) SetEndPoint(endPoint string) {
@@ -45,6 +47,16 @@ func (ic *ImmichClient) SetDeviceUUID(deviceUUID string) {
 
 func (ic *ImmichClient) SupportedMedia() filetypes.SupportedMedia {
 	return ic.supportedMediaTypes
+}
+
+// UserID returns the authenticated user's ID after ValidateConnection succeeds.
+func (ic *ImmichClient) UserID() UserID {
+	return ic.userID
+}
+
+// ServerVersion returns the version reported by GetAboutInfo.
+func (ic *ImmichClient) ServerVersion() ServerVersion {
+	return ic.serverVersion
 }
 
 func (ic *ImmichClient) EnableAppTrace(rtd RoundTripperDecorator) {

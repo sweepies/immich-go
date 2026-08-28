@@ -10,6 +10,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -23,6 +24,7 @@ const (
 	EndPointCreateJob              = "CreateJob"
 	EndPointGetAllAlbums           = "GetAllAlbums"
 	EndPointGetAlbumInfo           = "GetAlbumInfo"
+	EndPointGetAlbumAssetIDs       = "GetAlbumAssetIDs"
 	EndPointAddAsstToAlbum         = "AddAssetToAlbum"
 	EndPointCreateAlbum            = "CreateAlbum"
 	EndPointGetAssetAlbums         = "GetAssetAlbums"
@@ -38,7 +40,6 @@ const (
 	EndPointBulkTagAssets          = "BulkTagAssets"
 	EndPointGetAllTags             = "GetAllTags"
 	EndPointAssetUpload            = "AssetUpload"
-	EndPointAssetReplace           = "AssetReplace"
 	EndPointCopyAsset              = "CopyAsset"
 	EndPointGetAboutInfo           = "GetAboutInfo"
 	EndPointGetSearchSuggestions   = "GetSearchSuggestions"
@@ -79,11 +80,54 @@ type callError struct {
 	message  *ServerErrorMessage
 }
 
+// ServerErrorMessage represents both legacy validation failures and v3
+// structured validation failures.
 type ServerErrorMessage struct {
-	Error         string `json:"error"`
-	StatusCode    int    `json:"statusCode"`
-	Message       string `json:"message"`
-	CorrelationID string `json:"correlationId"`
+	Error         string                  `json:"error"`
+	StatusCode    int                     `json:"statusCode"`
+	Messages      []string                `json:"-"`
+	Errors        []ServerValidationError `json:"errors"`
+	CorrelationID string                  `json:"correlationId"`
+}
+
+// ServerValidationError is a field-level v3 Zod validation failure.
+type ServerValidationError struct {
+	Path    []any  `json:"path"`
+	Message string `json:"message"`
+}
+
+func (message *ServerErrorMessage) UnmarshalJSON(data []byte) error {
+	var payload struct {
+		Error         string                  `json:"error"`
+		StatusCode    json.RawMessage         `json:"statusCode"`
+		Message       json.RawMessage         `json:"message"`
+		Errors        []ServerValidationError `json:"errors"`
+		CorrelationID string                  `json:"correlationId"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return err
+	}
+
+	message.Error = payload.Error
+	message.Errors = payload.Errors
+	message.CorrelationID = payload.CorrelationID
+	if len(payload.StatusCode) > 0 {
+		if err := json.Unmarshal(payload.StatusCode, &message.StatusCode); err != nil {
+			var status string
+			if json.Unmarshal(payload.StatusCode, &status) == nil {
+				message.StatusCode, _ = strconv.Atoi(status)
+			}
+		}
+	}
+	if len(payload.Message) > 0 && string(payload.Message) != "null" {
+		var single string
+		if json.Unmarshal(payload.Message, &single) == nil {
+			message.Messages = []string{single}
+		} else if err := json.Unmarshal(payload.Message, &message.Messages); err != nil {
+			return fmt.Errorf("invalid server error message: %w", err)
+		}
+	}
+	return nil
 }
 
 func (ce callError) Is(target error) bool {
@@ -109,8 +153,24 @@ func (ce callError) Error() string {
 	}
 
 	if ce.message != nil {
-		b.WriteString(ce.message.Message)
-		b.WriteRune('\n')
+		for _, message := range ce.message.Messages {
+			b.WriteString(message)
+			b.WriteRune('\n')
+		}
+		for _, validationError := range ce.message.Errors {
+			if len(validationError.Path) > 0 {
+				path, _ := json.Marshal(validationError.Path)
+				b.Write(path)
+				b.WriteString(": ")
+			}
+			b.WriteString(validationError.Message)
+			b.WriteRune('\n')
+		}
+		if ce.message.CorrelationID != "" {
+			b.WriteString("Correlation ID: ")
+			b.WriteString(ce.message.CorrelationID)
+			b.WriteRune('\n')
+		}
 	}
 
 	return b.String()
@@ -241,10 +301,11 @@ func (sc *serverCall) do(fnRequest requestFunction, opts ...serverResponseOption
 		if resp.Body != nil {
 			defer resp.Body.Close()
 			if isJSON(resp.Header.Get("Content-Type")) {
-				if json.NewDecoder(resp.Body).Decode(&msg) == nil {
-					return sc.Err(req, resp, &msg)
-				}
+				_ = json.NewDecoder(resp.Body).Decode(&msg)
 			}
+		}
+		if correlationID := resp.Header.Get("X-Correlation-ID"); correlationID != "" {
+			msg.CorrelationID = correlationID
 		}
 		return sc.Err(req, resp, &msg)
 	}
