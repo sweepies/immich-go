@@ -1,3 +1,0 @@
-kind: Changed
-body: Parallelize asset discovery pagination and fix data race in progress tracking
-time: 2026-02-19T18:52:11.255663-05:00

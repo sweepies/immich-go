@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/sweepies/immich-go/internal/filetypes"
 )
@@ -42,6 +44,7 @@ func (ic *ImmichClient) ValidateConnection(ctx context.Context) (User, error) {
 	if err != nil {
 		return user, err
 	}
+	ic.userID = user.ID
 	ic.supportedMediaTypes = sm
 	return user, nil
 }
@@ -51,7 +54,7 @@ type ServerStatistics struct {
 	Videos      int   `json:"videos"`
 	Usage       int64 `json:"usage"`
 	UsageByUser []struct {
-		UserID           string `json:"userId"`
+		UserID           UserID `json:"userId"`
 		UserName         string `json:"userName"`
 		Photos           int    `json:"photos"`
 		Videos           int    `json:"videos"`
@@ -68,6 +71,47 @@ func (ic *ImmichClient) GetServerStatistics(ctx context.Context) (ServerStatisti
 
 	err := ic.newServerCall(ctx, EndPointGetServerStatistics).do(getRequest("/server/statistics", setAcceptJSON()), responseJSON(&s))
 	return s, err
+}
+
+// ServerVersion is the parsed server version retained after GetAboutInfo.
+// Only the major component is exposed because request compatibility is
+// selected at the API generation boundary.
+type ServerVersion struct {
+	value string
+	major uint64
+}
+
+// String returns the version exactly as reported by the server.
+func (v ServerVersion) String() string {
+	return v.value
+}
+
+// Major returns the server's API compatibility generation.
+func (v ServerVersion) Major() uint64 {
+	return v.major
+}
+
+// parseServerVersion parses a version in major.minor.patch format, optionally with a v prefix or suffix.
+// It returns the normalized version and its major component, or an error for invalid input.
+func parseServerVersion(value string) (ServerVersion, error) {
+	value = strings.TrimSpace(value)
+	core := strings.TrimPrefix(value, "v")
+	if i := strings.IndexAny(core, "+-"); i >= 0 {
+		core = core[:i]
+	}
+	parts := strings.Split(core, ".")
+	if len(parts) != 3 {
+		return ServerVersion{}, fmt.Errorf("expected major.minor.patch")
+	}
+	components := make([]uint64, len(parts))
+	for i, part := range parts {
+		component, err := strconv.ParseUint(part, 10, 64)
+		if err != nil {
+			return ServerVersion{}, fmt.Errorf("invalid component %q: %w", part, err)
+		}
+		components[i] = component
+	}
+	return ServerVersion{value: value, major: components[0]}, nil
 }
 
 // getAboutInfo
@@ -92,24 +136,61 @@ type AboutInfo struct {
 }
 
 func (ic *ImmichClient) GetAboutInfo(ctx context.Context) (AboutInfo, error) {
-	var a AboutInfo
-	err := ic.newServerCall(ctx, EndPointGetAboutInfo).do(getRequest("/server/about", setAcceptJSON()), responseJSON(&a))
-	return a, err
+	ic.serverVersionMu.Lock()
+	defer ic.serverVersionMu.Unlock()
+
+	about, version, err := ic.loadAboutInfo(ctx)
+	if err != nil {
+		return about, err
+	}
+	ic.serverVersion = version
+	return about, nil
+}
+
+func (ic *ImmichClient) ensureServerVersion(ctx context.Context) error {
+	if ic.ServerVersion().String() != "" {
+		return nil
+	}
+
+	ic.serverVersionMu.Lock()
+	defer ic.serverVersionMu.Unlock()
+	if ic.serverVersion.String() != "" {
+		return nil
+	}
+
+	_, version, err := ic.loadAboutInfo(ctx)
+	if err != nil {
+		return err
+	}
+	ic.serverVersion = version
+	return nil
+}
+
+func (ic *ImmichClient) loadAboutInfo(ctx context.Context) (AboutInfo, ServerVersion, error) {
+	var about AboutInfo
+	if err := ic.newServerCall(ctx, EndPointGetAboutInfo).do(getRequest("/server/about", setAcceptJSON()), responseJSON(&about)); err != nil {
+		return about, ServerVersion{}, err
+	}
+	version, err := parseServerVersion(about.Version)
+	if err != nil {
+		return about, ServerVersion{}, fmt.Errorf("can't parse server version %q: %w", about.Version, err)
+	}
+	return about, version, nil
 }
 
 // getAssetStatistics
 // Get user's stats
 
-type UserStatistics struct {
+type AssetStatistics struct {
 	Images int `json:"images"`
 	Videos int `json:"videos"`
 	Total  int `json:"total"`
 }
 
-func (ic *ImmichClient) GetAssetStatistics(ctx context.Context) (UserStatistics, error) {
-	var s UserStatistics
-	err := ic.newServerCall(ctx, EndPointGetAssetStatistics).do(getRequest("/assets/statistics", setAcceptJSON()), responseJSON(&s))
-	return s, err
+func (ic *ImmichClient) GetAssetStatistics(ctx context.Context) (AssetStatistics, error) {
+	var stats AssetStatistics
+	err := ic.newServerCall(ctx, EndPointGetAssetStatistics).do(getRequest("/assets/statistics", setAcceptJSON()), responseJSON(&stats))
+	return stats, err
 }
 
 func (ic *ImmichClient) GetSupportedMediaTypes(ctx context.Context) (filetypes.SupportedMedia, error) {

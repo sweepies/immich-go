@@ -82,7 +82,7 @@ immich-go upload --server=http://your-ip:2283 --api-key=your-api-key --output=js
 
 ### 3. Requirements
 
-- A running Immich server with API access
+- A running Immich v2.7.x or v3.x server with API access
 - API key with appropriate permissions ([see full list](https://sweepies.github.io/immich-go/guide/installation#api-permissions))
 - Go 1.26 or newer if you build from source
 

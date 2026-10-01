@@ -1,3 +1,0 @@
-kind: Changed
-body: 'perf: optimize sidecar file discovery using map-based case-insensitive lookup'
-time: 2026-01-31T08:43:20.868043-05:00

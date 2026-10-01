@@ -1,3 +1,0 @@
-kind: Refactor
-body: 'refactor: encapsulate DateRange fields After and Before with getter methods'
-time: 2026-02-19T23:07:20Z

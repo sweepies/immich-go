@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix: harden uploads against concurrent version discovery and incomplete server responses'
+time: 2026-08-28T03:33:32.658171-07:00

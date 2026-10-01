@@ -1,3 +1,0 @@
-kind: Fixed
-body: 'fix(folder): keep waitgroup balanced when parser submission is rejected during shutdown'
-time: 2026-02-13T23:57:46.506163-05:00

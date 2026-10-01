@@ -1,3 +1,0 @@
-kind: Fixed
-body: 'fix(upload): avoid leaking wrapper goroutines when scheduling folder parse tasks'
-time: 2026-02-13T23:50:21.066498-05:00

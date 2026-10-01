@@ -1,9 +1,15 @@
 package immich
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/sweepies/immich-go/internal/assets"
+	"github.com/sweepies/immich-go/internal/immichtest"
 )
 
 func Test_AssetJSON(t *testing.T) {
@@ -74,8 +80,169 @@ func Test_AssetJSON(t *testing.T) {
 	}
 
 	for i, tag := range asset.Tags {
-		if tag.ID != expectedTags[i].ID || tag.Name != expectedTags[i].Name || tag.Value != expectedTags[i].Value {
+		if tag.ID.String() != expectedTags[i].ID || tag.Name != expectedTags[i].Name || tag.Value != expectedTags[i].Value {
 			t.Errorf("expected tag %v, got %v", expectedTags[i], tag)
 		}
+	}
+}
+
+func TestAssetResponseDurationGenerations(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  immichtest.Profile
+		duration string
+	}{
+		{name: "v2 string", profile: immichtest.V275(), duration: `"00:00:01.500000"`},
+		{name: "v3 integer", profile: immichtest.V310(), duration: `1500`},
+		{name: "v3 null", profile: immichtest.V310(), duration: `null`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server := immichtest.NewServer(t, test.profile)
+			server.Handle(http.MethodGet, "/api/assets/asset-id", func(request immichtest.Request) immichtest.Response {
+				return immichtest.Response{
+					Status: http.StatusOK,
+					Header: http.Header{"Content-Type": {"application/json"}},
+					Body:   []byte(assetResponseJSON(test.duration)),
+				}
+			})
+			client, err := NewImmichClient(server.URL, test.profile.APIKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			asset, err := client.GetAssetInfo(context.Background(), "asset-id")
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertDecodedAsset(t, asset)
+			assertConvertedAsset(t, asset.AsAsset())
+		})
+	}
+}
+
+func TestMetadataSearchDecodesV3Assets(t *testing.T) {
+	profile := immichtest.V310()
+	server := immichtest.NewServer(t, profile)
+	server.Handle(http.MethodPost, "/api/search/metadata", func(request immichtest.Request) immichtest.Response {
+		body := fmt.Sprintf(`{"assets":{"total":1,"count":1,"items":[%s],"nextPage":"0"}}`, assetResponseJSON(`null`))
+		return immichtest.Response{
+			Status: http.StatusOK,
+			Header: http.Header{"Content-Type": {"application/json"}},
+			Body:   []byte(body),
+		}
+	})
+	client, err := NewImmichClient(server.URL, profile.APIKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var decoded *Asset
+	err = client.callSearchMetadata(context.Background(), &SearchMetadataQuery{Size: 2}, func(asset *Asset) error {
+		decoded = asset
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertDecodedAsset(t, decoded)
+	requests := server.Requests()
+	search := requests[len(requests)-1]
+	if search.Method != http.MethodPost || search.Path != "/api/search/metadata" {
+		t.Errorf("search request = %s %s", search.Method, search.Path)
+	}
+}
+
+func TestCopyAssetContract(t *testing.T) {
+	profile := immichtest.V310()
+	server := immichtest.NewServer(t, profile)
+	server.Handle(http.MethodPut, "/api/assets/copy", func(request immichtest.Request) immichtest.Response {
+		var body struct {
+			SourceID    AssetID `json:"sourceId"`
+			TargetID    AssetID `json:"targetId"`
+			Albums      bool    `json:"albums"`
+			Favorite    bool    `json:"favorite"`
+			SharedLinks bool    `json:"sharedLinks"`
+			Sidecar     bool    `json:"sidecar"`
+			Stack       bool    `json:"stack"`
+		}
+		if err := json.Unmarshal(request.JSON, &body); err != nil {
+			t.Error(err)
+		}
+		if body.SourceID != "source-id" || body.TargetID != "target-id" ||
+			!body.Albums || !body.Favorite || !body.SharedLinks || !body.Sidecar || !body.Stack {
+			t.Errorf("copy request = %#v", body)
+		}
+		return immichtest.Response{Status: http.StatusNoContent}
+	})
+	client, err := NewImmichClient(server.URL, profile.APIKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := client.CopyAsset(context.Background(), "source-id", "target-id"); err != nil {
+		t.Fatal(err)
+	}
+	requests := server.Requests()
+	copyRequest := requests[len(requests)-1]
+	if copyRequest.Method != http.MethodPut || copyRequest.Path != "/api/assets/copy" {
+		t.Errorf("copy request = %s %s", copyRequest.Method, copyRequest.Path)
+	}
+}
+
+func assetResponseJSON(duration string) string {
+	return fmt.Sprintf(`{
+		"id":"asset-id",
+		"checksum":"checksum",
+		"deviceAssetId":"legacy-device-asset",
+		"deviceId":"legacy-device",
+		"duration":%s,
+		"type":"IMAGE",
+		"originalFileName":"photo.jpg",
+		"originalPath":"upload/photo.jpg",
+		"ownerId":"owner-id",
+		"fileCreatedAt":"2025-12-01T02:03:04.000Z",
+		"fileModifiedAt":"2026-01-02T03:04:05.000Z",
+		"localDateTime":"2025-12-01T02:03:04.000Z",
+		"updatedAt":"2026-01-02T03:04:05.000Z",
+		"isFavorite":true,
+		"isArchived":true,
+		"isTrashed":false,
+		"rating":4,
+		"visibility":"archive",
+		"exifInfo":{
+			"fileSizeInByte":9,
+			"dateTimeOriginal":"2025-12-01T02:03:04+00:00",
+			"latitude":1.5,
+			"longitude":2.5,
+			"description":"description"
+		},
+		"tags":[{"id":"tag-id","name":"tag","value":"tag"}]
+	}`, duration)
+}
+
+func assertDecodedAsset(t *testing.T, asset *Asset) {
+	t.Helper()
+	if asset == nil {
+		t.Fatal("asset is nil")
+	}
+	if asset.ID != "asset-id" || asset.OriginalFileName != "photo.jpg" || asset.Checksum != "checksum" {
+		t.Errorf("asset identity = %#v", asset)
+	}
+	if asset.FileModifiedAt.IsZero() || asset.ExifInfo.DateTimeOriginal.IsZero() {
+		t.Errorf("asset timestamps were not decoded: %#v", asset)
+	}
+	if !asset.IsArchived || !asset.IsFavorite || asset.Rating != 4 || len(asset.Tags) != 1 {
+		t.Errorf("asset metadata = %#v", asset)
+	}
+}
+
+func assertConvertedAsset(t *testing.T, converted *assets.Asset) {
+	t.Helper()
+	if converted.ID != "asset-id" || converted.OriginalFileName != "photo.jpg" ||
+		converted.Checksum != "checksum" || !converted.Archived || !converted.Favorite ||
+		converted.Rating != 4 || converted.Description != "description" ||
+		converted.Latitude != 1.5 || converted.Longitude != 2.5 || len(converted.Tags) != 1 {
+		t.Errorf("converted asset = %#v", converted)
 	}
 }

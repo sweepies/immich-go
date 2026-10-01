@@ -8,9 +8,9 @@ import (
 
 	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/assets/cache"
-	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/filters"
 	"github.com/sweepies/immich-go/internal/groups"
+	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/jsonoutput"
 	"golang.org/x/sync/errgroup"
 )
@@ -18,7 +18,6 @@ import (
 // RunnerConfig holds configuration for the pipeline runner.
 type RunnerConfig struct {
 	Source       Source
-	Server       ServerClient
 	PipelineCtx  *Context
 	Groupers     []groups.Grouper
 	Filters      []filters.Filter

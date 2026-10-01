@@ -55,7 +55,7 @@ immich-go upload [source-flags] [options] <paths>...
 |--------|---------|-------------|
 | `--session-tag` | false | Tag with upload timestamp |
 | `--tag` | - | Custom tags (repeatable) |
-| `--device-uuid` | $LOCALHOST | Device identifier |
+| `--device-uuid` | $LOCALHOST | Legacy device identifier sent to Immich v2 uploads; omitted for v3 |
 
 ---
 
