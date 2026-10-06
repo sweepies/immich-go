@@ -4,7 +4,7 @@ go = "latest"
 changie = "latest"
 "github:Dicklesworthstone/beads_rust" = "latest"
 "github:Dicklesworthstone/beads_viewer" = "latest"
-"cargo:https://github.com/Dicklesworthstone/toon_rust" = "tag:v0.1.1"
+"cargo:https://github.com/Dicklesworthstone/toon_rust" = "tag:v0.2.5"
 
 [shell_alias]
 bd = "br"
