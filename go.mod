@@ -6,6 +6,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/melbahja/goph v1.5.2
+	github.com/melbahja/goph/v2 v2.0.3
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/phsym/console-slog v0.3.1
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
