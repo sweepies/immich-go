@@ -41,8 +41,3 @@ internal/e2e/testdata
 test-folder
 test-google
 fnox.toml
-
-# bv (beads viewer) local config and caches
-.bv/
-# br doctor per-run artifacts
-.doctor/
