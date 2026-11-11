@@ -1,6 +1,7 @@
 package assettracker
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/sweepies/immich-go/internal/fshelper"
@@ -11,6 +12,8 @@ import (
 type AssetState int
 
 const (
+	// StateUntracked is the state of an asset the tracker has never seen.
+	StateUntracked AssetState = -1
 	StatePending   AssetState = iota // Asset found, entering pipeline
 	StateProcessed                   // Asset successfully handled
 	StateDiscarded                   // Asset rejected/skipped
@@ -20,6 +23,8 @@ const (
 // String returns the string representation of the asset state
 func (s AssetState) String() string {
 	switch s {
+	case StateUntracked:
+		return "UNTRACKED"
 	case StatePending:
 		return "PENDING"
 	case StateProcessed:
@@ -31,6 +36,19 @@ func (s AssetState) String() string {
 	default:
 		return "UNKNOWN"
 	}
+}
+
+// TransitionError is returned when an illegal asset lifecycle transition is attempted.
+type TransitionError struct {
+	File string       // Asset identifier (file.FullName())
+	From AssetState   // State the asset is currently in (StateUntracked if never discovered)
+	To   AssetState   // State the transition attempted to reach
+	Code journal.Code // Event code used for the transition
+}
+
+// Error implements the error interface.
+func (e *TransitionError) Error() string {
+	return fmt.Sprintf("illegal asset transition %s -> %s for %q (code %q)", e.From, e.To, e.File, e.Code)
 }
 
 // AssetRecord tracks an individual asset through its lifecycle
@@ -61,6 +79,10 @@ type AssetCounters struct {
 	Discarded int64 // Assets skipped (immediate or during processing)
 	Errors    int64 // Assets that failed
 
+	// InvalidTransitions counts illegal lifecycle transitions that were attempted
+	// and rejected by the tracker. It must be zero at the end of a clean run.
+	InvalidTransitions int64
+
 	// Asset size tracking
 	AssetSize     int64 // Total asset bytes (all states)
 	ProcessedSize int64 // Processed asset bytes
@@ -77,4 +99,11 @@ func (ac *AssetCounters) Total() int64 {
 // IsComplete returns true if all assets have reached a final state
 func (ac *AssetCounters) IsComplete() bool {
 	return ac.Pending == 0
+}
+
+// RunFinishedCleanly reports whether a completed run left every asset in a
+// final state and attempted no illegal transition. Tests use it as a single
+// invariant check.
+func (ac *AssetCounters) RunFinishedCleanly() bool {
+	return ac.Pending == 0 && ac.InvalidTransitions == 0
 }

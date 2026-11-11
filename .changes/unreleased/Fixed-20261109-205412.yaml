@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(upload): --keep-archived=false now discards archived Google takeout assets instead of keeping them'
+time: 2026-11-09T20:54:12.994714247Z

@@ -39,7 +39,9 @@ func (a *Asset) Close() error {
 	if a.cacheReader == nil {
 		return nil
 	}
-	return a.cacheReader.Close()
+	err := a.cacheReader.Close()
+	a.cacheReader = nil
+	return err
 }
 
 /*

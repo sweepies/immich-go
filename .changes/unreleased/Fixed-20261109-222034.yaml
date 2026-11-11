@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(upload): recognise a later identical file when the first copy uploaded but its metadata update failed'
+time: 2026-11-09T22:20:34.312692828Z

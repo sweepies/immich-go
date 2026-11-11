@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(upload): a run cancelled just after the pipeline finished no longer reports success while assets are pending'
+time: 2026-11-09T22:00:37.623767365Z

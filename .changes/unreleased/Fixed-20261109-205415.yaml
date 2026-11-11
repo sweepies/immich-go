@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(from-immich): the model filter is sent to the server as model instead of being applied as a second make'
+time: 2026-11-09T20:54:15.432831819Z

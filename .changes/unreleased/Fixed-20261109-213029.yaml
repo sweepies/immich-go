@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(upload): fatal browse errors in the sources are logged instead of ending the run in a bare incomplete-assets report'
+time: 2026-11-09T21:30:29.959663035Z

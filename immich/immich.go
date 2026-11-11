@@ -145,13 +145,13 @@ type StacksService interface {
 
 // JobControlService is the narrow administrative contract used by uploads.
 type JobControlService interface {
+	GetJobs(ctx context.Context) (map[string]Job, error)
 	SendJobCommand(ctx context.Context, jobID string, command JobCommand, force bool) (JobCommandResponse, error)
 }
 
 // JobsService provides complete administrative background-job control.
 type JobsService interface {
 	JobControlService
-	GetJobs(ctx context.Context) (map[string]Job, error)
 	CreateJob(ctx context.Context, name JobName) error
 }
 

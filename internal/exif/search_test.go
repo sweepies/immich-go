@@ -77,6 +77,36 @@ func Test_searchPattern(t *testing.T) {
 			pattern: []byte("date:"),
 			found:   true,
 		},
+		{
+			name:    "empty input",
+			r:       bytes.NewReader(nil),
+			pattern: []byte("date:"),
+			found:   false,
+		},
+		{
+			name:    "shorter than pattern",
+			r:       bytes.NewReader([]byte{0}),
+			pattern: []byte("date:"),
+			found:   false,
+		},
+		{
+			name:    "pattern length minus one",
+			r:       bytes.NewReader([]byte("date")),
+			pattern: []byte("date:"),
+			found:   false,
+		},
+		{
+			name:    "exactly pattern length, no match",
+			r:       bytes.NewReader([]byte("xate:")),
+			pattern: []byte("date:"),
+			found:   false,
+		},
+		{
+			name:    "exactly pattern length, match",
+			r:       bytes.NewReader([]byte("date:")),
+			pattern: []byte("date:"),
+			found:   true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

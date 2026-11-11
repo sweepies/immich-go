@@ -21,21 +21,44 @@ const (
 )
 
 type Tracer struct {
-	lock       sync.Mutex
-	out        io.Writer
-	instanceId atomic.Int64
-	wg         sync.WaitGroup
+	lock         sync.Mutex
+	out          io.Writer
+	instanceId   atomic.Int64
+	mu           sync.Mutex
+	inFlight     int           // number of dump goroutines currently running
+	closing      bool          // set by Close: new dumps are dropped
+	drained      chan struct{} // closed when the last in-flight dump ends after Close
+	closeTimeout time.Duration
 }
 
 func NewTracer(out io.Writer) *Tracer {
 	return &Tracer{
-		out:  out,
-		lock: sync.Mutex{},
+		out:          out,
+		lock:         sync.Mutex{},
+		drained:      make(chan struct{}),
+		closeTimeout: 5 * time.Second,
 	}
 }
 
+// Close marks the tracer closed and waits for in-flight dumps to be written.
+// A request or response body that is never closed would otherwise block
+// forever, so the wait is bounded by a few seconds. Dumps that start after
+// Close has begun are dropped instead of racing the closed writer.
 func (ht *Tracer) Close() error {
-	ht.wg.Wait()
+	ht.mu.Lock()
+	if !ht.closing {
+		ht.closing = true
+		if ht.inFlight == 0 {
+			close(ht.drained)
+		}
+	}
+	drained := ht.drained
+	ht.mu.Unlock()
+
+	select {
+	case <-drained:
+	case <-time.After(ht.closeTimeout):
+	}
 	return nil
 }
 
@@ -68,14 +91,33 @@ func (rt *roundTripTrace) Request(req *http.Request) io.ReadCloser {
 }
 
 func dump(rt *roundTripTrace) {
+	ht := rt.ht
+	ht.mu.Lock()
+	if ht.closing {
+		// The tracer is closing: drop the dump rather than write to a writer
+		// that may already be closed.
+		ht.mu.Unlock()
+		return
+	}
+	ht.inFlight++
+	ht.mu.Unlock()
+
 	go func() {
+		defer func() {
+			ht.mu.Lock()
+			ht.inFlight--
+			if ht.closing && ht.inFlight == 0 {
+				close(ht.drained)
+			}
+			ht.mu.Unlock()
+		}()
 		if rt.req.body != nil {
 			// Wait for the request body to be closed...
-			rt.req.body.closed.Wait()
+			rt.req.body.waitClosed()
 		}
 		if rt.resp.resp != nil && rt.resp.body != nil {
 			// Wait for the response body to be closed...
-			rt.resp.body.closed.Wait()
+			rt.resp.body.waitClosed()
 		}
 		rt.ht.lock.Lock()
 		defer rt.ht.lock.Unlock()

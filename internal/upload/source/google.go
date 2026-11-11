@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -45,6 +46,8 @@ type GoogleSource struct {
 	albums        map[string]assets.Album
 	fileTracker   *gen.SyncMap[googleFileKey, googleTrackingInfo]
 	takeoutName   string
+	errMu         sync.Mutex
+	browseErr     error
 }
 
 // googleFileKey tracks files by base name and size for duplicate detection.
@@ -55,10 +58,8 @@ type googleFileKey struct {
 
 // googleTrackingInfo holds tracking information for files.
 type googleTrackingInfo struct {
-	paths    []string
-	count    int
-	metadata *assets.Metadata
-	status   journal.Code
+	paths   []string
+	emitted bool
 }
 
 // googleDirCatalog captures all files in a given directory.
@@ -90,6 +91,7 @@ func (s *GoogleSource) Browse(ctx context.Context) <-chan *assets.Group {
 		for _, w := range s.fsyss {
 			err := s.passOneFsWalk(ctx, w)
 			if err != nil {
+				s.recordBrowseError(ctx, "failed to scan the takeout files", err)
 				cancel(err)
 				return
 			}
@@ -98,15 +100,43 @@ func (s *GoogleSource) Browse(ctx context.Context) <-chan *assets.Group {
 		// Solve the puzzle: match JSON metadata to files
 		err := s.solvePuzzle(ctx)
 		if err != nil {
+			s.recordBrowseError(ctx, "failed to match JSON metadata to media files", err)
 			cancel(err)
 			return
 		}
 
 		// Pass two: emit assets as groups
 		err = s.passTwo(ctx, gOut)
+		if err != nil {
+			s.recordBrowseError(ctx, "failed to emit the asset groups", err)
+		}
 		cancel(err)
 	}()
 	return gOut
+}
+
+// recordBrowseError reports a fatal browse error at error level and stores it
+// for Err(). A bare context cancellation is expected on interrupt or abort
+// and is neither logged nor stored.
+func (s *GoogleSource) recordBrowseError(ctx context.Context, msg string, err error) {
+	if ctx.Err() != nil {
+		return
+	}
+	s.deps.Logger.Error(msg, "err", err)
+	s.errMu.Lock()
+	if s.browseErr == nil {
+		s.browseErr = err
+	}
+	s.errMu.Unlock()
+}
+
+// Err implements adapters.Source. It returns the first fatal browse failure,
+// valid once the Browse channel is closed; nil for a clean browse and for
+// plain context cancellation.
+func (s *GoogleSource) Err() error {
+	s.errMu.Lock()
+	defer s.errMu.Unlock()
+	return s.browseErr
 }
 
 // Close implements adapters.Source.
@@ -181,15 +211,6 @@ func (s *GoogleSource) passOneFsWalk(ctx context.Context, w fs.FS) error {
 				return nil
 			}
 
-			if !s.config.InclusionFlags.IncludedExtensions.Include(ext) {
-				s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscardedFiltered, "extension not included")
-				return nil
-			}
-			if s.config.InclusionFlags.ExcludedExtensions.Exclude(ext) {
-				s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscardedFiltered, "extension excluded")
-				return nil
-			}
-
 			dirCatalog, ok := s.catalogs[dir]
 			if !ok {
 				dirCatalog.jsons = map[string]*assets.Metadata{}
@@ -257,25 +278,45 @@ func (s *GoogleSource) passOneFsWalk(ctx context.Context, w fs.FS) error {
 				case filetypes.TypeUnknown:
 					s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscoveredUnsupported, "reason", "unsupported file type")
 					return nil
-				case filetypes.TypeVideo:
-					if strings.Contains(name, "Failed Videos") {
-						s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscardedFiltered, "can't upload failed videos")
-						return nil
-					}
-					s.deps.Processor.RecordAssetDiscovered(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscoveredVideo)
-				case filetypes.TypeImage:
-					s.deps.Processor.RecordAssetDiscovered(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscoveredImage)
+				case filetypes.TypeSidecar:
+					s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscoveredSidecar, "type", "sidecar")
+					return nil
+				}
+
+				// Only image and video files remain at this point; they are
+				// the only file kinds the extension filters apply to. JSON
+				// metadata and sidecars are classified above and never
+				// filtered by extension.
+				if !s.config.InclusionFlags.IncludedExtensions.Include(ext) {
+					s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscardedFiltered, "extension not included")
+					return nil
+				}
+				if s.config.InclusionFlags.ExcludedExtensions.Exclude(ext) {
+					s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscardedFiltered, "extension excluded")
+					return nil
+				}
+				if t == filetypes.TypeVideo && strings.Contains(name, "Failed Videos") {
+					s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscardedFiltered, "can't upload failed videos")
+					return nil
 				}
 
 				key := googleFileKey{baseName: base, size: finfo.Size()}
 				tracking, _ := s.fileTracker.Load(key)
 				tracking.paths = append(tracking.paths, dir)
-				tracking.count++
 				s.fileTracker.Store(key, tracking)
 
+				// Duplicate check first: record either discovered or
+				// discarded-immediately, never both.
 				if _, ok := dirCatalog.unMatchedFiles[base]; ok {
 					s.deps.Processor.RecordAssetDiscardedImmediately(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscardedLocalDuplicate, "duplicated in the directory")
 					return nil
+				}
+
+				switch t {
+				case filetypes.TypeVideo:
+					s.deps.Processor.RecordAssetDiscovered(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscoveredVideo)
+				case filetypes.TypeImage:
+					s.deps.Processor.RecordAssetDiscovered(ctx, fshelper.NewFilename(w, name), finfo.Size(), journal.DiscoveredImage)
 				}
 
 				dirCatalog.unMatchedFiles[base] = &googleAssetFile{
@@ -558,11 +599,16 @@ func (s *GoogleSource) solvePuzzle(ctx context.Context) error {
 			sort.Strings(files)
 			for _, f := range files {
 				i := cat.unMatchedFiles[f]
-				s.deps.Processor.RecordNonAsset(ctx, fshelper.NewFilename(i.fsys, path.Join(dir, i.base)), 0, journal.ProcessedMissingMetadata)
+				fileName := fshelper.NewFilename(i.fsys, path.Join(dir, i.base))
+				s.deps.Processor.RecordNonAsset(ctx, fileName, 0, journal.ProcessedMissingMetadata)
 				if s.config.KeepJSONLess {
 					a := s.makeAsset(ctx, dir, i, nil)
 					cat.matchedFiles[f] = a
 					delete(cat.unMatchedFiles, f)
+				} else {
+					// The file was recorded as discovered in pass one; it must
+					// reach a final state.
+					s.deps.Processor.RecordAssetDiscarded(ctx, fileName, int64(i.length), journal.DiscardedFiltered, "no JSON metadata found; use --keep-json-less to upload files without metadata")
 				}
 			}
 		}
@@ -597,7 +643,7 @@ func (s *GoogleSource) handleDir(ctx context.Context, dir string, gOut chan *ass
 		key := googleFileKey{baseName: name, size: int64(a.FileSize)}
 		track, _ := s.fileTracker.Load(key)
 
-		if track.status == journal.ProcessedUploadSuccess {
+		if track.emitted {
 			a.Close()
 			s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedLocalDuplicate, "local duplicate")
 			continue
@@ -645,7 +691,7 @@ func (s *GoogleSource) handleDir(ctx context.Context, dir string, gOut chan *ass
 			for _, a := range g.Assets {
 				key := googleFileKey{baseName: path.Base(a.File.Name()), size: int64(a.FileSize)}
 				track, _ := s.fileTracker.Load(key)
-				track.status = journal.ProcessedUploadSuccess
+				track.emitted = true
 				s.fileTracker.Store(key, track)
 			}
 		case <-ctx.Done():
@@ -693,7 +739,7 @@ func (s *GoogleSource) makeAsset(_ context.Context, dir string, f *googleAssetFi
 
 // filterOnMetadata filters assets based on their metadata.
 func (s *GoogleSource) filterOnMetadata(ctx context.Context, a *assets.Asset) journal.Code {
-	if !s.config.KeepArchived && a.Visibility == assets.VisibilityArchive {
+	if !s.config.KeepArchived && a.Archived {
 		s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedFiltered, "discarding archived file")
 		a.Close()
 		return journal.DiscardedFiltered

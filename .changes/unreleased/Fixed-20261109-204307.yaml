@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(upload): --pause-immich-jobs resumes only the queues it paused, leaves already paused queues alone, and rolls back on failure'
+time: 2026-11-09T20:43:07.732674033Z

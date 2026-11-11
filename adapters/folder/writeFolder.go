@@ -20,9 +20,6 @@ import (
 // 	fshelper.FSCanWrite
 // }
 
-type closer interface {
-	Close() error
-}
 type LocalAssetWriter struct {
 	WriteToFS  fs.FS
 	createdDir map[string]struct{}
@@ -36,23 +33,6 @@ func NewLocalAssetWriter(fsys fs.FS, writeToPath string) (*LocalAssetWriter, err
 		WriteToFS:  fsys,
 		createdDir: make(map[string]struct{}),
 	}, nil
-}
-
-func (w *LocalAssetWriter) WriteGroup(ctx context.Context, group *assets.Group) error {
-	var err error
-
-	if fsys, ok := w.WriteToFS.(closer); ok {
-		defer fsys.Close()
-	}
-	for _, a := range group.Assets {
-		select {
-		case <-ctx.Done():
-			return errors.Join(err, ctx.Err())
-		default:
-			err = errors.Join(err, w.WriteAsset(ctx, a))
-		}
-	}
-	return err
 }
 
 func (w *LocalAssetWriter) WriteAsset(ctx context.Context, a *assets.Asset) error {

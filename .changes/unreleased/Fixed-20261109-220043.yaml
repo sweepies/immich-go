@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(reporting): server-duplicate answers are classified from the index, and stacked events are only counted for assets actually sent to a created stack'
+time: 2026-11-09T22:00:43.592679795Z

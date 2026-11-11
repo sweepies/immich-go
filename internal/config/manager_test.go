@@ -202,6 +202,25 @@ func TestGetFlagOrigin(t *testing.T) {
 	assert.Equal(t, OriginCLI, origin)
 }
 
+// D4: when applying configuration values fails for several flags, all errors
+// must be reported, not just the last one.
+func TestProcessFlagSetJoinsSetErrors(t *testing.T) {
+	cm := New()
+	require.NoError(t, cm.Init())
+
+	cmd := &cobra.Command{Use: "test"}
+	cmd.Flags().Int("aaa", 0, "")
+	cmd.Flags().Int("bbb", 0, "")
+
+	cm.v.Set("aaa", "not-an-int")
+	cm.v.Set("bbb", "not-an-int")
+
+	err := cm.ProcessCommand(cmd)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "aaa")
+	assert.Contains(t, err.Error(), "bbb")
+}
+
 func TestConfigurationManager_ProcessCommand_Idempotent(t *testing.T) {
 	cm := New()
 	err := cm.Init()

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/sweepies/immich-go/immich"
 	"github.com/sweepies/immich-go/internal/adapters"
@@ -29,6 +30,8 @@ type FromImmichSource struct {
 	albumIDs  []string
 	tagIDs    []string
 	peopleIDs []string
+	errMu     sync.Mutex
+	browseErr error
 }
 
 // Browse implements adapters.Source.
@@ -39,17 +42,41 @@ func (s *FromImmichSource) Browse(ctx context.Context) <-chan *assets.Group {
 
 		// Initialize the Immich client
 		if err := s.initialize(ctx); err != nil {
-			s.deps.Logger.Error("Failed to initialize from-immich source", "error", err)
+			s.recordBrowseError(ctx, "Failed to initialize from-immich source", err)
 			return
 		}
 
 		// Get and emit assets
 		if err := s.getAssets(ctx, gOut); err != nil {
-			s.deps.Logger.Error("Failed to get assets from Immich", "error", err)
+			s.recordBrowseError(ctx, "Failed to get assets from Immich", err)
 			return
 		}
 	}()
 	return gOut
+}
+
+// recordBrowseError reports a fatal browse error at error level and stores it
+// for Err(). A bare context cancellation is expected on interrupt or abort
+// and is neither logged nor stored.
+func (s *FromImmichSource) recordBrowseError(ctx context.Context, msg string, err error) {
+	if ctx.Err() != nil {
+		return
+	}
+	s.deps.Logger.Error(msg, "error", err)
+	s.errMu.Lock()
+	if s.browseErr == nil {
+		s.browseErr = err
+	}
+	s.errMu.Unlock()
+}
+
+// Err implements adapters.Source. It returns the first fatal browse failure,
+// valid once the Browse channel is closed; nil for a clean browse and for
+// plain context cancellation.
+func (s *FromImmichSource) Err() error {
+	s.errMu.Lock()
+	defer s.errMu.Unlock()
+	return s.browseErr
 }
 
 // Close implements adapters.Source.
@@ -288,7 +315,7 @@ func (s *FromImmichSource) getAssets(ctx context.Context, gOut chan *assets.Grou
 		so.WithOnlyMake(s.config.Make)
 	}
 	if s.config.Model != "" {
-		so.WithOnlyMake(s.config.Model)
+		so.WithOnlyModel(s.config.Model)
 	}
 	if s.config.Country != "" {
 		so.WithOnlyCountry(s.config.Country)
@@ -329,11 +356,12 @@ func (s *FromImmichSource) getAssets(ctx context.Context, gOut chan *assets.Grou
 		}
 
 		// Fetch full asset details
-		a, err := s.client.GetAssetInfo(ctx, a.ID)
+		info, err := s.client.GetAssetInfo(ctx, a.ID)
 		if err != nil {
 			s.deps.Logger.Error("Failed to get asset info", "id", a.ID, "error", err)
 			return nil
 		}
+		a = info
 
 		asset := a.AsAsset()
 		asset.FromApplication = &assets.Metadata{

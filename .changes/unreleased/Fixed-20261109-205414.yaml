@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(upload): groupers no longer drop assets (Epson FastFoto video matches and bursts spanning ineligible files)'
+time: 2026-11-09T20:54:14.221575017Z

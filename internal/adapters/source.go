@@ -21,6 +21,11 @@ type Source interface {
 	// The channel is closed when browsing is complete or context is cancelled.
 	Browse(ctx context.Context) <-chan *assets.Group
 
+	// Err returns the failure(s) that cut the browse short. It is valid
+	// once the Browse channel is closed, nil for a clean browse, and nil
+	// for plain context cancellation.
+	Err() error
+
 	// Close releases any resources held by the source.
 	io.Closer
 }

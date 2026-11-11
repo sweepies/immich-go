@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/sweepies/immich-go/internal/adapters"
-	"github.com/sweepies/immich-go/internal/assets"
 	"github.com/sweepies/immich-go/internal/filetypes"
 )
 
@@ -65,52 +64,6 @@ func TestFactory_CreateFromConfig_InvalidConfig(t *testing.T) {
 				t.Errorf("expected error for %s", tt.name)
 			}
 		})
-	}
-}
-
-// mockLegacyReader is a mock that implements the legacy adapters.Reader interface
-// with a bidirectional channel as required by the old interface.
-type mockLegacyReader struct {
-	groups []*assets.Group
-}
-
-func (m *mockLegacyReader) Browse(ctx context.Context) chan *assets.Group {
-	out := make(chan *assets.Group)
-	go func() {
-		defer close(out)
-		for _, g := range m.groups {
-			select {
-			case out <- g:
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-	return out
-}
-
-func TestLegacyReaderAdapter(t *testing.T) {
-	expectedGroups := []*assets.Group{
-		assets.NewGroup(assets.GroupByNone),
-	}
-
-	mock := &mockLegacyReader{groups: expectedGroups}
-	adapter := NewLegacyReaderAdapter(mock, nil)
-
-	ctx := context.Background()
-	groups := adapter.Browse(ctx)
-
-	var received []*assets.Group
-	for g := range groups {
-		received = append(received, g)
-	}
-
-	if len(received) != len(expectedGroups) {
-		t.Errorf("expected %d groups, got %d", len(expectedGroups), len(received))
-	}
-
-	if err := adapter.Close(); err != nil {
-		t.Errorf("unexpected error on close: %v", err)
 	}
 }
 

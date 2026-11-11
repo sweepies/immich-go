@@ -1,0 +1,10 @@
+version: 1
+hosts: [boat]
+local_fallback: false # a run that lands on the pod must never count
+sync:
+  exclude: [.git, dist]
+tasks:
+  test:
+    run: go test -race -count=1 ./...
+  vet:
+    run: go build ./... && go vet ./...

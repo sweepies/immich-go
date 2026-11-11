@@ -19,7 +19,8 @@ type dumpReader struct {
 	limit     int
 	buffer    *bytes.Buffer
 	truncated bool
-	closed    sync.WaitGroup
+	closed    chan struct{}
+	closeOnce sync.Once
 	done      bool // Track if buffer has been returned to pool
 }
 
@@ -32,8 +33,8 @@ func newDumpReader(rc io.ReadCloser, limit int) *dumpReader {
 		limit:  limit,
 		rc:     rc,
 		buffer: buffer,
+		closed: make(chan struct{}),
 	}
-	dr.closed.Add(1)
 	return &dr
 }
 
@@ -67,8 +68,13 @@ func (dr *dumpReader) Read(p []byte) (int, error) {
 }
 
 func (dr *dumpReader) Close() error {
-	defer dr.closed.Done()
+	defer dr.closeOnce.Do(func() { close(dr.closed) })
 	return dr.rc.Close()
+}
+
+// waitClosed blocks until the reader is closed.
+func (dr *dumpReader) waitClosed() {
+	<-dr.closed
 }
 
 // Done returns the buffer to the pool for reuse

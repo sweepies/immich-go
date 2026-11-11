@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(google-takeout): files without matching JSON metadata and duplicates across takeout parts are now discarded instead of staying pending'
+time: 2026-11-09T20:28:06.374516236Z

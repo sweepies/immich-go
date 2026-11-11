@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(config): invalid environment-provided flag values now report every error instead of only the last'
+time: 2026-11-09T22:00:34.049855923Z

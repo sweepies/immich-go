@@ -4,11 +4,11 @@ import (
 	"errors"
 	"os"
 
+	"github.com/spf13/cobra"
 	"github.com/sweepies/immich-go/adapters/folder"
 	"github.com/sweepies/immich-go/internal/adapters"
-	"github.com/sweepies/immich-go/internal/journal"
 	"github.com/sweepies/immich-go/internal/fshelper/osfs"
-	"github.com/spf13/cobra"
+	"github.com/sweepies/immich-go/internal/journal"
 )
 
 func (ac *ArchiveCmd) Run(cmd *cobra.Command, source adapters.Source) error {
@@ -48,7 +48,13 @@ func (ac *ArchiveCmd) Run(cmd *cobra.Command, source adapters.Source) error {
 			return ctx.Err()
 		case g, ok := <-gChan:
 			if !ok {
-				return nil
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				if err := source.Err(); err != nil {
+					return err
+				}
+				return ac.app.FileProcessor().Finalize(ctx)
 			}
 			for _, a := range g.Assets {
 				err := ac.dest.WriteAsset(ctx, a)

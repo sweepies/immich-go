@@ -44,7 +44,10 @@ func (f *OnErrorsFlag) Set(value string) error {
 	default:
 		n, err := strconv.Atoi(value)
 		if err != nil {
-			return fmt.Errorf("invalid value for on-server-errors: %s", value)
+			return fmt.Errorf("invalid value for on-errors: %s", value)
+		}
+		if n < 0 {
+			return fmt.Errorf("invalid value for on-errors: %s (must be \"stop\", \"continue\" or a positive number)", value)
 		}
 		*f = OnErrorsFlag(n)
 	}

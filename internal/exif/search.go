@@ -41,11 +41,17 @@ func searchPattern(r io.Reader, pattern []byte, buffer []byte) (*sliceReader, er
 			return newSliceReader(io.MultiReader(bytes.NewReader(buffer[index:]), r)), nil
 		}
 
-		// Move the remaining bytes of the current buffer to the beginning
-		p := bytesRead + ofs - len(pattern) + 1
+		// Move the remaining bytes of the current buffer to the beginning.
+		// Fewer than len(pattern)-1 bytes may be buffered (tiny or truncated
+		// files); keep whatever there is instead of computing a negative index.
+		total := bytesRead + ofs
+		p := total - len(pattern) + 1
+		if p < 0 {
+			p = 0
+		}
 
-		copy(buffer, buffer[p:bytesRead+ofs])
-		ofs = len(pattern) - 1
+		copy(buffer, buffer[p:total])
+		ofs = total - p
 		pos += bytesRead
 	}
 }

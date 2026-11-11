@@ -10,6 +10,60 @@ import (
 	"github.com/sweepies/immich-go/internal/fshelper"
 )
 
+func TestCodeCategoryCoverage(t *testing.T) {
+	// Every code below MaxCode (except NotHandled) must have a category,
+	// so a new code cannot be added without one.
+	for c := NotHandled + 1; c < MaxCode; c++ {
+		if c.Category() == CategoryNone {
+			t.Errorf("code %d (%s) has no category", int(c), c.String())
+		}
+	}
+	if NotHandled.Category() != CategoryNone {
+		t.Error("NotHandled should have no category")
+	}
+}
+
+func TestCodeCategories(t *testing.T) {
+	tests := []struct {
+		code     Code
+		category Category
+	}{
+		{DiscoveredImage, CategoryAssetDiscovery},
+		{DiscoveredVideo, CategoryAssetDiscovery},
+		{DiscoveredSidecar, CategoryNonAsset},
+		{DiscoveredMetadata, CategoryNonAsset},
+		{DiscoveredUnknown, CategoryNonAsset},
+		{DiscoveredBanned, CategoryNonAsset},
+		{DiscoveredUnsupported, CategoryNonAsset},
+		{ProcessedUploadSuccess, CategoryProcessed},
+		{ProcessedUploadUpgraded, CategoryProcessed},
+		{ProcessedFileArchived, CategoryProcessed},
+		{DiscardedServerDuplicate, CategoryDiscarded},
+		{DiscardedBanned, CategoryDiscarded},
+		{DiscardedUnsupported, CategoryDiscarded},
+		{DiscardedFiltered, CategoryDiscarded},
+		{DiscardedLocalDuplicate, CategoryDiscarded},
+		{DiscardedNotSelected, CategoryDiscarded},
+		{DiscardedServerBetter, CategoryDiscarded},
+		{ErrorUploadFailed, CategoryError},
+		{ErrorServerError, CategoryError},
+		{ErrorFileAccess, CategoryError},
+		{ErrorIncomplete, CategoryError},
+		{ProcessedAssociatedMetadata, CategoryInfo},
+		{ProcessedMissingMetadata, CategoryInfo},
+		{ProcessedMetadataUpdated, CategoryInfo},
+		{ProcessedStacked, CategoryInfo},
+		{ProcessedAlbumAdded, CategoryInfo},
+		{ProcessedTagged, CategoryInfo},
+		{ProcessedLivePhoto, CategoryInfo},
+	}
+	for _, tt := range tests {
+		if got := tt.code.Category(); got != tt.category {
+			t.Errorf("%s.Category() = %v, want %v", tt.code, got, tt.category)
+		}
+	}
+}
+
 func TestRecorderSizeTracking(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	recorder := NewRecorder(logger)

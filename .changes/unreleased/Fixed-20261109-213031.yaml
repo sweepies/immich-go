@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(reporting): the JSON summary now reports status error when the run fails before processing any asset'
+time: 2026-11-09T21:30:31.08283353Z

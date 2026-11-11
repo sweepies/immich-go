@@ -139,3 +139,83 @@ func TestGroup(t *testing.T) {
 		}
 	}
 }
+
+func runGrouper(ctx context.Context, in []*assets.Asset) (groups []*assets.Group, singles []*assets.Asset) {
+	inCh := make(chan *assets.Asset, len(in))
+	outCh := make(chan *assets.Asset)
+	gOutCh := make(chan *assets.Group)
+
+	go func() {
+		g := &Group{}
+		g.Group(ctx, inCh, outCh, gOutCh)
+		close(outCh)
+		close(gOutCh)
+	}()
+
+	for _, a := range in {
+		inCh <- a
+	}
+	close(inCh)
+
+	for outCh != nil || gOutCh != nil {
+		select {
+		case group, ok := <-gOutCh:
+			if !ok {
+				gOutCh = nil
+				continue
+			}
+			groups = append(groups, group)
+		case asset, ok := <-outCh:
+			if !ok {
+				outCh = nil
+				continue
+			}
+			singles = append(singles, asset)
+		}
+	}
+	return groups, singles
+}
+
+// A file that matches the Epson FastFoto naming scheme but is not an image
+// (video, burst member) flushes the current group and must be forwarded, not
+// dropped.
+func TestGroupForwardsNonImageMatches(t *testing.T) {
+	ctx := context.Background()
+	ic := filenames.NewInfoCollector(time.Local, filetypes.DefaultSupportedMedia)
+	baseTime := time.Date(2021, 1, 1, 0, 0, 0, 0, time.Local)
+
+	testAssets := []*assets.Asset{
+		mockAsset(ic, "SceneryAndWildlife_0001_a.jpg", baseTime),
+		mockAsset(ic, "SceneryAndWildlife_0001.mp4", baseTime.Add(100*time.Millisecond)),
+		mockAsset(ic, "SceneryAndWildlife_0002_a.jpg", baseTime.Add(200*time.Millisecond)),
+		mockAsset(ic, "SceneryAndWildlife_0002.jpg", baseTime.Add(400*time.Millisecond)),
+	}
+
+	gotGroups, gotAssets := runGrouper(ctx, testAssets)
+
+	emitted := len(gotAssets)
+	for _, g := range gotGroups {
+		emitted += len(g.Assets)
+	}
+	if emitted != len(testAssets) {
+		t.Fatalf("expected %d assets emitted, got %d", len(testAssets), emitted)
+	}
+
+	// The video flushes the pending group: _0001_a.jpg leaves as a single,
+	// then the video itself is forwarded. Only the _0002 pair forms a group.
+	if len(gotAssets) != 2 {
+		t.Fatalf("expected 2 single assets, got %v", gotAssets)
+	}
+	singleNames := map[string]bool{}
+	for _, a := range gotAssets {
+		singleNames[a.File.Name()] = true
+	}
+	for _, want := range []string{"SceneryAndWildlife_0001_a.jpg", "SceneryAndWildlife_0001.mp4"} {
+		if !singleNames[want] {
+			t.Errorf("expected %s among single assets, got %v", want, gotAssets)
+		}
+	}
+	if len(gotGroups) != 1 || len(gotGroups[0].Assets) != 2 {
+		t.Errorf("expected one group of the two _0002 images, got %v", gotGroups)
+	}
+}
