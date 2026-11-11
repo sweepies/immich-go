@@ -72,8 +72,13 @@ type mockServerClient struct {
 	tagAssetsErr error
 
 	// CreateStack
-	createdStacks  [][]immich.AssetID
-	createStackErr error
+	createdStacks    [][]immich.AssetID
+	createStackErr   error
+	createStackCalls int
+
+	// GetJobs
+	jobs       map[string]immich.Job
+	getJobsErr error
 
 	// SendJobCommand
 	jobCommands []struct {
@@ -81,6 +86,8 @@ type mockServerClient struct {
 		command immich.JobCommand
 	}
 	sendJobCmdErr error
+	// sendJobCmdErrs fails specific "<command> <queue>" commands.
+	sendJobCmdErrs map[string]error
 
 	// UserID
 	userID immich.UserID
@@ -239,6 +246,7 @@ func (m *mockServerClient) TagAssets(ctx context.Context, tagID immich.TagID, id
 func (m *mockServerClient) CreateStack(ctx context.Context, ids []immich.AssetID) (immich.StackID, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.createStackCalls++
 	if m.createStackErr != nil {
 		return "", m.createStackErr
 	}
@@ -246,23 +254,37 @@ func (m *mockServerClient) CreateStack(ctx context.Context, ids []immich.AssetID
 	return immich.StackID("stack-1"), nil
 }
 
+func (m *mockServerClient) GetJobs(ctx context.Context) (map[string]immich.Job, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.getJobsErr != nil {
+		return nil, m.getJobsErr
+	}
+	return m.jobs, nil
+}
+
 func (m *mockServerClient) SendJobCommand(ctx context.Context, jobName string, command immich.JobCommand, force bool) (immich.JobCommandResponse, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.sendJobCmdErr != nil {
-		return immich.JobCommandResponse{}, m.sendJobCmdErr
-	}
 	m.jobCommands = append(m.jobCommands, struct {
 		name    string
 		command immich.JobCommand
 	}{jobName, command})
+	if err := m.sendJobCmdErrs[string(command)+" "+jobName]; err != nil {
+		return immich.JobCommandResponse{}, err
+	}
+	if m.sendJobCmdErr != nil {
+		return immich.JobCommandResponse{}, m.sendJobCmdErr
+	}
 	return immich.JobCommandResponse{}, nil
 }
 
 // mockSource implements Source for testing.
 type mockSource struct {
-	groups []*assets.Group
-	closed bool
+	groups    []*assets.Group
+	closed    bool
+	processor *fileprocessor.FileProcessor // when set, records discovery for emitted assets
+	err       error                        // when set, Err() reports a failed browse
 }
 
 func newMockSource(groups ...*assets.Group) *mockSource {
@@ -274,6 +296,11 @@ func (m *mockSource) Browse(ctx context.Context) <-chan *assets.Group {
 	go func() {
 		defer close(ch)
 		for _, g := range m.groups {
+			if m.processor != nil {
+				for _, a := range g.Assets {
+					_ = m.processor.RecordAssetDiscovered(ctx, a.File, int64(a.FileSize), journal.DiscoveredImage)
+				}
+			}
 			select {
 			case <-ctx.Done():
 				return
@@ -287,6 +314,10 @@ func (m *mockSource) Browse(ctx context.Context) <-chan *assets.Group {
 func (m *mockSource) Close() error {
 	m.closed = true
 	return nil
+}
+
+func (m *mockSource) Err() error {
+	return m.err
 }
 
 // Helper to create a mock asset with file.
@@ -546,10 +577,10 @@ func TestAlbumDiscoveryStage(t *testing.T) {
 		assetsReady := make(chan struct{})
 		close(assetsReady) // Signal assets are ready
 
-		albumsCache := cache.NewCollectionCache(50, func(album assets.Album, ids []string) (assets.Album, error) {
+		albumsCache := cache.NewCollectionCache(50, func(ctx context.Context, album assets.Album, ids []string) (assets.Album, error) {
 			return album, nil
 		})
-		defer albumsCache.Close()
+		defer albumsCache.Close(context.Background())
 
 		stage := &AlbumDiscoveryStage{
 			AlbumsCache: albumsCache,
@@ -587,285 +618,379 @@ func TestAlbumDiscoveryStage(t *testing.T) {
 	})
 }
 
-// TestJobControlStage tests the job control stage.
-func TestJobControlStage(t *testing.T) {
-	t.Run("pause jobs", func(t *testing.T) {
-		mock := newMockServerClient()
-		pctx := createTestContext(mock)
+// TestHandleAssetLifecycle covers the terminal-transition rules of handleAsset:
+// each asset must get exactly one terminal transition, recorded once the
+// outcome is known.
+func TestHandleAssetLifecycle(t *testing.T) {
+	discover := func(pctx *Context, a *assets.Asset) {
+		if err := pctx.Processor.RecordAssetDiscovered(context.Background(), a.File, int64(a.FileSize), journal.DiscoveredImage); err != nil {
+			t.Fatalf("RecordAssetDiscovered: %v", err)
+		}
+	}
 
-		stage := &JobControlStage{Pause: true}
+	t.Run("checksum error records ErrorFileAccess", func(t *testing.T) {
+		pctx := createTestContext(newMockServerClient())
+		a := &assets.Asset{
+			File:             fshelper.NewFilename(nil, "unreadable.jpg"),
+			OriginalFileName: "unreadable.jpg",
+			FileSize:         10,
+		}
+		discover(pctx, a)
 
-		if stage.Name() != "pause-jobs" {
-			t.Errorf("expected name 'pause-jobs', got '%s'", stage.Name())
+		stage := &UploadStage{}
+		if err := stage.handleAsset(context.Background(), pctx, a); err == nil {
+			t.Fatal("expected an error")
 		}
 
-		err := stage.Run(context.Background(), pctx)
-		if err != nil {
-			t.Fatalf("JobControlStage.Run() error = %v", err)
+		counters := pctx.Processor.GetAssetCounters()
+		if counters.Errors != 1 || counters.Pending != 0 {
+			t.Errorf("expected 1 error, 0 pending, got %+v", counters)
 		}
-
-		if len(mock.jobCommands) != 5 {
-			t.Errorf("expected 5 job commands, got %d", len(mock.jobCommands))
+		if counters.InvalidTransitions != 0 {
+			t.Errorf("expected no invalid transitions, got %d", counters.InvalidTransitions)
 		}
-		for _, cmd := range mock.jobCommands {
-			if cmd.command != immich.JobCommandPause {
-				t.Errorf("expected pause command, got %s", cmd.command)
-			}
-		}
-	})
-
-	t.Run("resume jobs", func(t *testing.T) {
-		mock := newMockServerClient()
-		pctx := createTestContext(mock)
-
-		stage := &JobControlStage{Pause: false}
-
-		if stage.Name() != "resume-jobs" {
-			t.Errorf("expected name 'resume-jobs', got '%s'", stage.Name())
-		}
-
-		err := stage.Run(context.Background(), pctx)
-		if err != nil {
-			t.Fatalf("JobControlStage.Run() error = %v", err)
-		}
-
-		if len(mock.jobCommands) != 5 {
-			t.Errorf("expected 5 job commands, got %d", len(mock.jobCommands))
-		}
-		for _, cmd := range mock.jobCommands {
-			if cmd.command != immich.JobCommandResume {
-				t.Errorf("expected resume command, got %s", cmd.command)
-			}
+		if got := pctx.Processor.GetEventCounts()[journal.ErrorFileAccess]; got != 1 {
+			t.Errorf("expected 1 ErrorFileAccess event, got %d", got)
 		}
 	})
 
-	t.Run("pause error stops execution", func(t *testing.T) {
+	t.Run("update asset failure records ErrorServerError", func(t *testing.T) {
 		mock := newMockServerClient()
-		mock.sendJobCmdErr = errors.New("job error")
+		mock.updateAssetError = errors.New("update failed")
+
 		pctx := createTestContext(mock)
+		a := createMockAsset("photo.jpg", 10, time.Now())
+		a.FromApplication = &assets.Metadata{Description: "from takeout"}
+		discover(pctx, a)
 
-		stage := &JobControlStage{Pause: true}
+		stage := &UploadStage{}
+		if err := stage.handleAsset(context.Background(), pctx, a); err == nil {
+			t.Fatal("expected an error")
+		}
 
-		err := stage.Run(context.Background(), pctx)
-		if err == nil {
-			t.Fatal("expected error on pause, got nil")
+		counters := pctx.Processor.GetAssetCounters()
+		if counters.Errors != 1 || counters.Processed != 0 {
+			t.Errorf("expected 1 error, 0 processed, got %+v", counters)
+		}
+		events := pctx.Processor.GetEventCounts()
+		if events[journal.ProcessedUploadSuccess] != 0 {
+			t.Error("ProcessedUploadSuccess must not be recorded when UpdateAsset fails")
+		}
+		if events[journal.ErrorServerError] != 1 {
+			t.Errorf("expected 1 ErrorServerError event, got %d", events[journal.ErrorServerError])
+		}
+		// The upload itself succeeded, so the asset must be indexed as
+		// uploaded during this run: an identical file seen later is then
+		// recognised instead of being uploaded again.
+		if !pctx.Index.UploadedThisRun(a.ID) {
+			t.Error("asset uploaded before the failed UpdateAsset must be indexed as uploaded this run")
 		}
 	})
 
-	t.Run("resume error does not stop execution", func(t *testing.T) {
+	t.Run("metadata updated is recorded after a successful UpdateAsset", func(t *testing.T) {
 		mock := newMockServerClient()
-		mock.sendJobCmdErr = errors.New("job error")
 		pctx := createTestContext(mock)
+		a := createMockAsset("photo.jpg", 10, time.Now())
+		a.FromApplication = &assets.Metadata{Description: "from takeout"}
+		discover(pctx, a)
 
-		stage := &JobControlStage{Pause: false}
+		stage := &UploadStage{}
+		if err := stage.handleAsset(context.Background(), pctx, a); err != nil {
+			t.Fatalf("handleAsset() error = %v", err)
+		}
 
-		err := stage.Run(context.Background(), pctx)
-		if err != nil {
-			t.Fatalf("expected no error on resume failure, got %v", err)
+		events := pctx.Processor.GetEventCounts()
+		if events[journal.ProcessedMetadataUpdated] != 1 {
+			t.Errorf("expected 1 ProcessedMetadataUpdated event, got %d", events[journal.ProcessedMetadataUpdated])
+		}
+		if events[journal.ProcessedUploadSuccess] != 1 {
+			t.Errorf("expected 1 ProcessedUploadSuccess event, got %d", events[journal.ProcessedUploadSuccess])
+		}
+		if counters := pctx.Processor.GetAssetCounters(); !counters.RunFinishedCleanly() {
+			t.Errorf("expected a clean run, got %+v", counters)
 		}
 	})
-}
 
-// TestFinalizeStage tests the finalize stage.
-func TestFinalizeStage(t *testing.T) {
-	t.Run("closes caches", func(t *testing.T) {
-		albumsCache := cache.NewCollectionCache(50, func(album assets.Album, ids []string) (assets.Album, error) {
+	t.Run("same on server is discarded as server duplicate", func(t *testing.T) {
+		mock := newMockServerClient()
+		pctx := createTestContext(mock)
+		captureDate := time.Now().UTC().Truncate(time.Second)
+		pctx.Index.AddImmichAsset(&immich.Asset{
+			ID:               "server-id",
+			Checksum:         "checksum-photo.jpg",
+			OriginalFileName: "photo.jpg",
+			ExifInfo:         immich.ExifInfo{DateTimeOriginal: immich.ImmichExifTime{Time: captureDate}},
+		})
+
+		savedAlbums := []string{}
+		albumsCache := cache.NewCollectionCache(50, func(ctx context.Context, album assets.Album, ids []string) (assets.Album, error) {
+			savedAlbums = append(savedAlbums, album.Title)
 			return album, nil
 		})
 
-		tagsCache := cache.NewCollectionCache(50, func(tag assets.Tag, ids []string) (assets.Tag, error) {
-			return tag, nil
+		a := createMockAsset("photo.jpg", 10, captureDate)
+		a.Albums = []assets.Album{{Title: "holiday"}}
+		discover(pctx, a)
+
+		stage := &UploadStage{AlbumsCache: albumsCache}
+		if err := stage.handleAsset(context.Background(), pctx, a); err != nil {
+			t.Fatalf("handleAsset() error = %v", err)
+		}
+		albumsCache.Close(context.Background())
+
+		counters := pctx.Processor.GetAssetCounters()
+		if counters.Discarded != 1 || counters.Processed != 0 {
+			t.Errorf("expected 1 discarded, 0 processed, got %+v", counters)
+		}
+		if events := pctx.Processor.GetEventCounts(); events[journal.DiscardedServerDuplicate] != 1 {
+			t.Errorf("expected 1 DiscardedServerDuplicate event, got %d", events[journal.DiscardedServerDuplicate])
+		}
+		if len(savedAlbums) != 1 || savedAlbums[0] != "holiday" {
+			t.Errorf("expected album management for 'holiday', got %v", savedAlbums)
+		}
+		if !counters.RunFinishedCleanly() {
+			t.Errorf("expected a clean run, got %+v", counters)
+		}
+	})
+
+	t.Run("already processed is discarded as local duplicate", func(t *testing.T) {
+		mock := newMockServerClient()
+		pctx := createTestContext(mock)
+
+		stage := &UploadStage{}
+		first := createMockAsset("first.jpg", 10, time.Now())
+		first.Checksum = "dup-checksum"
+		discover(pctx, first)
+		if err := stage.handleAsset(context.Background(), pctx, first); err != nil {
+			t.Fatalf("first handleAsset() error = %v", err)
+		}
+
+		second := createMockAsset("second.jpg", 10, time.Now())
+		second.Checksum = "dup-checksum"
+		discover(pctx, second)
+		if err := stage.handleAsset(context.Background(), pctx, second); err != nil {
+			t.Fatalf("second handleAsset() error = %v", err)
+		}
+
+		counters := pctx.Processor.GetAssetCounters()
+		if counters.Processed != 1 || counters.Discarded != 1 {
+			t.Errorf("expected 1 processed, 1 discarded, got %+v", counters)
+		}
+		if events := pctx.Processor.GetEventCounts(); events[journal.DiscardedLocalDuplicate] != 1 {
+			t.Errorf("expected 1 DiscardedLocalDuplicate event, got %d", events[journal.DiscardedLocalDuplicate])
+		}
+		if !counters.RunFinishedCleanly() {
+			t.Errorf("expected a clean run, got %+v", counters)
+		}
+	})
+
+	t.Run("already processed queues the server asset id into the album cache", func(t *testing.T) {
+		mock := newMockServerClient()
+		pctx := createTestContext(mock)
+
+		var savedIDs []string
+		albumsCache := cache.NewCollectionCache(50, func(ctx context.Context, album assets.Album, ids []string) (assets.Album, error) {
+			savedIDs = append(savedIDs, ids...)
+			return album, nil
 		})
+		stage := &UploadStage{AlbumsCache: albumsCache}
 
+		first := createMockAsset("first.jpg", 10, time.Now())
+		first.Checksum = "dup-checksum"
+		discover(pctx, first)
+		if err := stage.handleAsset(context.Background(), pctx, first); err != nil {
+			t.Fatalf("first handleAsset() error = %v", err)
+		}
+
+		second := createMockAsset("second.jpg", 10, time.Now())
+		second.Checksum = "dup-checksum"
+		second.Albums = []assets.Album{{Title: "holiday"}}
+		discover(pctx, second)
+		if err := stage.handleAsset(context.Background(), pctx, second); err != nil {
+			t.Fatalf("second handleAsset() error = %v", err)
+		}
+		albumsCache.Close(context.Background())
+
+		// The first upload got the id "uploaded-first.jpg" from the mock; the
+		// duplicate's album membership must be queued under that id, not "".
+		if len(savedIDs) != 1 || savedIDs[0] != "uploaded-first.jpg" {
+			t.Errorf("expected [uploaded-first.jpg] queued to the album cache, got %v", savedIDs)
+		}
+		if got := pctx.Processor.GetEventCounts()[journal.ProcessedAlbumAdded]; got != 1 {
+			t.Errorf("expected 1 ProcessedAlbumAdded event, got %d", got)
+		}
+		if counters := pctx.Processor.GetAssetCounters(); !counters.RunFinishedCleanly() {
+			t.Errorf("expected a clean run, got %+v", counters)
+		}
+	})
+
+	t.Run("server duplicate answer discards the upload", func(t *testing.T) {
 		mock := newMockServerClient()
+		mock.uploadResponses = []immich.AssetResponse{{ID: "existing-id", Status: immich.UploadDuplicate}}
+
 		pctx := createTestContext(mock)
+		a := createMockAsset("photo.jpg", 10, time.Now())
+		discover(pctx, a)
 
-		stage := &FinalizeStage{
-			AlbumsCache: albumsCache,
-			TagsCache:   tagsCache,
+		stage := &UploadStage{}
+		if err := stage.handleAsset(context.Background(), pctx, a); err != nil {
+			t.Fatalf("handleAsset() error = %v", err)
 		}
 
-		err := stage.Run(context.Background(), pctx)
-		if err != nil {
-			t.Fatalf("FinalizeStage.Run() error = %v", err)
+		counters := pctx.Processor.GetAssetCounters()
+		if counters.Discarded != 1 || counters.Processed != 0 {
+			t.Errorf("expected 1 discarded, 0 processed, got %+v", counters)
+		}
+		// "existing-id" was never uploaded during this run: the file
+		// duplicates a pre-existing server asset.
+		if events := pctx.Processor.GetEventCounts(); events[journal.DiscardedServerDuplicate] != 1 {
+			t.Errorf("expected 1 DiscardedServerDuplicate event, got %d", events[journal.DiscardedServerDuplicate])
+		}
+		if !counters.RunFinishedCleanly() {
+			t.Errorf("expected a clean run, got %+v", counters)
+		}
+	})
+
+	t.Run("server duplicate answer on asset with ID discards as server duplicate", func(t *testing.T) {
+		mock := newMockServerClient()
+		mock.uploadResponses = []immich.AssetResponse{{ID: "existing-id", Status: immich.UploadDuplicate}}
+
+		pctx := createTestContext(mock)
+		a := createMockAsset("photo.jpg", 10, time.Now())
+		a.ID = "source-server-id"
+		discover(pctx, a)
+
+		stage := &UploadStage{}
+		if err := stage.handleAsset(context.Background(), pctx, a); err != nil {
+			t.Fatalf("handleAsset() error = %v", err)
 		}
 
-		// Verify caches were closed (callbacks might not be triggered if empty)
-		if stage.Name() != "finalize" {
-			t.Errorf("expected name 'finalize', got '%s'", stage.Name())
+		if events := pctx.Processor.GetEventCounts(); events[journal.DiscardedServerDuplicate] != 1 {
+			t.Errorf("expected 1 DiscardedServerDuplicate event, got %d", events[journal.DiscardedServerDuplicate])
+		}
+		if counters := pctx.Processor.GetAssetCounters(); !counters.RunFinishedCleanly() {
+			t.Errorf("expected a clean run, got %+v", counters)
 		}
 	})
 }
 
-// TestParallelStage tests the parallel stage.
-func TestParallelStage(t *testing.T) {
-	t.Run("runs stages in parallel", func(t *testing.T) {
-		var mu sync.Mutex
-		order := []string{}
-
-		stage1 := &testStage{
-			name: "stage1",
-			runFn: func(ctx context.Context, pctx *Context) error {
-				time.Sleep(10 * time.Millisecond)
-				mu.Lock()
-				order = append(order, "stage1")
-				mu.Unlock()
-				return nil
-			},
-		}
-
-		stage2 := &testStage{
-			name: "stage2",
-			runFn: func(ctx context.Context, pctx *Context) error {
-				mu.Lock()
-				order = append(order, "stage2")
-				mu.Unlock()
-				return nil
-			},
-		}
-
-		mock := newMockServerClient()
-		pctx := createTestContext(mock)
-
-		parallel := &ParallelStage{
-			Stages: []Stage{stage1, stage2},
-		}
-
-		err := parallel.Run(context.Background(), pctx)
-		if err != nil {
-			t.Fatalf("ParallelStage.Run() error = %v", err)
-		}
-
-		if len(order) != 2 {
-			t.Errorf("expected 2 stages to run, got %d", len(order))
-		}
-		// stage2 should complete before stage1 due to sleep
-		if len(order) >= 2 && order[0] != "stage2" {
-			t.Log("stages ran in parallel (stage2 finished first)")
-		}
-	})
-
-	t.Run("error in one stage cancels others", func(t *testing.T) {
-		expectedErr := errors.New("stage error")
-
-		stage1 := &testStage{
-			name: "stage1",
-			runFn: func(ctx context.Context, pctx *Context) error {
-				return expectedErr
-			},
-		}
-
-		stage2 := &testStage{
-			name: "stage2",
-			runFn: func(ctx context.Context, pctx *Context) error {
-				time.Sleep(100 * time.Millisecond)
-				return nil
-			},
-		}
-
-		mock := newMockServerClient()
-		pctx := createTestContext(mock)
-
-		parallel := &ParallelStage{
-			Stages: []Stage{stage1, stage2},
-		}
-
-		err := parallel.Run(context.Background(), pctx)
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-	})
+// nthUploadFailureClient fails the upload numbered failCall (1-based).
+type nthUploadFailureClient struct {
+	*mockServerClient
+	failCall int
+	calls    int
 }
 
-// TestPipelineRun tests the Pipeline.Run method.
-func TestPipelineRun(t *testing.T) {
-	t.Run("runs stages in order", func(t *testing.T) {
-		order := []string{}
-
-		stage1 := &testStage{
-			name: "stage1",
-			runFn: func(ctx context.Context, pctx *Context) error {
-				order = append(order, "stage1")
-				return nil
-			},
-		}
-
-		stage2 := &testStage{
-			name: "stage2",
-			runFn: func(ctx context.Context, pctx *Context) error {
-				order = append(order, "stage2")
-				return nil
-			},
-		}
-
-		mock := newMockServerClient()
-		pctx := createTestContext(mock)
-
-		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-		source := newMockSource()
-		pipeline := New(source, logger)
-		pipeline.AddStage(stage1)
-		pipeline.AddStage(stage2)
-
-		err := pipeline.Run(context.Background(), pctx)
-		if err != nil {
-			t.Fatalf("Pipeline.Run() error = %v", err)
-		}
-
-		if len(order) != 2 || order[0] != "stage1" || order[1] != "stage2" {
-			t.Errorf("expected ['stage1', 'stage2'], got %v", order)
-		}
-	})
-
-	t.Run("stops on first error", func(t *testing.T) {
-		expectedErr := errors.New("stage error")
-		stage2Ran := false
-
-		stage1 := &testStage{
-			name: "stage1",
-			runFn: func(ctx context.Context, pctx *Context) error {
-				return expectedErr
-			},
-		}
-
-		stage2 := &testStage{
-			name: "stage2",
-			runFn: func(ctx context.Context, pctx *Context) error {
-				stage2Ran = true
-				return nil
-			},
-		}
-
-		mock := newMockServerClient()
-		pctx := createTestContext(mock)
-
-		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-		source := newMockSource()
-		pipeline := New(source, logger)
-		pipeline.AddStage(stage1)
-		pipeline.AddStage(stage2)
-
-		err := pipeline.Run(context.Background(), pctx)
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-
-		if stage2Ran {
-			t.Error("stage2 should not have run after stage1 error")
-		}
-	})
-}
-
-// testStage is a test implementation of Stage.
-type testStage struct {
-	name  string
-	runFn func(ctx context.Context, pctx *Context) error
-}
-
-func (s *testStage) Name() string { return s.name }
-func (s *testStage) Run(ctx context.Context, pctx *Context) error {
-	if s.runFn != nil {
-		return s.runFn(ctx, pctx)
+func (c *nthUploadFailureClient) AssetUpload(ctx context.Context, a *assets.Asset) (immich.AssetResponse, error) {
+	c.calls++
+	if c.calls == c.failCall {
+		return immich.AssetResponse{}, errors.New("upload failed")
 	}
-	return nil
+	return c.mockServerClient.AssetUpload(ctx, a)
+}
+
+// G3: when the server answers "duplicate" with the ID of an asset uploaded
+// during this run, the file is a local duplicate; when the ID was never seen
+// this run, it is a server duplicate.
+func TestHandleAssetDuplicateClassification(t *testing.T) {
+	discover := func(pctx *Context, a *assets.Asset) {
+		if err := pctx.Processor.RecordAssetDiscovered(context.Background(), a.File, int64(a.FileSize), journal.DiscoveredImage); err != nil {
+			t.Fatalf("RecordAssetDiscovered: %v", err)
+		}
+	}
+
+	t.Run("duplicate of an asset uploaded this run is a local duplicate", func(t *testing.T) {
+		mock := newMockServerClient()
+		mock.uploadResponses = []immich.AssetResponse{
+			{ID: "first-id", Status: immich.UploadCreated},
+			{ID: "first-id", Status: immich.UploadDuplicate},
+		}
+		pctx := createTestContext(mock)
+		stage := &UploadStage{}
+
+		first := createMockAsset("first.jpg", 10, time.Now())
+		discover(pctx, first)
+		if err := stage.handleAsset(context.Background(), pctx, first); err != nil {
+			t.Fatalf("first handleAsset() error = %v", err)
+		}
+
+		second := createMockAsset("second.jpg", 10, time.Now())
+		discover(pctx, second)
+		if err := stage.handleAsset(context.Background(), pctx, second); err != nil {
+			t.Fatalf("second handleAsset() error = %v", err)
+		}
+
+		events := pctx.Processor.GetEventCounts()
+		if events[journal.DiscardedLocalDuplicate] != 1 {
+			t.Errorf("expected 1 DiscardedLocalDuplicate event, got %d", events[journal.DiscardedLocalDuplicate])
+		}
+		if events[journal.DiscardedServerDuplicate] != 0 {
+			t.Errorf("expected no DiscardedServerDuplicate event, got %d", events[journal.DiscardedServerDuplicate])
+		}
+		counters := pctx.Processor.GetAssetCounters()
+		if !counters.RunFinishedCleanly() || counters.Discarded != 1 {
+			t.Errorf("expected 1 discarded and a clean run, got %+v", counters)
+		}
+	})
+}
+
+// G8: ProcessedStacked is recorded only for the assets actually sent in a
+// successful CreateStack.
+func TestUploadStageHandleGroupStackedEvents(t *testing.T) {
+	discover := func(pctx *Context, a *assets.Asset) {
+		if err := pctx.Processor.RecordAssetDiscovered(context.Background(), a.File, int64(a.FileSize), journal.DiscoveredImage); err != nil {
+			t.Fatalf("RecordAssetDiscovered: %v", err)
+		}
+	}
+
+	t.Run("no stacked events when CreateStack fails", func(t *testing.T) {
+		mock := newMockServerClient()
+		mock.createStackErr = errors.New("stack failed")
+		pctx := createTestContext(mock)
+
+		group := assets.NewGroup(assets.GroupByBurst)
+		for _, n := range []string{"a.jpg", "b.jpg"} {
+			a := createMockAsset(n, 10, time.Now())
+			group.AddAsset(a)
+			discover(pctx, a)
+		}
+
+		stage := &UploadStage{}
+		if err := stage.handleGroup(context.Background(), pctx, group); err != nil {
+			t.Fatalf("handleGroup() error = %v", err)
+		}
+		if mock.createStackCalls != 1 {
+			t.Fatalf("expected 1 CreateStack attempt, got %d", mock.createStackCalls)
+		}
+		if got := pctx.Processor.GetEventCounts()[journal.ProcessedStacked]; got != 0 {
+			t.Errorf("expected no ProcessedStacked events when CreateStack fails, got %d", got)
+		}
+	})
+
+	t.Run("stacked events only for the assets actually sent", func(t *testing.T) {
+		client := &nthUploadFailureClient{mockServerClient: newMockServerClient(), failCall: 2}
+		pctx := createTestContext(client)
+
+		group := assets.NewGroup(assets.GroupByBurst)
+		for _, n := range []string{"a.jpg", "b.jpg", "c.jpg"} {
+			a := createMockAsset(n, 10, time.Now())
+			group.AddAsset(a)
+			discover(pctx, a)
+		}
+
+		stage := &UploadStage{}
+		// The second asset's upload fails: it is not sent to CreateStack.
+		if err := stage.handleGroup(context.Background(), pctx, group); err == nil {
+			t.Fatal("expected the member upload error, got nil")
+		}
+		if len(client.createdStacks) != 1 {
+			t.Fatalf("expected 1 CreateStack, got %d", len(client.createdStacks))
+		}
+		if len(client.createdStacks[0]) != 2 {
+			t.Fatalf("expected 2 ids in the stack, got %v", client.createdStacks[0])
+		}
+		if got := pctx.Processor.GetEventCounts()[journal.ProcessedStacked]; got != 2 {
+			t.Errorf("expected 2 ProcessedStacked events (cover and the uploaded member), got %d", got)
+		}
+	})
 }

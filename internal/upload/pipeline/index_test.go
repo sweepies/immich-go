@@ -299,3 +299,86 @@ func TestFormatBytes(t *testing.T) {
 		})
 	}
 }
+
+// G7: a replaced asset is deleted on the server, so ReplaceAsset must evict
+// it from every lookup; otherwise later files are deduplicated against a
+// dead server asset.
+func TestIndex_ReplaceAssetEvictsOldAsset(t *testing.T) {
+	idx := NewIndex()
+	captureDate := time.Now()
+
+	idx.AddImmichAsset(&immich.Asset{
+		ID:               "old-id",
+		Checksum:         "old-cs",
+		OriginalFileName: "photo.jpg",
+		ExifInfo: immich.ExifInfo{
+			FileSizeInByte:   100,
+			DateTimeOriginal: immich.ImmichExifTime{Time: captureDate},
+		},
+	})
+	oldA := idx.GetByID("old-id")
+	if oldA == nil {
+		t.Fatal("old asset not indexed")
+	}
+
+	newA := &assets.Asset{
+		File:             mockFilename("new-photo.jpg"),
+		ID:               "new-id",
+		Checksum:         "new-cs",
+		OriginalFileName: "new-photo.jpg",
+		FileSize:         200,
+		CaptureDate:      captureDate,
+	}
+	idx.ReplaceAsset(newA, oldA)
+
+	if !oldA.Trashed {
+		t.Error("expected the old asset to be marked trashed")
+	}
+	if got := idx.GetByID("old-id"); got != nil {
+		t.Errorf("expected the old asset to be evicted from the index, got %v", got)
+	}
+	if got := idx.GetByID("new-id"); got != newA {
+		t.Errorf("expected the new asset to be indexed, got %v", got)
+	}
+
+	// A later file with the old checksum must not be advised against the
+	// deleted asset, and must be uploadable without tripping the index.
+	later := &assets.Asset{
+		File:             mockFilename("later.jpg"),
+		OriginalFileName: "later.jpg",
+		Checksum:         "old-cs",
+		FileSize:         100,
+	}
+	advice, err := idx.ShouldUpload(later, false)
+	if err != nil {
+		t.Fatalf("ShouldUpload: %v", err)
+	}
+	if advice.Advice != NotOnServer {
+		t.Errorf("expected NotOnServer for a file matching the dead asset's checksum, got %v", advice.Advice)
+	}
+	later.ID = "later-id"
+	if _, ok := idx.AddLocalAsset(later); !ok {
+		t.Error("expected the later asset to be indexed")
+	}
+
+	// A later file matching the old name/date/size must not match the dead
+	// asset through the by-name lookup either.
+	byName := &assets.Asset{
+		File:             mockFilename("photo.jpg"),
+		OriginalFileName: "photo.jpg",
+		Checksum:         "third-cs",
+		FileSize:         100,
+		CaptureDate:      captureDate,
+	}
+	advice, err = idx.ShouldUpload(byName, false)
+	if err != nil {
+		t.Fatalf("ShouldUpload: %v", err)
+	}
+	if advice.Advice != NotOnServer {
+		t.Errorf("expected NotOnServer for a file matching the dead asset's name, got %v", advice.Advice)
+	}
+
+	if got := idx.Len(); got != 2 {
+		t.Errorf("expected 2 assets in the index (new-id, later-id), got %d", got)
+	}
+}

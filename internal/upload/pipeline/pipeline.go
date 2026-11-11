@@ -1,14 +1,11 @@
-// Package pipeline provides a staged upload pipeline for processing assets.
-// It separates the upload orchestration into distinct stages with clear contracts:
-// - Source discovery
-// - Metadata normalization
-// - De-duplication and grouping
-// - Upload and server sync
-// - Finalize (albums, tags, summary)
+// Package pipeline implements the upload run against an Immich server.
+// The Runner discovers server assets and albums, streams asset groups from
+// the Source through the configured filters and groupers, uploads them to the
+// server, and records album and tag membership through batched caches that are
+// flushed when the run finishes.
 package pipeline
 
 import (
-	"context"
 	"log/slog"
 	"time"
 
@@ -83,50 +80,3 @@ func NewContext(
 // Source is an alias to adapters.Source for asset sources.
 // It provides a stream of asset groups for processing.
 type Source = adapters.Source
-
-// Stage represents a processing stage in the pipeline.
-type Stage interface {
-	// Name returns the stage name for logging/debugging.
-	Name() string
-
-	// Run executes the stage with the given pipeline context.
-	Run(ctx context.Context, pctx *Context) error
-}
-
-// Pipeline orchestrates the execution of upload stages.
-type Pipeline struct {
-	stages []Stage
-	source Source
-	log    *slog.Logger
-}
-
-// New creates a new pipeline with the given source.
-func New(source Source, log *slog.Logger) *Pipeline {
-	return &Pipeline{
-		source: source,
-		log:    log,
-	}
-}
-
-// AddStage adds a stage to the pipeline.
-func (p *Pipeline) AddStage(stage Stage) {
-	p.stages = append(p.stages, stage)
-}
-
-// Run executes all stages in order.
-func (p *Pipeline) Run(ctx context.Context, pctx *Context) error {
-	for _, stage := range p.stages {
-		p.log.Debug("starting pipeline stage", "stage", stage.Name())
-		if err := stage.Run(ctx, pctx); err != nil {
-			p.log.Error("pipeline stage failed", "stage", stage.Name(), "error", err)
-			return err
-		}
-		p.log.Debug("completed pipeline stage", "stage", stage.Name())
-	}
-	return nil
-}
-
-// Source returns the pipeline source.
-func (p *Pipeline) Source() Source {
-	return p.source
-}

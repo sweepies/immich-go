@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(tracing): --api-trace no longer panics when a request is in flight while the trace is being closed'
+time: 2026-11-09T21:30:27.708420462Z

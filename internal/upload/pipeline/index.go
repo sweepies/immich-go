@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"path"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -160,6 +161,8 @@ func (idx *Index) add(a *assets.Asset, local bool) *assets.Asset {
 }
 
 // ReplaceAsset replaces an old asset with a new one in the index.
+// The old asset is deleted on the server: it is removed from every lookup so
+// nothing is matched or deduplicated against a dead ID.
 func (idx *Index) ReplaceAsset(newA *assets.Asset, oldA *assets.Asset) *assets.Asset {
 	if newA.ID == "" {
 		panic("asset ID is empty")
@@ -170,6 +173,18 @@ func (idx *Index) ReplaceAsset(newA *assets.Asset, oldA *assets.Asset) *assets.A
 	idx.lock.Lock()
 	defer idx.lock.Unlock()
 	oldA.Trashed = true
+	idx.immichAssets.Delete(oldA.ID)
+	idx.byChecksum.Delete(oldA.Checksum)
+	idx.uploadsChecksum.Remove(oldA.Checksum)
+	if ids, ok := idx.byName.Load(oldA.OriginalFileName); ok {
+		ids = slices.DeleteFunc(ids, func(id string) bool { return id == oldA.ID })
+		if len(ids) == 0 {
+			idx.byName.Delete(oldA.OriginalFileName)
+		} else {
+			idx.byName.Store(oldA.OriginalFileName, ids)
+		}
+	}
+
 	idx.immichAssets.Store(newA.ID, newA)
 	idx.byChecksum.Store(newA.Checksum, newA)
 	idx.uploadsChecksum.Add(newA.Checksum)
@@ -184,6 +199,14 @@ func (idx *Index) ReplaceAsset(newA *assets.Asset, oldA *assets.Asset) *assets.A
 // IsAlreadyProcessed checks if an asset with the given checksum was already processed.
 func (idx *Index) IsAlreadyProcessed(checksum string) bool {
 	return idx.uploadsChecksum.Contains(checksum)
+}
+
+// UploadedThisRun reports whether the server asset with the given ID was
+// uploaded (or replaced) during this run, as opposed to an asset that was
+// already on the server when the run started.
+func (idx *Index) UploadedThisRun(id string) bool {
+	a, ok := idx.immichAssets.Load(id)
+	return ok && idx.uploadsChecksum.Contains(a.Checksum)
 }
 
 // ShouldUpload determines whether an asset should be uploaded.

@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(upload): assets skipped as already processed are now added to their albums under the server asset id instead of failing the album save'
+time: 2026-11-09T21:30:25.448538346Z

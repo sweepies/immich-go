@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -19,25 +18,22 @@ import (
 // Client represents an Immich server client with configuration and connection management.
 // It handles authentication, API communication, and various client-side settings.
 type Client struct {
-	Server                    string         `mapstructure:"server" json:"server" toml:"server" yaml:"server"`                                                                                         // Immich server address (http://<your-ip>:2283/api or https://<your-domain>/api)
-	APIKey                    string         `mapstructure:"api_key" json:"api_key" toml:"api_key" yaml:"api_key"`                                                                                     // API Key
-	AdminAPIKey               string         `mapstructure:"admin_api_key" json:"admin_api_key" toml:"admin_api_key" yaml:"admin_api_key"`                                                             // API Key for admin
-	APITrace                  bool           `mapstructure:"api_trace" json:"api_trace" toml:"api_trace" yaml:"api_trace"`                                                                             // Enable API call traces
-	SkipSSL                   bool           `mapstructure:"skip_ssl" json:"skip_ssl" toml:"skip_ssl" yaml:"skip_ssl"`                                                                                 // Skip SSL Verification
-	ClientTimeout             time.Duration  `mapstructure:"client_timeout" json:"client_timeout" toml:"client_timeout" yaml:"client_timeout"`                                                         // Set the client request timeout
-	DeviceUUID                string         `mapstructure:"device_uuid" json:"device_uuid" toml:"device_uuid" yaml:"device_uuid"`                                                                     // Set a device UUID
-	TimeZone                  string         `mapstructure:"time_zone" json:"time_zone" toml:"time_zone" yaml:"time_zone"`                                                                             // Override default TZ
-	APITraceWriter            io.WriteCloser `mapstructure:"api_trace_writer" json:"api_trace_writer" toml:"api_trace_writer" yaml:"api_trace_writer"`                                                 // API tracer
-	APITraceWriterName        string         `mapstructure:"api_trace_writer_name" json:"api_trace_writer_name" toml:"api_trace_writer_name" yaml:"api_trace_writer_name"`                             // API trace log name
-	User                      immich.User    `mapstructure:"user" json:"user" toml:"user" yaml:"user"`                                                                                                 // User info corresponding to the API key
-	PauseImmichBackgroundJobs bool           `mapstructure:"pause_immich_background_jobs" json:"pause_immich_background_jobs" toml:"pause_immich_background_jobs" yaml:"pause_immich_background_jobs"` // Pause Immich background jobs
+	Server                    string        `mapstructure:"server" json:"server" toml:"server" yaml:"server"`                                                                                         // Immich server address (http://<your-ip>:2283/api or https://<your-domain>/api)
+	APIKey                    string        `mapstructure:"api_key" json:"api_key" toml:"api_key" yaml:"api_key"`                                                                                     // API Key
+	AdminAPIKey               string        `mapstructure:"admin_api_key" json:"admin_api_key" toml:"admin_api_key" yaml:"admin_api_key"`                                                             // API Key for admin
+	APITrace                  bool          `mapstructure:"api_trace" json:"api_trace" toml:"api_trace" yaml:"api_trace"`                                                                             // Enable API call traces
+	SkipSSL                   bool          `mapstructure:"skip_ssl" json:"skip_ssl" toml:"skip_ssl" yaml:"skip_ssl"`                                                                                 // Skip SSL Verification
+	ClientTimeout             time.Duration `mapstructure:"client_timeout" json:"client_timeout" toml:"client_timeout" yaml:"client_timeout"`                                                         // Set the client request timeout
+	DeviceUUID                string        `mapstructure:"device_uuid" json:"device_uuid" toml:"device_uuid" yaml:"device_uuid"`                                                                     // Set a device UUID
+	TimeZone                  string        `mapstructure:"time_zone" json:"time_zone" toml:"time_zone" yaml:"time_zone"`                                                                             // Override default TZ
+	User                      immich.User   `mapstructure:"user" json:"user" toml:"user" yaml:"user"`                                                                                                 // User info corresponding to the API key
+	PauseImmichBackgroundJobs bool          `mapstructure:"pause_immich_background_jobs" json:"pause_immich_background_jobs" toml:"pause_immich_background_jobs" yaml:"pause_immich_background_jobs"` // Pause Immich background jobs
 
 	TZ          *time.Location // Time zone to use
 	Immich      immich.Client  // User-authenticated Immich client
 	AdminImmich immich.Client  // Administrator-authenticated Immich client
 	ClientLog   *slog.Logger   // Logger
-	app         *Application
-	DryRun      bool // Protect the server from changes
+	DryRun      bool           // Protect the server from changes
 }
 
 // RegisterFlags adds client-related command-line flags to the provided flag set.
@@ -147,17 +143,15 @@ func (client *Client) Open(ctx context.Context, app *Application) error {
 		client.AdminAPIKey = client.APIKey
 	}
 
-	if client.Immich == nil {
-		if client.Server == "" {
-			joinedErr = errors.Join(joinedErr, errors.New("missing the parameter --server, Immich server address (http://<your-ip>:2283 or https://<your-domain>)"))
-		}
-		if client.APIKey == "" && client.AdminAPIKey == "" {
-			joinedErr = errors.Join(joinedErr, errors.New("missing the parameter --api-key and/or --admin-api-key, Immich API keys"))
-		}
+	if client.Server == "" {
+		joinedErr = errors.Join(joinedErr, errors.New("missing the parameter --server, Immich server address (http://<your-ip>:2283 or https://<your-domain>)"))
+	}
+	if client.APIKey == "" && client.AdminAPIKey == "" {
+		joinedErr = errors.Join(joinedErr, errors.New("missing the parameter --api-key and/or --admin-api-key, Immich API keys"))
+	}
 
-		if joinedErr != nil {
-			return joinedErr
-		}
+	if joinedErr != nil {
+		return joinedErr
 	}
 
 	client.ClientLog.Info("Connection to the server " + client.Server)
@@ -223,10 +217,6 @@ func (client *Client) Open(ctx context.Context, app *Application) error {
 func (client *Client) Close() error {
 	if client.DryRun {
 		client.ClientLog.Info("Dry-run mode enabled. No changes were made to the server.")
-	}
-	if client.APITraceWriter != nil {
-		client.APITraceWriter.Close()
-		client.app.log.Message("Check the API-TRACE file: %s", client.APITraceWriterName)
 	}
 	return nil
 }

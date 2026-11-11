@@ -26,6 +26,9 @@ type AssetTracker struct {
 	discarded int64 // Assets in DISCARDED state (includes immediate discards)
 	errors    int64 // Assets in ERROR state
 
+	// invalidTransitions counts illegal transitions that were attempted and rejected
+	invalidTransitions int64
+
 	// Size tracking (assets only)
 	assetSize     int64 // Total bytes of assets (all states)
 	processedSize int64 // Bytes of processed assets
@@ -54,202 +57,187 @@ func NewWithLogger(log *slog.Logger, debugMode bool) *AssetTracker {
 	}
 }
 
-// DiscoverAsset registers an asset (image/video) entering the pipeline
-func (at *AssetTracker) DiscoverAsset(file fshelper.Filename, fileSize int64, eventCode journal.Code) {
-	at.mu.Lock()
-	defer at.mu.Unlock()
-
-	key := file.FullName()
-	if _, exists := at.assets[key]; exists {
-		// Asset already tracked - this shouldn't happen
-		if at.log != nil {
-			at.log.Warn("Asset already tracked", "file", file, "code", eventCode)
-		}
-		return
+// expectedCategory maps a target state to the journal category its event code
+// must belong to.
+func expectedCategory(to AssetState) journal.Category {
+	switch to {
+	case StatePending:
+		return journal.CategoryAssetDiscovery
+	case StateProcessed:
+		return journal.CategoryProcessed
+	case StateDiscarded:
+		return journal.CategoryDiscarded
+	case StateError:
+		return journal.CategoryError
+	default:
+		return journal.CategoryNone
 	}
-
-	record := &AssetRecord{
-		File:         file,
-		FileSize:     fileSize,
-		State:        StatePending,
-		EventCode:    eventCode,
-		DiscoveredAt: time.Now(),
-	}
-
-	if at.debugMode {
-		record.EventHistory = []EventRecord{
-			{
-				Code:      eventCode,
-				Timestamp: record.DiscoveredAt,
-				Message:   "Asset discovered",
-			},
-		}
-	}
-
-	at.assets[key] = record
-	at.pending++
-	at.assetSize += fileSize
 }
 
-// DiscoverAndDiscard registers an asset that is immediately discarded
-// (e.g., banned filename that's still an image type)
-func (at *AssetTracker) DiscoverAndDiscard(file fshelper.Filename, fileSize int64, eventCode journal.Code, reason string) {
+// legalTransition reports whether moving from one state to another is allowed.
+//
+//	untracked -> PENDING (discovery), DISCARDED or ERROR (immediate outcomes)
+//	PENDING   -> PROCESSED, DISCARDED or ERROR (terminal states)
+//
+// Everything else is illegal: re-discovering a tracked asset, finalising an
+// untracked one, or finalising twice.
+func legalTransition(from, to AssetState) bool {
+	switch from {
+	case StateUntracked:
+		return to == StatePending || to == StateDiscarded || to == StateError
+	case StatePending:
+		return to == StateProcessed || to == StateDiscarded || to == StateError
+	default:
+		return false
+	}
+}
+
+// transitionMessage describes the transition for the debug event history.
+func transitionMessage(from, to AssetState) string {
+	if from == StateUntracked {
+		switch to {
+		case StatePending:
+			return "Asset discovered"
+		case StateDiscarded:
+			return "Asset discovered and immediately discarded"
+		case StateError:
+			return "Asset discovered and immediately errored"
+		}
+	}
+	switch to {
+	case StateProcessed:
+		return "Asset processed"
+	case StateDiscarded:
+		return "Asset discarded"
+	case StateError:
+		return "Asset error"
+	}
+	return "Asset state changed"
+}
+
+// transition is the single place where an asset's state changes. It checks the
+// move is legal, updates the record and the counters, and returns a
+// *TransitionError for illegal attempts.
+func (at *AssetTracker) transition(file fshelper.Filename, fileSize int64, to AssetState, code journal.Code, reason string) error {
 	at.mu.Lock()
 	defer at.mu.Unlock()
 
 	key := file.FullName()
-	if _, exists := at.assets[key]; exists {
-		// Asset already tracked
+	record, tracked := at.assets[key]
+	from := StateUntracked
+	if tracked {
+		from = record.State
+	}
+
+	if !legalTransition(from, to) || code.Category() != expectedCategory(to) {
+		at.invalidTransitions++
 		if at.log != nil {
-			at.log.Warn("Asset already tracked", "file", file, "code", eventCode)
+			at.log.Error("illegal asset transition", "file", key, "from", from, "to", to, "code", code, "reason", reason)
 		}
-		return
+		return &TransitionError{File: key, From: from, To: to, Code: code}
 	}
 
 	now := time.Now()
-	record := &AssetRecord{
-		File:         file,
-		FileSize:     fileSize,
-		State:        StateDiscarded,
-		EventCode:    eventCode,
-		Reason:       reason,
-		DiscoveredAt: now,
-		FinalizedAt:  now,
+	if !tracked {
+		record = &AssetRecord{
+			File:         file,
+			FileSize:     fileSize,
+			DiscoveredAt: now,
+		}
+		at.assets[key] = record
+		at.assetSize += fileSize
+	}
+
+	record.State = to
+	record.EventCode = code
+	if to != StatePending {
+		record.Reason = reason
+		record.FinalizedAt = now
 	}
 
 	if at.debugMode {
-		record.EventHistory = []EventRecord{
-			{
-				Code:      eventCode,
-				Timestamp: now,
-				Message:   "Asset discovered and immediately discarded",
-				Args:      map[string]any{"reason": reason},
-			},
+		var args map[string]any
+		switch to {
+		case StateDiscarded:
+			args = map[string]any{"reason": reason}
+		case StateError:
+			args = map[string]any{"error": reason}
 		}
-	}
-
-	at.assets[key] = record
-	at.discarded++
-	at.assetSize += fileSize
-	at.discardedSize += fileSize
-}
-
-// SetProcessed transitions an asset to the PROCESSED state
-func (at *AssetTracker) SetProcessed(file fshelper.Filename, eventCode journal.Code) {
-	at.mu.Lock()
-	defer at.mu.Unlock()
-
-	key := file.FullName()
-	record, exists := at.assets[key]
-	if !exists {
-		if at.log != nil {
-			at.log.Error("SetProcessed: asset not found", "file", key, "code", eventCode)
-		}
-		return
-	}
-
-	if record.State != StatePending {
-		if at.log != nil {
-			at.log.Error("SetProcessed: asset not in pending state", "file", key, "current_state", record.State, "code", eventCode)
-		}
-		return
-	}
-
-	record.State = StateProcessed
-	record.EventCode = eventCode
-	record.FinalizedAt = time.Now()
-
-	if at.debugMode && record.EventHistory != nil {
 		record.EventHistory = append(record.EventHistory, EventRecord{
-			Code:      eventCode,
-			Timestamp: record.FinalizedAt,
-			Message:   "Asset processed",
+			Code:      code,
+			Timestamp: now,
+			Message:   transitionMessage(from, to),
+			Args:      args,
 		})
 	}
 
-	at.pending--
-	at.processed++
-	at.processedSize += record.FileSize
+	switch to {
+	case StatePending:
+		at.pending++
+	case StateProcessed:
+		at.pending--
+		at.processed++
+		at.processedSize += record.FileSize
+	case StateDiscarded:
+		if tracked {
+			at.pending--
+		}
+		at.discarded++
+		at.discardedSize += record.FileSize
+	case StateError:
+		if tracked {
+			at.pending--
+		}
+		at.errors++
+		at.errorSize += record.FileSize
+	}
+	return nil
 }
 
-// SetDiscarded transitions an asset to the DISCARDED state
-func (at *AssetTracker) SetDiscarded(file fshelper.Filename, eventCode journal.Code, reason string) {
-	at.mu.Lock()
-	defer at.mu.Unlock()
-
-	key := file.FullName()
-	record, exists := at.assets[key]
-	if !exists {
-		if at.log != nil {
-			at.log.Error("SetDiscarded: asset not found", "file", key, "code", eventCode, "reason", reason)
-		}
-		return
-	}
-
-	if record.State != StatePending {
-		if at.log != nil {
-			at.log.Error("SetDiscarded: asset not in pending state", "file", key, "current_state", record.State, "code", eventCode, "reason", reason)
-		}
-		return
-	}
-
-	record.State = StateDiscarded
-	record.EventCode = eventCode
-	record.Reason = reason
-	record.FinalizedAt = time.Now()
-
-	if at.debugMode && record.EventHistory != nil {
-		record.EventHistory = append(record.EventHistory, EventRecord{
-			Code:      eventCode,
-			Timestamp: record.FinalizedAt,
-			Message:   "Asset discarded",
-			Args:      map[string]any{"reason": reason},
-		})
-	}
-
-	at.pending--
-	at.discarded++
-	at.discardedSize += record.FileSize
+// DiscoverAsset registers an asset (image/video) entering the pipeline.
+// The event code must be in the CategoryAssetDiscovery category.
+func (at *AssetTracker) DiscoverAsset(file fshelper.Filename, fileSize int64, eventCode journal.Code) error {
+	return at.transition(file, fileSize, StatePending, eventCode, "")
 }
 
-// SetError transitions an asset to the ERROR state
-func (at *AssetTracker) SetError(file fshelper.Filename, eventCode journal.Code, err error) {
+// DiscoverAndDiscard registers an asset that is immediately discarded
+// (e.g., banned filename that's still an image type).
+// The event code must be in the CategoryDiscarded category.
+func (at *AssetTracker) DiscoverAndDiscard(file fshelper.Filename, fileSize int64, eventCode journal.Code, reason string) error {
+	return at.transition(file, fileSize, StateDiscarded, eventCode, reason)
+}
+
+// DiscoverAndError registers an asset that immediately errored
+// (e.g., a file that could not be stat'ed).
+// The event code must be in the CategoryError category.
+func (at *AssetTracker) DiscoverAndError(file fshelper.Filename, fileSize int64, eventCode journal.Code, err error) error {
+	return at.transition(file, fileSize, StateError, eventCode, err.Error())
+}
+
+// SetProcessed transitions an asset to the PROCESSED state.
+// The event code must be in the CategoryProcessed category.
+func (at *AssetTracker) SetProcessed(file fshelper.Filename, eventCode journal.Code) error {
+	return at.transition(file, 0, StateProcessed, eventCode, "")
+}
+
+// SetDiscarded transitions an asset to the DISCARDED state.
+// The event code must be in the CategoryDiscarded category.
+func (at *AssetTracker) SetDiscarded(file fshelper.Filename, eventCode journal.Code, reason string) error {
+	return at.transition(file, 0, StateDiscarded, eventCode, reason)
+}
+
+// SetError transitions an asset to the ERROR state.
+// The event code must be in the CategoryError category.
+func (at *AssetTracker) SetError(file fshelper.Filename, eventCode journal.Code, err error) error {
+	return at.transition(file, 0, StateError, eventCode, err.Error())
+}
+
+// RecordInvalidTransition counts an illegal lifecycle transition attempted
+// outside the tracker (e.g., a lifecycle event code passed to RecordNonAsset).
+func (at *AssetTracker) RecordInvalidTransition() {
 	at.mu.Lock()
 	defer at.mu.Unlock()
-
-	key := file.FullName()
-	record, exists := at.assets[key]
-	if !exists {
-		if at.log != nil {
-			at.log.Error("SetError: asset not found", "file", key, "code", eventCode, "error", err.Error())
-		}
-		return
-	}
-
-	if record.State != StatePending {
-		if at.log != nil {
-			at.log.Error("SetError: asset not in pending state", "file", key, "current_state", record.State, "code", eventCode, "error", err.Error())
-		}
-		return
-	}
-
-	record.State = StateError
-	record.EventCode = eventCode
-	record.Reason = err.Error()
-	record.FinalizedAt = time.Now()
-
-	if at.debugMode && record.EventHistory != nil {
-		record.EventHistory = append(record.EventHistory, EventRecord{
-			Code:      eventCode,
-			Timestamp: record.FinalizedAt,
-			Message:   "Asset error",
-			Args:      map[string]any{"error": err.Error()},
-		})
-	}
-
-	at.pending--
-	at.errors++
-	at.errorSize += record.FileSize
+	at.invalidTransitions++
 }
 
 // GetCounters returns current asset counters
@@ -260,15 +248,16 @@ func (at *AssetTracker) GetCounters() AssetCounters {
 	pendingSize := at.assetSize - at.processedSize - at.discardedSize - at.errorSize
 
 	return AssetCounters{
-		Pending:       at.pending,
-		Processed:     at.processed,
-		Discarded:     at.discarded,
-		Errors:        at.errors,
-		AssetSize:     at.assetSize,
-		ProcessedSize: at.processedSize,
-		DiscardedSize: at.discardedSize,
-		ErrorSize:     at.errorSize,
-		PendingSize:   pendingSize,
+		Pending:            at.pending,
+		Processed:          at.processed,
+		Discarded:          at.discarded,
+		Errors:             at.errors,
+		InvalidTransitions: at.invalidTransitions,
+		AssetSize:          at.assetSize,
+		ProcessedSize:      at.processedSize,
+		DiscardedSize:      at.discardedSize,
+		ErrorSize:          at.errorSize,
+		PendingSize:        pendingSize,
 	}
 }
 
@@ -305,15 +294,6 @@ func (at *AssetTracker) IsComplete() bool {
 	return at.pending == 0
 }
 
-// Validate checks that all assets reached a final state
-func (at *AssetTracker) Validate() error {
-	pending := at.GetPending()
-	if len(pending) > 0 {
-		return fmt.Errorf("%d assets never reached final state", len(pending))
-	}
-	return nil
-}
-
 // GenerateReport creates a summary report of asset processing
 func (at *AssetTracker) GenerateReport() string {
 	counters := at.GetCounters()
@@ -328,6 +308,9 @@ func (at *AssetTracker) GenerateReport() string {
 
 	if !counters.IsComplete() {
 		report += fmt.Sprintf("\n⚠️  WARNING: %d assets did not reach a final state!\n", counters.Pending)
+	}
+	if counters.InvalidTransitions > 0 {
+		report += fmt.Sprintf("\n⚠️  WARNING: %d inconsistent asset events were ignored (see the log); counts may be incomplete.\n", counters.InvalidTransitions)
 	}
 
 	return report

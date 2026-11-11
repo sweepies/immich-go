@@ -40,10 +40,9 @@ const (
 	DiscoveredUnsupported // Unsupported file format
 
 	// ===== Asset Lifecycle Events - To PROCESSED =====
-	ProcessedUploadSuccess   // Asset successfully uploaded
-	ProcessedUploadUpgraded  // Server asset upgraded with input
-	ProcessedMetadataUpdated // Asset metadata updated on server
-	ProcessedFileArchived    // Asset successfully archived to disk
+	ProcessedUploadSuccess  // Asset successfully uploaded
+	ProcessedUploadUpgraded // Server asset upgraded with input
+	ProcessedFileArchived   // Asset successfully archived to disk
 
 	// ===== Asset Lifecycle Events - To DISCARDED =====
 	DiscardedServerDuplicate // Server already has this asset
@@ -64,6 +63,7 @@ const (
 	// These don't change asset state
 	ProcessedAssociatedMetadata // Metadata file associated with asset
 	ProcessedMissingMetadata    // Expected metadata file missing
+	ProcessedMetadataUpdated    // Asset metadata updated on server
 	ProcessedStacked            // Asset added to stack
 	ProcessedAlbumAdded         // Asset added to album
 	ProcessedTagged             // Asset tagged
@@ -71,6 +71,74 @@ const (
 
 	MaxCode
 )
+
+// Category groups event codes by the role they play in the asset lifecycle.
+type Category int
+
+const (
+	// CategoryNone is the category of codes that have no category (NotHandled, unknown codes).
+	CategoryNone Category = iota
+	// CategoryAssetDiscovery covers events that register an asset in the tracker (PENDING).
+	CategoryAssetDiscovery
+	// CategoryNonAsset covers discovery events for files that are not assets.
+	CategoryNonAsset
+	// CategoryProcessed covers terminal transitions to the PROCESSED state.
+	CategoryProcessed
+	// CategoryDiscarded covers terminal transitions to the DISCARDED state.
+	CategoryDiscarded
+	// CategoryError covers terminal transitions to the ERROR state.
+	CategoryError
+	// CategoryInfo covers informational events that do not change asset state.
+	CategoryInfo
+)
+
+var _categories = map[Code]Category{
+	// Discovery - Assets
+	DiscoveredImage: CategoryAssetDiscovery,
+	DiscoveredVideo: CategoryAssetDiscovery,
+
+	// Discovery - Non-Assets
+	DiscoveredSidecar:     CategoryNonAsset,
+	DiscoveredMetadata:    CategoryNonAsset,
+	DiscoveredUnknown:     CategoryNonAsset,
+	DiscoveredBanned:      CategoryNonAsset,
+	DiscoveredUnsupported: CategoryNonAsset,
+
+	// To PROCESSED
+	ProcessedUploadSuccess:  CategoryProcessed,
+	ProcessedUploadUpgraded: CategoryProcessed,
+	ProcessedFileArchived:   CategoryProcessed,
+
+	// To DISCARDED
+	DiscardedServerDuplicate: CategoryDiscarded,
+	DiscardedBanned:          CategoryDiscarded,
+	DiscardedUnsupported:     CategoryDiscarded,
+	DiscardedFiltered:        CategoryDiscarded,
+	DiscardedLocalDuplicate:  CategoryDiscarded,
+	DiscardedNotSelected:     CategoryDiscarded,
+	DiscardedServerBetter:    CategoryDiscarded,
+
+	// To ERROR
+	ErrorUploadFailed: CategoryError,
+	ErrorServerError:  CategoryError,
+	ErrorFileAccess:   CategoryError,
+	ErrorIncomplete:   CategoryError,
+
+	// Processing Events - Informational
+	ProcessedAssociatedMetadata: CategoryInfo,
+	ProcessedMissingMetadata:    CategoryInfo,
+	ProcessedMetadataUpdated:    CategoryInfo,
+	ProcessedStacked:            CategoryInfo,
+	ProcessedAlbumAdded:         CategoryInfo,
+	ProcessedTagged:             CategoryInfo,
+	ProcessedLivePhoto:          CategoryInfo,
+}
+
+// Category returns the category of the event code.
+// Codes without a category (NotHandled, MaxCode, unknown codes) return CategoryNone.
+func (e Code) Category() Category {
+	return _categories[e]
+}
 
 var _code = map[Code]string{
 	NotHandled: "not handled",
@@ -87,10 +155,9 @@ var _code = map[Code]string{
 	DiscoveredUnsupported: "discovered unsupported file",
 
 	// To PROCESSED
-	ProcessedUploadSuccess:   "uploaded successfully",
-	ProcessedUploadUpgraded:  "server asset upgraded",
-	ProcessedMetadataUpdated: "metadata updated",
-	ProcessedFileArchived:    "file archived",
+	ProcessedUploadSuccess:  "uploaded successfully",
+	ProcessedUploadUpgraded: "server asset upgraded",
+	ProcessedFileArchived:   "file archived",
 
 	// To DISCARDED
 	DiscardedServerDuplicate: "server has duplicate",
@@ -110,6 +177,7 @@ var _code = map[Code]string{
 	// Processing Events
 	ProcessedAssociatedMetadata: "associated metadata",
 	ProcessedMissingMetadata:    "missing metadata",
+	ProcessedMetadataUpdated:    "metadata updated",
 	ProcessedStacked:            "stacked",
 	ProcessedAlbumAdded:         "added to album",
 	ProcessedTagged:             "tagged",
@@ -131,10 +199,9 @@ var _logLevels = map[Code]slog.Level{
 	DiscoveredUnsupported: slog.LevelWarn,
 
 	// To PROCESSED
-	ProcessedUploadSuccess:   slog.LevelInfo,
-	ProcessedUploadUpgraded:  slog.LevelInfo,
-	ProcessedMetadataUpdated: slog.LevelInfo,
-	ProcessedFileArchived:    slog.LevelInfo,
+	ProcessedUploadSuccess:  slog.LevelInfo,
+	ProcessedUploadUpgraded: slog.LevelInfo,
+	ProcessedFileArchived:   slog.LevelInfo,
 
 	// To DISCARDED
 	DiscardedServerDuplicate: slog.LevelInfo,
@@ -154,6 +221,7 @@ var _logLevels = map[Code]slog.Level{
 	// Processing Events
 	ProcessedAssociatedMetadata: slog.LevelInfo,
 	ProcessedMissingMetadata:    slog.LevelWarn,
+	ProcessedMetadataUpdated:    slog.LevelInfo,
 	ProcessedStacked:            slog.LevelInfo,
 	ProcessedAlbumAdded:         slog.LevelInfo,
 	ProcessedTagged:             slog.LevelInfo,
@@ -296,7 +364,7 @@ func (r *Recorder) GenerateEventReport() string {
 
 	// Asset Lifecycle - To PROCESSED
 	hasProcessed := false
-	for _, c := range []Code{ProcessedUploadSuccess, ProcessedUploadUpgraded, ProcessedMetadataUpdated, ProcessedFileArchived} {
+	for _, c := range []Code{ProcessedUploadSuccess, ProcessedUploadUpgraded, ProcessedFileArchived} {
 		if eventCounts[c] > 0 {
 			hasProcessed = true
 			break
@@ -304,7 +372,7 @@ func (r *Recorder) GenerateEventReport() string {
 	}
 	if hasProcessed {
 		sb.WriteString("\nAsset Lifecycle (PROCESSED):\n")
-		for _, c := range []Code{ProcessedUploadSuccess, ProcessedUploadUpgraded, ProcessedMetadataUpdated, ProcessedFileArchived} {
+		for _, c := range []Code{ProcessedUploadSuccess, ProcessedUploadUpgraded, ProcessedFileArchived} {
 			if count := eventCounts[c]; count > 0 {
 				if size := eventSizes[c]; size > 0 {
 					sb.WriteString(fmt.Sprintf("  %-35s: %7d  (%s)\n", c.String(), count, formatEventBytes(size)))
@@ -374,6 +442,7 @@ func (r *Recorder) GenerateEventReport() string {
 	for _, c := range []Code{
 		ProcessedAssociatedMetadata,
 		ProcessedMissingMetadata,
+		ProcessedMetadataUpdated,
 		ProcessedStacked,
 		ProcessedAlbumAdded,
 		ProcessedTagged,
@@ -389,6 +458,7 @@ func (r *Recorder) GenerateEventReport() string {
 		for _, c := range []Code{
 			ProcessedAssociatedMetadata,
 			ProcessedMissingMetadata,
+			ProcessedMetadataUpdated,
 			ProcessedStacked,
 			ProcessedAlbumAdded,
 			ProcessedTagged,

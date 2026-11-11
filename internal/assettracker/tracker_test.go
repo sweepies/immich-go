@@ -2,6 +2,7 @@ package assettracker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -221,31 +222,6 @@ func TestGetPending(t *testing.T) {
 	}
 }
 
-func TestValidate(t *testing.T) {
-	tracker := New()
-
-	// Initially valid (no assets)
-	if err := tracker.Validate(); err != nil {
-		t.Errorf("empty tracker should be valid: %v", err)
-	}
-
-	// Add asset
-	tracker.DiscoverAsset(fshelper.NewFilename(mockFS{}, "test.jpg"), 1024, journal.DiscoveredImage)
-
-	// Should be invalid (pending asset)
-	if err := tracker.Validate(); err == nil {
-		t.Error("tracker with pending assets should be invalid")
-	}
-
-	// Process asset
-	tracker.SetProcessed(fshelper.NewFilename(mockFS{}, "test.jpg"), journal.ProcessedUploadSuccess)
-
-	// Should be valid again
-	if err := tracker.Validate(); err != nil {
-		t.Errorf("tracker should be valid after processing: %v", err)
-	}
-}
-
 func TestDebugMode(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	tracker := NewWithLogger(log, true)
@@ -455,5 +431,173 @@ func TestStatusMethods(t *testing.T) {
 	}
 	if size := tracker.GetErrorSize(); size != 256 {
 		t.Errorf("expected error size 256, got %d", size)
+	}
+}
+
+func TestTransitions(t *testing.T) {
+	// ops use their canonical codes
+	type op int
+	const (
+		discover op = iota
+		discardImmediately
+		errorImmediately
+		setProcessed
+		setDiscarded
+		setError
+	)
+
+	canonical := map[op]journal.Code{
+		discover:           journal.DiscoveredImage,
+		discardImmediately: journal.DiscardedFiltered,
+		errorImmediately:   journal.ErrorFileAccess,
+		setProcessed:       journal.ProcessedUploadSuccess,
+		setDiscarded:       journal.DiscardedFiltered,
+		setError:           journal.ErrorFileAccess,
+	}
+
+	apply := func(tracker *AssetTracker, o op, file fshelper.Filename, code journal.Code) error {
+		switch o {
+		case discover:
+			return tracker.DiscoverAsset(file, 1024, code)
+		case discardImmediately:
+			return tracker.DiscoverAndDiscard(file, 1024, code, "reason")
+		case errorImmediately:
+			return tracker.DiscoverAndError(file, 1024, code, fs.ErrPermission)
+		case setProcessed:
+			return tracker.SetProcessed(file, code)
+		case setDiscarded:
+			return tracker.SetDiscarded(file, code, "reason")
+		case setError:
+			return tracker.SetError(file, code, fs.ErrPermission)
+		}
+		return nil
+	}
+
+	legal := map[string][]op{
+		"discover":             {discover},
+		"discard immediately":  {discardImmediately},
+		"error immediately":    {errorImmediately},
+		"discard untracked":    {setDiscarded},
+		"error untracked":      {setError},
+		"pending -> processed": {discover, setProcessed},
+		"pending -> discarded": {discover, setDiscarded},
+		"pending -> error":     {discover, setError},
+	}
+	for name, ops := range legal {
+		t.Run("legal/"+name, func(t *testing.T) {
+			tracker := New()
+			file := fshelper.NewFilename(mockFS{}, "test.jpg")
+			for _, o := range ops {
+				if err := apply(tracker, o, file, canonical[o]); err != nil {
+					t.Fatalf("op %v returned error: %v", o, err)
+				}
+			}
+			if got := tracker.GetCounters().InvalidTransitions; got != 0 {
+				t.Errorf("expected no invalid transitions, got %d", got)
+			}
+		})
+	}
+
+	illegal := map[string][]op{
+		"process untracked":                {setProcessed},
+		"re-discover":                      {discover, discover},
+		"process twice":                    {discover, setProcessed, setProcessed},
+		"discover after processed":         {discover, setProcessed, discover},
+		"discard after discard":            {discover, setDiscarded, setDiscarded},
+		"process after error":              {discover, setError, setProcessed},
+		"discover after immediate discard": {discardImmediately, discover},
+		"process after immediate discard":  {discardImmediately, setProcessed},
+	}
+	for name, ops := range illegal {
+		t.Run("illegal/"+name, func(t *testing.T) {
+			tracker := New()
+			file := fshelper.NewFilename(mockFS{}, "test.jpg")
+			var err error
+			for _, o := range ops {
+				err = apply(tracker, o, file, canonical[o])
+			}
+			if err == nil {
+				t.Fatal("expected a transition error, got nil")
+			}
+			var terr *TransitionError
+			if !errors.As(err, &terr) {
+				t.Fatalf("expected *TransitionError, got %T", err)
+			}
+			if got := tracker.GetCounters().InvalidTransitions; got != 1 {
+				t.Errorf("expected 1 invalid transition, got %d", got)
+			}
+		})
+	}
+
+	// A code whose category does not match the target state is rejected.
+	mismatches := []struct {
+		name string
+		ops  []op
+		code journal.Code
+	}{
+		{"discover with discard code", []op{discover}, journal.DiscardedFiltered},
+		{"discover with processed code", []op{discover}, journal.ProcessedUploadSuccess},
+		{"discover with non-asset code", []op{discover}, journal.DiscoveredSidecar},
+		{"discard immediately with discovery code", []op{discardImmediately}, journal.DiscoveredImage},
+		{"error immediately with discard code", []op{errorImmediately}, journal.DiscardedFiltered},
+		{"processed with discard code", []op{discover, setProcessed}, journal.DiscardedFiltered},
+		{"processed with info code", []op{discover, setProcessed}, journal.ProcessedStacked},
+		{"discarded with error code", []op{discover, setDiscarded}, journal.ErrorFileAccess},
+		{"error with processed code", []op{discover, setError}, journal.ProcessedUploadSuccess},
+	}
+	for _, tt := range mismatches {
+		t.Run("mismatch/"+tt.name, func(t *testing.T) {
+			tracker := New()
+			file := fshelper.NewFilename(mockFS{}, "test.jpg")
+			var err error
+			for i, o := range tt.ops {
+				code := tt.code
+				if i < len(tt.ops)-1 {
+					code = canonical[o]
+				}
+				err = apply(tracker, o, file, code)
+			}
+			if err == nil {
+				t.Fatal("expected a transition error, got nil")
+			}
+			var terr *TransitionError
+			if !errors.As(err, &terr) {
+				t.Fatalf("expected *TransitionError, got %T", err)
+			}
+			if got := tracker.GetCounters().InvalidTransitions; got != 1 {
+				t.Errorf("expected 1 invalid transition, got %d", got)
+			}
+		})
+	}
+}
+
+func TestCountersConsistent(t *testing.T) {
+	tracker := New()
+	files := []string{"a.jpg", "b.jpg", "c.jpg", "d.jpg", "e.jpg", "f.jpg"}
+
+	for _, f := range files {
+		tracker.DiscoverAsset(fshelper.NewFilename(mockFS{}, f), 100, journal.DiscoveredImage)
+	}
+	tracker.DiscoverAndDiscard(fshelper.NewFilename(mockFS{}, "g.jpg"), 100, journal.DiscardedFiltered, "filtered")
+	tracker.DiscoverAndError(fshelper.NewFilename(mockFS{}, "h.jpg"), 100, journal.ErrorFileAccess, fs.ErrPermission)
+	tracker.SetProcessed(fshelper.NewFilename(mockFS{}, "a.jpg"), journal.ProcessedUploadSuccess)
+	tracker.SetDiscarded(fshelper.NewFilename(mockFS{}, "b.jpg"), journal.DiscardedLocalDuplicate, "dup")
+	tracker.SetError(fshelper.NewFilename(mockFS{}, "c.jpg"), journal.ErrorServerError, fs.ErrPermission)
+	// illegal attempts must not move counters
+	tracker.SetProcessed(fshelper.NewFilename(mockFS{}, "a.jpg"), journal.ProcessedUploadSuccess)
+	tracker.DiscoverAsset(fshelper.NewFilename(mockFS{}, "b.jpg"), 100, journal.DiscoveredImage)
+
+	counters := tracker.GetCounters()
+	if counters.Total() != int64(len(tracker.GetAllAssets())) {
+		t.Errorf("counters total %d != tracked assets %d", counters.Total(), len(tracker.GetAllAssets()))
+	}
+	if counters.Pending+counters.Processed+counters.Discarded+counters.Errors != counters.Total() {
+		t.Error("state counters are not consistent")
+	}
+	if counters.Processed != 1 || counters.Discarded != 2 || counters.Errors != 2 || counters.Pending != 3 {
+		t.Errorf("unexpected counters: %+v", counters)
+	}
+	if counters.InvalidTransitions != 2 {
+		t.Errorf("expected 2 invalid transitions, got %d", counters.InvalidTransitions)
 	}
 }

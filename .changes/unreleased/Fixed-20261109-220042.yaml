@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(upload): a run now reports the error that actually stopped it instead of context.Canceled'
+time: 2026-11-09T22:00:42.39612516Z

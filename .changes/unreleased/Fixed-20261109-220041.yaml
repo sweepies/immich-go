@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(upload): a retried album save no longer creates a duplicate album when the first create reached the server but its response was lost'
+time: 2026-11-09T22:00:41.260796246Z

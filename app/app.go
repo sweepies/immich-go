@@ -7,13 +7,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/sweepies/immich-go/internal/appcontext"
 	cliflags "github.com/sweepies/immich-go/internal/cliFlags"
 	"github.com/sweepies/immich-go/internal/config"
 	"github.com/sweepies/immich-go/internal/fileprocessor"
 	"github.com/sweepies/immich-go/internal/filetypes"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Application holds configuration used by all commands
@@ -109,17 +109,20 @@ func (app *Application) ProcessError(err error) error {
 	}
 
 	nErr := app.numErrors.Add(1)
-	if app.OnErrors == cliflags.OnErrorsStop {
+	switch app.OnErrors {
+	case cliflags.OnErrorsStop:
 		app.Log().Error("Error", "err", err.Error())
 		return err
-	} else if app.OnErrors == cliflags.OnErrorsNeverStop {
+	case cliflags.OnErrorsNeverStop:
 		app.Log().Error("Error", "err", err.Error())
 		return nil
-	} else if nErr > int64(app.OnErrors) {
-		app.Log().Error("Too many errors, stopping", "err", err.Error())
-		return err
+	default: // stop after N errors
+		if nErr > int64(app.OnErrors) {
+			app.Log().Error("Too many errors, stopping", "err", err.Error())
+			return err
+		}
+		return nil
 	}
-	return nil
 }
 
 // Context creates an immutable appcontext.Context from the current Application state.

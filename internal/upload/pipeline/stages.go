@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/sweepies/immich-go/immich"
 	"github.com/sweepies/immich-go/internal/assets"
@@ -23,8 +25,6 @@ type DiscoveryStage struct {
 	// ProgressUpdate is called with current/total progress during discovery.
 	ProgressUpdate func(current, total int)
 }
-
-func (s *DiscoveryStage) Name() string { return "discovery" }
 
 func (s *DiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 	statistics, err := pctx.Server.GetAssetStatistics(ctx)
@@ -83,8 +83,6 @@ type AlbumDiscoveryStage struct {
 	AssetsReady <-chan struct{}
 }
 
-func (s *AlbumDiscoveryStage) Name() string { return "album-discovery" }
-
 func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 	serverAlbums, err := pctx.Server.GetAllAlbums(ctx)
 	if err != nil {
@@ -123,7 +121,7 @@ func (s *AlbumDiscoveryStage) Run(ctx context.Context, pctx *Context) error {
 				for i, id := range info.ids {
 					cacheIDs[i] = id.String()
 				}
-				s.AlbumsCache.NewCollection(info.album.Title, info.album, cacheIDs)
+				s.AlbumsCache.NewCollection(ctx, info.album.Title, info.album, cacheIDs)
 				pctx.Logger.Info("got album from the server", "album", info.album.Title, "assets", len(info.ids))
 
 				// assign the album to the assets
@@ -190,8 +188,6 @@ type UploadStage struct {
 	OnError     func(err error) error // Called on each error, return non-nil to abort
 }
 
-func (s *UploadStage) Name() string { return "upload" }
-
 func (s *UploadStage) Run(ctx context.Context, pctx *Context) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
@@ -228,7 +224,12 @@ func (s *UploadStage) Run(ctx context.Context, pctx *Context) error {
 	})
 
 	wg.Wait()
-	return context.Cause(ctx)
+	if cause := context.Cause(ctx); cause != nil {
+		return cause
+	}
+	// The source's channel closed normally: check whether the browse ended
+	// because the source itself failed.
+	return s.Source.Err()
 }
 
 func (s *UploadStage) handleGroup(ctx context.Context, pctx *Context, g *assets.Group) error {
@@ -252,19 +253,25 @@ func (s *UploadStage) handleGroup(ctx context.Context, pctx *Context, g *assets.
 	if len(g.Assets) > 1 && g.Grouping != assets.GroupByNone {
 		coverID := g.Assets[g.CoverIndex].ID
 		ids := make([]immich.AssetID, 0, len(g.Assets))
+		stacked := make([]*assets.Asset, 0, len(g.Assets))
 		if coverID != "" {
 			ids = append(ids, immich.AssetID(coverID))
+			stacked = append(stacked, g.Assets[g.CoverIndex])
 		}
 		for i, a := range g.Assets {
-			pctx.Processor.RecordNonAsset(ctx, g.Assets[i].File, 0, journal.ProcessedStacked)
 			if coverID != "" && i != g.CoverIndex && a.ID != "" {
 				ids = append(ids, immich.AssetID(a.ID))
+				stacked = append(stacked, a)
 			}
 		}
 		if coverID != "" && len(ids) > 1 {
 			_, err := pctx.Server.CreateStack(ctx, ids)
 			if err != nil {
 				pctx.Logger.Error("Can't create stack", "error", err)
+			} else {
+				for _, a := range stacked {
+					pctx.Processor.RecordNonAsset(ctx, a.File, 0, journal.ProcessedStacked)
+				}
 			}
 		}
 	}
@@ -279,6 +286,7 @@ func (s *UploadStage) handleAsset(ctx context.Context, pctx *Context, a *assets.
 
 	advice, err := pctx.Index.ShouldUpload(a, s.Overwrite)
 	if err != nil {
+		pctx.Processor.RecordAssetError(ctx, a.File, int64(a.FileSize), journal.ErrorFileAccess, err)
 		return err
 	}
 
@@ -286,34 +294,32 @@ func (s *UploadStage) handleAsset(ctx context.Context, pctx *Context, a *assets.
 	case NotOnServer:
 		serverStatus, err := s.uploadAsset(ctx, pctx, a)
 		if err != nil {
+			pctx.Processor.RecordAssetError(ctx, a.File, int64(a.FileSize), journal.ErrorServerError, err)
 			return err
 		}
-		s.processUploadedAsset(ctx, pctx, a, serverStatus)
+		s.finishUploadedAsset(ctx, pctx, a, serverStatus, journal.ProcessedUploadSuccess)
 		return nil
 
 	case SmallerOnServer:
 		a.Albums = append(a.Albums, advice.ServerAsset.Albums...)
 		serverStatus, err := s.replaceAsset(ctx, pctx, a, advice.ServerAsset)
 		if err != nil {
+			pctx.Processor.RecordAssetError(ctx, a.File, int64(a.FileSize), journal.ErrorServerError, err)
 			return err
 		}
-		s.processUploadedAsset(ctx, pctx, a, serverStatus)
-		if serverStatus != immich.UploadDuplicate {
-			pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedUploadUpgraded)
-		}
+		s.finishUploadedAsset(ctx, pctx, a, serverStatus, journal.ProcessedUploadUpgraded)
 		return nil
 
 	case AlreadyProcessed:
-		pctx.Processor.RecordNonAsset(ctx, a.File, int64(a.FileSize), journal.DiscardedLocalDuplicate)
-		pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedMetadataUpdated)
+		a.ID = advice.ServerAsset.ID
+		pctx.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedLocalDuplicate, advice.Message)
 		s.manageAssetAlbums(ctx, pctx, a.File, a.ID, a.Albums)
 		return nil
 
 	case SameOnServer:
 		a.ID = advice.ServerAsset.ID
 		a.Albums = append(a.Albums, advice.ServerAsset.Albums...)
-		pctx.Processor.RecordNonAsset(ctx, a.File, int64(a.FileSize), journal.DiscardedServerDuplicate)
-		pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedMetadataUpdated)
+		pctx.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedServerDuplicate, advice.Message)
 		s.manageAssetAlbums(ctx, pctx, a.File, a.ID, a.Albums)
 
 	case BetterOnServer:
@@ -332,11 +338,13 @@ func (s *UploadStage) handleAsset(ctx context.Context, pctx *Context, a *assets.
 			serverStatus, err = s.uploadAsset(ctx, pctx, a)
 		}
 		if err != nil {
+			pctx.Processor.RecordAssetError(ctx, a.File, int64(a.FileSize), journal.ErrorServerError, err)
 			return err
 		}
-		s.processUploadedAsset(ctx, pctx, a, serverStatus)
-		if advice.ServerAsset != nil && serverStatus != immich.UploadDuplicate {
-			pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedUploadUpgraded)
+		if advice.ServerAsset != nil {
+			s.finishUploadedAsset(ctx, pctx, a, serverStatus, journal.ProcessedUploadUpgraded)
+		} else {
+			s.finishUploadedAsset(ctx, pctx, a, serverStatus, journal.ProcessedUploadSuccess)
 		}
 		return nil
 	}
@@ -356,66 +364,51 @@ func (s *UploadStage) uploadAsset(ctx context.Context, pctx *Context, a *assets.
 
 	ar, err := pctx.Server.AssetUpload(ctx, a)
 	if err != nil {
-		pctx.Processor.RecordAssetError(ctx, a.File, int64(a.FileSize), journal.ErrorServerError, err)
 		return "", err
-	}
-	if ar.Status == immich.UploadDuplicate {
-		originalName := "unknown"
-		original := pctx.Index.GetByID(string(ar.ID))
-		if original != nil {
-			originalName = original.OriginalFileName
-		}
-		if a.ID == "" {
-			pctx.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedLocalDuplicate,
-				fmt.Sprintf("already present in input as %s", originalName))
-		} else {
-			pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.DiscardedServerDuplicate)
-		}
-	} else {
-		pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), journal.ProcessedUploadSuccess)
 	}
 	a.ID = string(ar.ID)
 
-	if a.FromApplication != nil && ar.Status != immich.UploadDuplicate {
-		a.UseMetadata(a.FromApplication)
-		_, err := pctx.Server.UpdateAsset(ctx, ar.ID, immich.UpdateAssetRequest{
-			Description:      a.Description,
-			Latitude:         a.Latitude,
-			Longitude:        a.Longitude,
-			Rating:           a.Rating,
-			DateTimeOriginal: a.CaptureDate,
-		})
-		if err != nil {
-			pctx.Processor.RecordAssetError(ctx, a.File, int64(a.FileSize), journal.ErrorServerError, err)
-			return "", err
+	if ar.Status != immich.UploadDuplicate {
+		// A duplicate created no server asset: ar.ID points at a
+		// pre-existing one, so only genuinely created assets are indexed
+		// as uploaded during this run. Index before the metadata update:
+		// the asset exists on the server even if that update fails.
+		pctx.Index.AddLocalAsset(a)
+		if a.FromApplication != nil {
+			a.UseMetadata(a.FromApplication)
+			_, err := pctx.Server.UpdateAsset(ctx, ar.ID, immich.UpdateAssetRequest{
+				Description:      a.Description,
+				Latitude:         a.Latitude,
+				Longitude:        a.Longitude,
+				Rating:           a.Rating,
+				DateTimeOriginal: a.CaptureDate,
+			})
+			if err != nil {
+				return "", err
+			}
+			pctx.Processor.RecordNonAsset(ctx, a.File, 0, journal.ProcessedMetadataUpdated)
 		}
-		pctx.Processor.Logger().Record(ctx, journal.ProcessedMetadataUpdated, a.File)
 	}
-	pctx.Index.AddLocalAsset(a)
 	return ar.Status, nil
 }
 
 func (s *UploadStage) replaceAsset(ctx context.Context, pctx *Context, newAsset, oldAsset *assets.Asset) (string, error) {
 	ar, err := pctx.Server.AssetUpload(ctx, newAsset)
 	if err != nil {
-		pctx.Processor.RecordAssetError(ctx, newAsset.File, int64(newAsset.FileSize), journal.ErrorServerError, err)
 		return "", err
 	}
 	newAsset.ID = string(ar.ID)
 	if ar.Status == immich.UploadDuplicate {
-		pctx.Processor.RecordAssetProcessed(ctx, newAsset.File, int64(newAsset.FileSize), journal.DiscardedServerDuplicate)
 		return immich.UploadDuplicate, nil
 	}
 
 	err = pctx.Server.CopyAsset(ctx, immich.AssetID(oldAsset.ID), ar.ID)
 	if err != nil {
-		pctx.Processor.RecordAssetError(ctx, newAsset.File, int64(newAsset.FileSize), journal.ErrorServerError, err)
 		return "", err
 	}
 
 	err = pctx.Server.DeleteAssets(ctx, []immich.AssetID{immich.AssetID(oldAsset.ID)}, true)
 	if err != nil {
-		pctx.Processor.RecordAssetError(ctx, newAsset.File, int64(newAsset.FileSize), journal.ErrorServerError, err)
 		return "", err
 	}
 	pctx.Index.ReplaceAsset(newAsset, oldAsset)
@@ -429,7 +422,7 @@ func (s *UploadStage) manageAssetAlbums(ctx context.Context, pctx *Context, f fs
 
 	for _, album := range albums {
 		al := assets.NewAlbum("", album.Title, album.Description)
-		if s.AlbumsCache.AddIDToCollection(al.Title, album, ID) {
+		if s.AlbumsCache.AddIDToCollection(ctx, al.Title, album, ID) {
 			pctx.Processor.Logger().Record(ctx, journal.ProcessedAlbumAdded, f, "album", al.Title)
 		}
 	}
@@ -441,108 +434,103 @@ func (s *UploadStage) manageAssetTags(ctx context.Context, pctx *Context, a *ass
 	}
 
 	for _, t := range a.Tags {
-		if s.TagsCache.AddIDToCollection(t.Name, t, a.ID) {
+		if s.TagsCache.AddIDToCollection(ctx, t.Name, t, a.ID) {
 			pctx.Processor.Logger().Record(ctx, journal.ProcessedTagged, a.File, "tag", t.Value)
 		}
 	}
 }
 
-func (s *UploadStage) processUploadedAsset(ctx context.Context, pctx *Context, a *assets.Asset, serverStatus string) {
-	if serverStatus != immich.UploadDuplicate {
-		s.manageAssetAlbums(ctx, pctx, a.File, a.ID, a.Albums)
-		s.manageAssetTags(ctx, pctx, a)
+// finishUploadedAsset records the single terminal transition for an asset whose
+// upload or replace attempt completed without a server error, then manages
+// albums and tags for assets that created a new server asset.
+//
+// A "duplicate" answer from the server discards the asset. Whether it is a
+// local or a server duplicate is decided from the index: if the asset the
+// server points at (a.ID, set from the upload response) was uploaded during
+// this run, the file duplicates an earlier input file; otherwise it duplicates
+// a pre-existing server asset. successCode is the terminal code recorded for
+// a non-duplicate outcome.
+func (s *UploadStage) finishUploadedAsset(ctx context.Context, pctx *Context, a *assets.Asset, serverStatus string, successCode journal.Code) {
+	if serverStatus == immich.UploadDuplicate {
+		originalName := "unknown"
+		localDup := false
+		if original := pctx.Index.GetByID(a.ID); original != nil {
+			originalName = original.OriginalFileName
+			localDup = pctx.Index.UploadedThisRun(a.ID)
+		}
+		if localDup {
+			pctx.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedLocalDuplicate,
+				fmt.Sprintf("already present in input as %s", originalName))
+		} else {
+			pctx.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedServerDuplicate,
+				fmt.Sprintf("already on the server as %s", originalName))
+		}
+		return
 	}
+	pctx.Processor.RecordAssetProcessed(ctx, a.File, int64(a.FileSize), successCode)
+	s.manageAssetAlbums(ctx, pctx, a.File, a.ID, a.Albums)
+	s.manageAssetTags(ctx, pctx, a)
 }
 
-// FinalizeStage handles cleanup operations after upload.
-type FinalizeStage struct {
-	AlbumsCache  *cache.CollectionCache[assets.Album]
-	TagsCache    *cache.CollectionCache[assets.Tag]
-	SaveAlbum    func(ctx context.Context, album assets.Album, ids []string) (assets.Album, error)
-	SaveTag      func(ctx context.Context, tag assets.Tag, ids []string) (assets.Tag, error)
-	ResumeJobs   bool
-	jobsPaused   bool
-	JobsPausedMu sync.Mutex
+// jobPauser pauses the Immich background job queues for the duration of an
+// upload run and resumes exactly the queues it paused. Queues that were
+// already paused when the run started are left alone.
+type jobPauser struct {
+	jobs   immich.JobControlService
+	logger *slog.Logger
+	paused []string
 }
 
-func (s *FinalizeStage) Name() string { return "finalize" }
+// managedQueues are the Immich job queues paused while uploading.
+var managedQueues = []string{"thumbnailGeneration", "metadataExtraction", "videoConversion", "faceDetection", "smartSearch"}
 
-func (s *FinalizeStage) SetJobsPaused(paused bool) {
-	s.JobsPausedMu.Lock()
-	defer s.JobsPausedMu.Unlock()
-	s.jobsPaused = paused
-}
+// jobResumeTimeout bounds the resume calls so shutdown cannot hang on a
+// stopped server.
+const jobResumeTimeout = 30 * time.Second
 
-func (s *FinalizeStage) Run(ctx context.Context, pctx *Context) error {
-	// Close caches - this triggers the save callbacks
-	if s.AlbumsCache != nil {
-		s.AlbumsCache.Close()
-	}
-	if s.TagsCache != nil {
-		s.TagsCache.Close()
-	}
-	return nil
-}
-
-// JobControlStage handles pausing/resuming Immich background jobs.
-type JobControlStage struct {
-	Pause bool
-}
-
-func (s *JobControlStage) Name() string {
-	if s.Pause {
-		return "pause-jobs"
-	}
-	return "resume-jobs"
-}
-
-func (s *JobControlStage) Run(ctx context.Context, pctx *Context) error {
-	if pctx.Jobs == nil {
+// Pause asks the server which queues are already paused and pauses the rest,
+// remembering each queue it paused. If GetJobs or any pause fails it resumes
+// the queues it already paused and returns the error, leaving the server as it
+// found it.
+func (p *jobPauser) Pause(ctx context.Context) error {
+	if p.jobs == nil {
 		return errors.New("immich job client is not configured")
 	}
-	jobs := []string{"thumbnailGeneration", "metadataExtraction", "videoConversion", "faceDetection", "smartSearch"}
-
-	command := immich.JobCommandResume
-	if s.Pause {
-		command = immich.JobCommandPause
+	statuses, err := p.jobs.GetJobs(ctx)
+	if err != nil {
+		return fmt.Errorf("can't get the job list from the server: %w", err)
 	}
-
-	// For resume, use a fresh context in case the original was cancelled
-	runCtx := ctx
-	if !s.Pause {
-		runCtx = context.Background()
-	}
-
-	for _, name := range jobs {
-		_, err := pctx.Jobs.SendJobCommand(runCtx, name, command, true)
-		if err != nil {
-			pctx.Logger.Error("Immich Job command sent", string(command), name, "err", err.Error())
-			if s.Pause {
-				return err
-			}
-			// Don't fail on resume errors
+	for _, name := range managedQueues {
+		if job, ok := statuses[name]; ok && job.QueueStatus.IsPaused {
+			p.logger.Info("Immich job queue already paused, leaving it alone", "queue", name)
 			continue
 		}
-		pctx.Logger.Info("Immich Job command sent", string(command), name)
+		if _, err := p.jobs.SendJobCommand(ctx, name, immich.JobCommandPause, true); err != nil {
+			p.logger.Error("can't pause Immich job queue", "queue", name, "err", err)
+			p.Resume()
+			return err
+		}
+		p.paused = append(p.paused, name)
+		p.logger.Info("Immich job queue paused", "queue", name)
 	}
 	return nil
 }
 
-// ParallelStage runs multiple stages in parallel.
-type ParallelStage struct {
-	Stages []Stage
-}
-
-func (s *ParallelStage) Name() string { return "parallel" }
-
-func (s *ParallelStage) Run(ctx context.Context, pctx *Context) error {
-	g, ctx := errgroup.WithContext(ctx)
-
-	for _, stage := range s.Stages {
-		g.Go(func() error {
-			return stage.Run(ctx, pctx)
-		})
+// Resume resumes exactly the queues Pause paused, on a fresh context bounded
+// by a timeout so a cancelled run context cannot abort it. Errors are logged,
+// not returned.
+func (p *jobPauser) Resume() {
+	if len(p.paused) == 0 {
+		return
 	}
-
-	return g.Wait()
+	ctx, cancel := context.WithTimeout(context.Background(), jobResumeTimeout)
+	defer cancel()
+	for _, name := range p.paused {
+		if _, err := p.jobs.SendJobCommand(ctx, name, immich.JobCommandResume, true); err != nil {
+			p.logger.Error("can't resume Immich job queue", "queue", name, "err", err)
+			continue
+		}
+		p.logger.Info("Immich job queue resumed", "queue", name)
+	}
+	p.paused = nil
 }

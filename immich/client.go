@@ -90,7 +90,7 @@ func OptionVerifySSL(verify bool) clientOption {
 func OptionConnectionTimeout(d time.Duration) clientOption {
 	return func(ic *ImmichClient) error {
 		ic.client.Timeout = d
-		ic.client.Transport.(*http.Transport).ResponseHeaderTimeout = d
+		ic.transport.ResponseHeaderTimeout = d
 		return nil
 	}
 }

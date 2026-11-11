@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(upload): a slow album save can no longer consume the tag save''s deadline at the end of a run'
+time: 2026-11-09T21:30:32.209300768Z

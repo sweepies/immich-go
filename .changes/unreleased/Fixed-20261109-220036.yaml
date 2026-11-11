@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(google-takeout): --include-extensions and --exclude-extensions no longer apply to JSON metadata or sidecar files'
+time: 2026-11-09T22:00:36.400076264Z

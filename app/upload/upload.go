@@ -3,6 +3,7 @@ package upload
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -65,6 +66,12 @@ type UpCmd struct {
 
 	// Configuration (built from CLI flags)
 	config *uploadcfg.Config
+
+	// failedAlbumCreates remembers the album titles for which a CreateAlbum
+	// call failed. The call may still have reached the server, so a retried
+	// save for such a title must check whether the album now exists instead
+	// of blindly creating a duplicate.
+	failedAlbumCreates sync.Map
 }
 
 // NewUploadCommandFromCLI creates an upload command using the CLI package.
@@ -213,14 +220,6 @@ func (uc *UpCmd) Run(ctx context.Context, cmd *cobra.Command) error {
 		uc.client.AdminImmich,
 	)
 
-	// Create save callbacks for albums and tags
-	saveAlbum := func(album assets.Album, ids []string) (assets.Album, error) {
-		return uc.saveAlbum(ctx, album, ids)
-	}
-	saveTag := func(tag assets.Tag, ids []string) (assets.Tag, error) {
-		return uc.saveTag(ctx, tag, ids)
-	}
-
 	// Create and run the pipeline runner
 	runner := pipeline.NewRunner(pipeline.RunnerConfig{
 		Source:       adapterSource,
@@ -230,8 +229,8 @@ func (uc *UpCmd) Run(ctx context.Context, cmd *cobra.Command) error {
 		PauseJobs:    uc.client.PauseImmichBackgroundJobs,
 		NoResumeJobs: uc.config.Server.NoResumeJobs,
 		OnError:      uc.app.ProcessError,
-		SaveAlbum:    saveAlbum,
-		SaveTag:      saveTag,
+		SaveAlbum:    uc.saveAlbum,
+		SaveTag:      uc.saveTag,
 	})
 
 	return runner.Run(ctx)
@@ -247,8 +246,28 @@ func (uc *UpCmd) saveAlbum(ctx context.Context, album assets.Album, ids []string
 		assetIDs[i] = immich.AssetID(id)
 	}
 	if album.ID == "" {
+		// A previous CreateAlbum for this title failed after possibly
+		// reaching the server: adopt the album if it now exists instead of
+		// creating a duplicate.
+		if _, failed := uc.failedAlbumCreates.Load(album.Title); failed {
+			albums, err := uc.client.Immich.GetAllAlbums(ctx)
+			if err != nil {
+				uc.app.Log().Error("failed to list albums after a failed album creation", "err", err, "album", album.Title)
+				return album, err
+			}
+			for _, a := range albums {
+				if a.AlbumName == album.Title {
+					album.ID = string(a.ID)
+					uc.app.Log().Info("adopted album left by a previous failed creation", "album", album.Title)
+					break
+				}
+			}
+		}
+	}
+	if album.ID == "" {
 		r, err := uc.client.Immich.CreateAlbum(ctx, album.Title, album.Description, assetIDs)
 		if err != nil {
+			uc.failedAlbumCreates.Store(album.Title, struct{}{})
 			uc.app.Log().Error("failed to create album", "err", err, "album", album.Title)
 			return album, err
 		}

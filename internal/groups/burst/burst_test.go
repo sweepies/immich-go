@@ -139,3 +139,106 @@ func TestGroup(t *testing.T) {
 		}
 	}
 }
+
+func runBurstGrouper(ctx context.Context, in []*assets.Asset) (groups []*assets.Group, singles []*assets.Asset) {
+	inCh := make(chan *assets.Asset, len(in))
+	outCh := make(chan *assets.Asset)
+	gOutCh := make(chan *assets.Group)
+
+	go func() {
+		Group(ctx, inCh, outCh, gOutCh)
+		close(outCh)
+		close(gOutCh)
+	}()
+
+	for _, a := range in {
+		inCh <- a
+	}
+	close(inCh)
+
+	for outCh != nil || gOutCh != nil {
+		select {
+		case group, ok := <-gOutCh:
+			if !ok {
+				gOutCh = nil
+				continue
+			}
+			groups = append(groups, group)
+		case asset, ok := <-outCh:
+			if !ok {
+				outCh = nil
+				continue
+			}
+			singles = append(singles, asset)
+		}
+	}
+	return groups, singles
+}
+
+func countEmitted(groups []*assets.Group, singles []*assets.Asset) int {
+	n := len(singles)
+	for _, g := range groups {
+		n += len(g.Assets)
+	}
+	return n
+}
+
+// An ineligible asset (here: a video) must not seed a group for the following
+// burst of photos. It flushes the current group and passes through alone.
+func TestGroupIneligibleAssetDoesNotSeedGroup(t *testing.T) {
+	ctx := context.Background()
+	ic := filenames.NewInfoCollector(time.Local, filetypes.DefaultSupportedMedia)
+	baseTime := time.Date(2021, 1, 1, 0, 0, 0, 0, time.Local)
+
+	testAssets := []*assets.Asset{
+		mockAsset(ic, "IMG_0001.mp4", baseTime),
+		mockAsset(ic, "IMG_0002.jpg", baseTime.Add(200*time.Millisecond)),
+		mockAsset(ic, "IMG_0003.jpg", baseTime.Add(400*time.Millisecond)),
+	}
+
+	gotGroups, gotAssets := runBurstGrouper(ctx, testAssets)
+
+	if got := countEmitted(gotGroups, gotAssets); got != len(testAssets) {
+		t.Fatalf("expected %d assets emitted, got %d", len(testAssets), got)
+	}
+	if len(gotGroups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(gotGroups))
+	}
+	for _, a := range gotGroups[0].Assets {
+		if a.NameInfo.Type != filetypes.TypeImage {
+			t.Errorf("unexpected non-image in burst group: %s", a.File.Name())
+		}
+	}
+	if len(gotGroups[0].Assets) != 2 {
+		t.Errorf("expected the 2 photos to form the burst group, got %d members", len(gotGroups[0].Assets))
+	}
+	if len(gotAssets) != 1 || gotAssets[0].File.Name() != "IMG_0001.mp4" {
+		t.Errorf("expected the video to be emitted alone, got %v", gotAssets)
+	}
+}
+
+// An image without a capture date is ineligible: it passes through alone and
+// does not join or seed a burst.
+func TestGroupImageWithoutDatePassesThrough(t *testing.T) {
+	ctx := context.Background()
+	ic := filenames.NewInfoCollector(time.Local, filetypes.DefaultSupportedMedia)
+	baseTime := time.Date(2021, 1, 1, 0, 0, 0, 0, time.Local)
+
+	testAssets := []*assets.Asset{
+		mockAsset(ic, "IMG_0001.jpg", time.Time{}),
+		mockAsset(ic, "IMG_0002.jpg", baseTime),
+		mockAsset(ic, "IMG_0003.jpg", baseTime.Add(200*time.Millisecond)),
+	}
+
+	gotGroups, gotAssets := runBurstGrouper(ctx, testAssets)
+
+	if got := countEmitted(gotGroups, gotAssets); got != len(testAssets) {
+		t.Fatalf("expected %d assets emitted, got %d", len(testAssets), got)
+	}
+	if len(gotGroups) != 1 || len(gotGroups[0].Assets) != 2 {
+		t.Fatalf("expected one burst group of 2, got %v", gotGroups)
+	}
+	if len(gotAssets) != 1 || gotAssets[0].File.Name() != "IMG_0001.jpg" {
+		t.Errorf("expected the dateless image to be emitted alone, got %v", gotAssets)
+	}
+}

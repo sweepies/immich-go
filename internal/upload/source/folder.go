@@ -35,6 +35,15 @@ import (
 
 const icloudMetadataExt = ".csv"
 
+// icloudPass identifies which walk an iCloud takeout parse performs: the
+// first pass collects CSV metadata, the second emits assets.
+type icloudPass bool
+
+const (
+	icloudPassAssets   icloudPass = false
+	icloudPassMetadata icloudPass = true
+)
+
 // FolderSource implements adapters.Source for folder-based imports.
 // It supports folder, iCloud, and Picasa modes.
 type FolderSource struct {
@@ -50,8 +59,9 @@ type FolderSource struct {
 	requiresDateInformation bool
 	picasaAlbums            *gen.SyncMap[string, picasaAlbum]
 	icloudMetas             *gen.SyncMap[string, icloudMeta]
-	icloudMetaPass          bool
 	icloudDiscoveredAssets  *gen.SyncMap[string, *icloudDirDiscovery]
+	errMu                   sync.Mutex
+	browseErr               error
 }
 
 // icloudDirDiscovery holds information collected during the first pass of iCloud takeout.
@@ -84,16 +94,15 @@ func (s *FolderSource) Browse(ctx context.Context) <-chan *assets.Group {
 		defer close(gOut)
 
 		// Two passes for iCloud takeouts
-		if s.icloudMetaPass {
+		if s.config.ICloudTakeout {
 			for _, fsys := range s.fsyss {
-				s.concurrentParseDir(ctx, fsys, ".", gOut)
+				s.concurrentParseDir(ctx, fsys, ".", gOut, icloudPassMetadata)
 			}
 			s.wg.Wait()
-			s.icloudMetaPass = false
 			s.processICloudDiscoveredAssets(ctx, gOut)
 		} else {
 			for _, fsys := range s.fsyss {
-				s.concurrentParseDir(ctx, fsys, ".", gOut)
+				s.concurrentParseDir(ctx, fsys, ".", gOut, icloudPassAssets)
 			}
 		}
 		s.wg.Wait()
@@ -120,9 +129,10 @@ func (s *FolderSource) processICloudDiscoveredAssets(ctx context.Context, gOut c
 		submitted := s.pool.Submit(func() {
 			defer s.wg.Done()
 			err := s.processAssets(ctx, d.fsys, d.fsName, d.dir, d.dirFiles, d.assets, gOut)
-			if err != nil {
-				s.deps.Logger.Error(err.Error())
+			if err != nil && ctx.Err() == nil {
+				s.deps.Logger.Error("failed to process the discovered assets", "dir", d.dir, "err", err)
 			}
+			s.recordBrowseError(ctx, err)
 		})
 		if !submitted {
 			s.wg.Done()
@@ -136,6 +146,27 @@ func (s *FolderSource) Close() error {
 		s.pool.Stop()
 	}
 	return CloseFSs(s.fsyss)
+}
+
+// Err implements adapters.Source. It returns the per-directory failures
+// collected during the browse (other directories keep being processed),
+// valid once the Browse channel is closed; nil for a clean browse and for
+// plain context cancellation.
+func (s *FolderSource) Err() error {
+	s.errMu.Lock()
+	defer s.errMu.Unlock()
+	return s.browseErr
+}
+
+// recordBrowseError stores a directory processing failure for Err(). A bare
+// context cancellation is expected on interrupt or abort and is not stored.
+func (s *FolderSource) recordBrowseError(ctx context.Context, err error) {
+	if err == nil || ctx.Err() != nil || errors.Is(err, context.Canceled) {
+		return
+	}
+	s.errMu.Lock()
+	s.browseErr = errors.Join(s.browseErr, err)
+	s.errMu.Unlock()
 }
 
 // initialize sets up internal state for browsing.
@@ -155,7 +186,6 @@ func (s *FolderSource) initialize() {
 	if s.config.ICloudTakeout {
 		s.icloudMetas = gen.NewSyncMap[string, icloudMeta]()
 		s.icloudDiscoveredAssets = gen.NewSyncMap[string, *icloudDirDiscovery]()
-		s.icloudMetaPass = true
 	}
 
 	if s.config.InclusionFlags.DateRange.IsSet() {
@@ -172,15 +202,16 @@ func (s *FolderSource) initialize() {
 	s.groupers = append(s.groupers, series.Group)
 }
 
-func (s *FolderSource) concurrentParseDir(ctx context.Context, fsys fs.FS, dir string, gOut chan *assets.Group) {
+func (s *FolderSource) concurrentParseDir(ctx context.Context, fsys fs.FS, dir string, gOut chan *assets.Group, pass icloudPass) {
 	s.wg.Add(1)
 	go func() {
 		submitted := s.pool.TrySubmit(func() {
 			defer s.wg.Done()
-			err := s.parseDir(ctx, fsys, dir, gOut)
-			if err != nil {
-				s.deps.Logger.Error(err.Error())
+			err := s.parseDir(ctx, fsys, dir, gOut, pass)
+			if err != nil && ctx.Err() == nil {
+				s.deps.Logger.Error("failed to read the folder", "dir", dir, "err", err)
 			}
+			s.recordBrowseError(ctx, err)
 		})
 		if !submitted {
 			s.wg.Done()
@@ -188,7 +219,7 @@ func (s *FolderSource) concurrentParseDir(ctx context.Context, fsys fs.FS, dir s
 	}()
 }
 
-func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOut chan *assets.Group) error {
+func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOut chan *assets.Group, pass icloudPass) error {
 	fsName := ""
 	if named, ok := fsys.(interface{ Name() string }); ok {
 		fsName = named.Name()
@@ -219,7 +250,7 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 			continue
 		}
 
-		if s.icloudMetaPass && ext == icloudMetadataExt {
+		if pass == icloudPassMetadata && ext == icloudMetadataExt {
 			if strings.HasSuffix(strings.ToLower(dir), "albums") {
 				album, err := useICloudAlbum(s.icloudMetas, fsys, name)
 				if err != nil {
@@ -249,7 +280,7 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 			}
 		}
 
-		if s.config.ICloudTakeout && !s.icloudMetaPass && ext == icloudMetadataExt {
+		if s.config.ICloudTakeout && pass == icloudPassAssets && ext == icloudMetadataExt {
 			continue
 		}
 
@@ -317,7 +348,7 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 		default:
 			a, err := s.assetFromFile(ctx, fsys, name)
 			if err != nil {
-				s.deps.Processor.RecordAssetError(ctx, fshelper.NewFilename(fsys, name), 0, journal.ErrorFileAccess, err)
+				s.deps.Processor.RecordAssetErrorImmediately(ctx, fshelper.NewFilename(fsys, name), 0, journal.ErrorFileAccess, err)
 				continue
 			}
 			if a != nil {
@@ -341,12 +372,12 @@ func (s *FolderSource) parseDir(ctx context.Context, fsys fs.FS, dir string, gOu
 				continue
 			}
 			if s.config.Recursive && entry.Name() != "." {
-				s.concurrentParseDir(ctx, fsys, name, gOut)
+				s.concurrentParseDir(ctx, fsys, name, gOut, pass)
 			}
 		}
 	}
 
-	if s.icloudMetaPass {
+	if pass == icloudPassMetadata {
 		if len(as) > 0 {
 			s.icloudDiscoveredAssets.Store(fmt.Sprintf("%p:%s", fsys, dir), &icloudDirDiscovery{
 				fsys:     fsys,
@@ -382,7 +413,7 @@ func (s *FolderSource) processAssets(ctx context.Context, fsys fs.FS, fsName, di
 
 			if !s.config.InclusionFlags.DateRange.InRange(a.CaptureDate) {
 				a.Close()
-				s.deps.Processor.RecordAssetDiscardedImmediately(ctx, a.File, int64(a.FileSize), journal.DiscardedFiltered, "asset outside date range")
+				s.deps.Processor.RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), journal.DiscardedFiltered, "asset outside date range")
 				continue
 			}
 

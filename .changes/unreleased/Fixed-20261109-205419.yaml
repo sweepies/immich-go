@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(flags): --on-errors rejects negative numbers instead of accepting an unknown mode'
+time: 2026-11-09T20:54:19.134493726Z

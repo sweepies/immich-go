@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(assets): assets that never reach a final state are now reported as errors at the end of a run'
+time: 2026-11-09T20:27:58.312742345Z

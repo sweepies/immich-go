@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/sweepies/immich-go/immich"
 	"github.com/sweepies/immich-go/internal/filetypes"
@@ -144,6 +145,21 @@ func TestGetSupportedMediaTypes(t *testing.T) {
 	}
 	if mediaTypes[".mp4"] != filetypes.TypeVideo {
 		t.Errorf("expected .mp4 to be %v, got %v", filetypes.TypeVideo, mediaTypes[".mp4"])
+	}
+}
+
+// OptionConnectionTimeout must not panic when the trace decorator was
+// installed first: the transport is then no longer a *http.Transport.
+func TestOptionConnectionTimeoutAfterTrace(t *testing.T) {
+	client, err := immich.NewImmichClient("http://example.test", "test-key",
+		immich.OptionSetAPITrace(func(rt http.RoundTripper) http.RoundTripper { return rt }),
+		immich.OptionConnectionTimeout(time.Second),
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if client == nil {
+		t.Error("expected a client")
 	}
 }
 

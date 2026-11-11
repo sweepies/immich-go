@@ -504,3 +504,127 @@ func TestCompleteWorkflow(t *testing.T) {
 		t.Errorf("Expected 1 DiscardedBanned event (asset), got %d", eventCounts[journal.DiscardedBanned])
 	}
 }
+
+func newTestProcessor() *FileProcessor {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+	return New(assettracker.New(), journal.NewRecorder(logger))
+}
+
+func TestJournalCountsMatchTracker(t *testing.T) {
+	fp := newTestProcessor()
+	ctx := context.Background()
+
+	discovered := newTestFile("/test/a.jpg")
+	pending := newTestFile("/test/b.jpg")
+	failed := newTestFile("/test/c.jpg")
+
+	fp.RecordAssetDiscovered(ctx, discovered, 100, journal.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, pending, 100, journal.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, failed, 100, journal.DiscoveredImage)
+	fp.RecordAssetProcessed(ctx, discovered, 100, journal.ProcessedUploadSuccess)
+	fp.RecordAssetError(ctx, failed, 100, journal.ErrorServerError, fs.ErrPermission)
+
+	// Illegal calls: re-discover, finalize untracked, finalize twice.
+	fp.RecordAssetDiscovered(ctx, discovered, 100, journal.DiscoveredImage)
+	fp.RecordAssetProcessed(ctx, newTestFile("/test/ghost.jpg"), 100, journal.ProcessedUploadSuccess)
+	fp.RecordAssetDiscarded(ctx, discovered, 100, journal.DiscardedFiltered, "again")
+
+	counters := fp.GetAssetCounters()
+	events := fp.GetEventCounts()
+
+	if counters.InvalidTransitions != 3 {
+		t.Errorf("expected 3 invalid transitions, got %d", counters.InvalidTransitions)
+	}
+	// Rejected transitions must not appear in the journal.
+	if events[journal.DiscoveredImage] != 3 {
+		t.Errorf("expected 3 DiscoveredImage events, got %d", events[journal.DiscoveredImage])
+	}
+	if events[journal.ProcessedUploadSuccess] != counters.Processed {
+		t.Errorf("journal processed %d != tracker processed %d", events[journal.ProcessedUploadSuccess], counters.Processed)
+	}
+	if events[journal.ErrorServerError] != counters.Errors {
+		t.Errorf("journal errors %d != tracker errors %d", events[journal.ErrorServerError], counters.Errors)
+	}
+	if counters.Pending != 1 || counters.Processed != 1 || counters.Errors != 1 {
+		t.Errorf("unexpected counters: %+v", counters)
+	}
+	_ = pending
+}
+
+func TestRecordNonAssetCategories(t *testing.T) {
+	fp := newTestProcessor()
+	ctx := context.Background()
+	file := newTestFile("/test/x.json")
+
+	// Accepted categories: non-asset, info, error.
+	for _, code := range []journal.Code{journal.DiscoveredSidecar, journal.ProcessedMissingMetadata, journal.ErrorFileAccess} {
+		if err := fp.RecordNonAsset(ctx, file, 0, code); err != nil {
+			t.Errorf("RecordNonAsset(%s) should be accepted, got %v", code, err)
+		}
+	}
+	if got := fp.GetAssetCounters().InvalidTransitions; got != 0 {
+		t.Errorf("expected no invalid transitions, got %d", got)
+	}
+
+	// Rejected categories: asset lifecycle codes.
+	for _, code := range []journal.Code{journal.DiscoveredImage, journal.ProcessedUploadSuccess, journal.DiscardedFiltered} {
+		if err := fp.RecordNonAsset(ctx, file, 0, code); err == nil {
+			t.Errorf("RecordNonAsset(%s) should be rejected", code)
+		}
+	}
+	counters := fp.GetAssetCounters()
+	if counters.InvalidTransitions != 3 {
+		t.Errorf("expected 3 invalid transitions, got %d", counters.InvalidTransitions)
+	}
+	events := fp.GetEventCounts()
+	if events[journal.DiscoveredImage] != 0 || events[journal.ProcessedUploadSuccess] != 0 || events[journal.DiscardedFiltered] != 0 {
+		t.Error("rejected codes must not be recorded in the journal")
+	}
+}
+
+func TestRecordAssetErrorImmediately(t *testing.T) {
+	fp := newTestProcessor()
+	ctx := context.Background()
+	file := newTestFile("/test/broken.jpg")
+
+	fp.RecordAssetErrorImmediately(ctx, file, 0, journal.ErrorFileAccess, fs.ErrNotExist)
+
+	counters := fp.GetAssetCounters()
+	if counters.Errors != 1 || counters.Pending != 0 {
+		t.Errorf("expected 1 error, 0 pending, got %+v", counters)
+	}
+	if got := fp.GetEventCounts()[journal.ErrorFileAccess]; got != 1 {
+		t.Errorf("expected 1 ErrorFileAccess event, got %d", got)
+	}
+	if !counters.RunFinishedCleanly() {
+		t.Error("run should have finished cleanly")
+	}
+}
+
+func TestFinalizeMarksPendingAsError(t *testing.T) {
+	fp := newTestProcessor()
+	ctx := context.Background()
+
+	fp.RecordAssetDiscovered(ctx, newTestFile("/test/ok.jpg"), 100, journal.DiscoveredImage)
+	fp.RecordAssetProcessed(ctx, newTestFile("/test/ok.jpg"), 100, journal.ProcessedUploadSuccess)
+	fp.RecordAssetDiscovered(ctx, newTestFile("/test/stuck1.jpg"), 100, journal.DiscoveredImage)
+	fp.RecordAssetDiscovered(ctx, newTestFile("/test/stuck2.jpg"), 100, journal.DiscoveredImage)
+
+	err := fp.Finalize(ctx)
+	if err == nil {
+		t.Fatal("Finalize should report incomplete assets")
+	}
+	counters := fp.GetAssetCounters()
+	if counters.Pending != 0 {
+		t.Errorf("expected 0 pending after Finalize, got %d", counters.Pending)
+	}
+	if counters.Errors != 2 {
+		t.Errorf("expected 2 errors after Finalize, got %d", counters.Errors)
+	}
+	if got := fp.GetEventCounts()[journal.ErrorIncomplete]; got != 2 {
+		t.Errorf("expected 2 ErrorIncomplete events, got %d", got)
+	}
+	if !counters.RunFinishedCleanly() {
+		t.Error("run should have finished cleanly after Finalize")
+	}
+}

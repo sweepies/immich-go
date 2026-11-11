@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'fix(assets): assets outside the date range and files that fail to open are now counted as discarded or errors instead of staying pending'
+time: 2026-11-09T20:28:05.34730421Z
